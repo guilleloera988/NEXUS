@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
-  challengeSchema, linkEvidenceSchema, resetSchema, revokeSchema, signupSchema, userRoleSchema, validationSchema, vathSchema,
+  challengeSchema, linkEvidenceSchema, organizationOnboardingSchema, resetSchema, revokeSchema, signupSchema, userRoleSchema, validationSchema, vathSchema,
 } from '@/lib/schemas';
 
 const ID = '40000000-0000-4000-8000-000000000001';
@@ -44,6 +44,17 @@ describe('evidence and VATH inputs', () => {
     expect(link('javascript:alert(1)').success).toBe(false);
     expect(link('https://user:pass@example.com').success).toBe(false);
     expect(link('data:text/html,<script>').success).toBe(false);
+  });
+  it('rejects malformed URLs as validation errors instead of throwing', () => {
+    expect(() => link('not a url')).not.toThrow();
+    expect(link('not a url').success).toBe(false);
+    expect(link('').success).toBe(false);
+  });
+  it('accepts organization onboarding with optional fields left empty', () => {
+    const base = { full_name: 'Ana Ruiz', headline: '', organization_name: 'Empresa de prueba', industry: '', size: '', location: '', description: '', needs: '', campus: '', programs: [] };
+    expect(organizationOnboardingSchema.safeParse({ ...base, website: '' }).success).toBe(true);
+    expect(organizationOnboardingSchema.safeParse({ ...base, website: 'https://empresa.example' }).success).toBe(true);
+    expect(organizationOnboardingSchema.safeParse({ ...base, website: 'ftp://empresa.example' }).success).toBe(false);
   });
   it('bounds VATH hours between a quarter hour and one day of work', () => {
     const base = { challenge_id: ID, activity_date: '2026-09-30', activity: 'Entrevistas', description: 'Entrevistas con el equipo de ventas.' };

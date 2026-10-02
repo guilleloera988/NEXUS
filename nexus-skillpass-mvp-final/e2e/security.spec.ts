@@ -90,6 +90,7 @@ test.describe('public verification surface', () => {
 });
 
 test('demo verification links work for anyone holding them', async ({ page, browser }) => {
+  test.skip(!!process.env.E2E_SUPABASE, 'scenario links (?demo=) only exist in the embedded DEMO');
   await enterDemo(page, 'student');
   await page.goto('/my-skillpass');
   const card = page.locator('article, section').filter({ hasText: SEEDED_CODE }).first();

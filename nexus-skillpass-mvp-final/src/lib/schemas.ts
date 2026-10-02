@@ -15,9 +15,14 @@ const text = (max: number, min = 0) => z.string().trim().min(min).max(max);
 const optionalUuid = z.union([uuid, z.literal(''), z.null()]).optional().transform((v) => (v ? v : null));
 const date = z.string().regex(/^\d{4}-\d{2}-\d{2}$/).refine((s) => !Number.isNaN(Date.parse(s)), 'invalid_date');
 const optionalDate = z.union([date, z.literal(''), z.null()]).optional().transform((v) => (v ? v : null));
+// zod 4 still runs refinements after a failed `.url()` check, so parsing must not throw here.
 const httpsUrl = z.string().trim().max(2048).url().refine((value) => {
-  const url = new URL(value);
-  return url.protocol === 'https:' && !url.username && !url.password;
+  try {
+    const url = new URL(value);
+    return url.protocol === 'https:' && !url.username && !url.password;
+  } catch {
+    return false;
+  }
 }, 'https_only');
 const optionalHttps = z.union([httpsUrl, z.literal('')]).default('');
 const intFromForm = (min: number, max: number) => z.coerce.number().int().min(min).max(max);

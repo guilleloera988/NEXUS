@@ -71,7 +71,7 @@ Resumen de visibilidad:
 | Evidencia | propia (incl. borradores) | no borradores del equipo | no borradores de su reto | **nunca** | ✔ | sólo publicada en credencial vigente |
 | VATH | propias | **nunca** | de su reto | **nunca** (sólo agregados) | ✔ | — |
 | Credenciales | propias | — | de su reto | de sus estudiantes | ✔ | snapshot si `verification_enabled` |
-| Auditoría | — | — | — | — | ✔ | — |
+| Auditoría | entradas donde es actor o sujeto | — | historial de sus retos/organización | — | ✔ | — |
 
 ## RPCs
 

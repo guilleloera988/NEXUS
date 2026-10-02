@@ -13,7 +13,9 @@ test('FLOW 01–10 · challenge → work → evidence → VATH → validation �
   const stamp = Date.now().toString(36).toUpperCase();
   const title = `E2E ${stamp} · Bitácora digital de mantenimiento`;
   const evidenceTitle = `Diagnóstico de mantenimiento ${stamp}`;
-  const hours = 6;
+  // Small, spread-out entries keep the test repeatable on shared backends (16 h/day limit per student).
+  const hours = 2;
+  const activityDay = -(1 + (Date.now() % 6));
   let challengeId = '';
   let code = '';
   let vathBefore = 0;
@@ -90,7 +92,7 @@ test('FLOW 01–10 · challenge → work → evidence → VATH → validation �
     await page.goto(`/workspace/${challengeId}?tab=vath`);
     await page.getByRole('button', { name: 'Registrar VATH' }).click();
     const dialog = page.getByRole('dialog');
-    await dialog.getByLabel('Fecha').fill(isoDate(-1));
+    await dialog.getByLabel('Fecha').fill(isoDate(activityDay));
     await dialog.getByLabel('Actividad').fill('Levantamiento en planta');
     await dialog.getByLabel('Horas aplicadas').fill(String(hours));
     await dialog.getByLabel('Descripción del trabajo realizado').fill('Entrevistas con técnicos y revisión de órdenes de mantenimiento del último trimestre.');

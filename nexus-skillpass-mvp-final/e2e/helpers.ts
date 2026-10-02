@@ -31,10 +31,14 @@ export function watchConsole(page: Page) {
   page.on('console', (msg) => {
     if (msg.type() !== 'error') return;
     const text = msg.text();
-    if (/Download the React DevTools|\[HMR\]|\[Fast Refresh\]/.test(text)) return;
+    // Failed loads are reported with their URL by the response listener below.
+    if (/Download the React DevTools|\[HMR\]|\[Fast Refresh\]|Failed to load resource/.test(text)) return;
     errors.push(`${page.url()} → ${text.slice(0, 400)}`);
   });
   page.on('pageerror', (error) => errors.push(`${page.url()} → uncaught ${error.message}`));
+  page.on('response', (res) => {
+    if (res.status() >= 400) errors.push(`${page.url()} → HTTP ${res.status()} ${res.request().method()} ${res.url()}`);
+  });
   return errors;
 }
 
