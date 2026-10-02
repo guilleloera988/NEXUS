@@ -1,0 +1,48 @@
+{
+  "name": "nexus-skillpass",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev --hostname 127.0.0.1",
+    "build": "next build --webpack",
+    "start": "next start --hostname 127.0.0.1",
+    "lint": "eslint .",
+    "typecheck": "next typegen && tsc --noEmit",
+    "test": "vitest run",
+    "test:e2e": "playwright test",
+    "check": "npm run lint && npm run typecheck && npm run test && npm run build",
+    "demo:cleanup": "node scripts/demo-cleanup.mjs",
+    "demo:serve": "node scripts/serve-demo.mjs"
+  },
+  "dependencies": {
+    "@electric-sql/pglite": "0.5.8",
+    "@supabase/ssr": "0.12.7",
+    "@supabase/supabase-js": "2.117.2",
+    "@tailwindcss/postcss": "4.3.3",
+    "lucide-react": "1.48.0",
+    "next": "16.3.6",
+    "qrcode": "1.5.4",
+    "react": "19.3.0",
+    "react-dom": "19.3.0",
+    "tailwindcss": "4.3.3",
+    "zod": "4.6.5"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.63.0",
+    "@types/node": "26.6.3",
+    "@types/pngjs": "6.0.5",
+    "@types/qrcode": "1.5.6",
+    "@types/react": "19.3.0",
+    "@types/react-dom": "19.3.0",
+    "eslint": "9.39.5",
+    "eslint-config-next": "16.3.6",
+    "jsqr": "1.4.0",
+    "pngjs": "7.0.0",
+    "typescript": "6.0.3",
+    "vitest": "5.0.2"
+  },
+  "type": "module",
+  "engines": {
+    "node": ">=22.0.0"
+  }
+}
