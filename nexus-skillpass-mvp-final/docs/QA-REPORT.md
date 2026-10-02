@@ -20,6 +20,7 @@ Todas las cifras de este documento provienen de ejecuciones reales en esta entre
 | Migraciones en Supabase | `supabase start` (CLI 2.119, PG 17) | ✔ las 5 migraciones aplican sin errores |
 | Seed en Supabase | `npm run seed -- --supabase --confirm-demo-project` | ✔ 16 cuentas vía Admin API, seed SQL, 3 archivos a Storage |
 | Sondeo directo de la API (PostgREST) | `curl` con llave anónima y JWT de estudiante | ✔ ver §5 |
+| CI en GitHub Actions | `.github/workflows/skillpass-quality.yml` | ✔ lint, tipos, pruebas, PostgreSQL 16, build y E2E pasan en los runners de GitHub ([ejecuciones](https://github.com/guilleloera988/NEXUS/actions/workflows/skillpass-quality.yml)) |
 
 ## 2. Pruebas unitarias y de base de datos (`npm test`)
 
