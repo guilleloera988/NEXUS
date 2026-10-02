@@ -56,6 +56,8 @@ export default async function ProfilePage({ searchParams }: PageProps<'/profile'
   ]);
   const p = pass.profile;
   const verifiedIds = new Set(pass.verified_competencies.map((c) => c.id));
+  // A declared skill that was later verified is shown only once, in the verified column.
+  const declaredOnly = pass.declared_skills.filter((c) => !verifiedIds.has(c.id));
 
   if (editing && lookups) {
     return (
@@ -113,10 +115,8 @@ export default async function ProfilePage({ searchParams }: PageProps<'/profile'
         <Card title={<span className="flex items-center gap-2"><Sparkles className="size-5 text-ink-400" aria-hidden />{P.declaredSkills}</span>}>
           <p className="mb-3 text-xs text-ink-500">{P.declaredExplain}</p>
           <div className="flex flex-wrap gap-2">
-            {pass.declared_skills.map((c) => (
-              <Badge key={c.id} tone="neutral">{competencyName(locale, c)} · {verifiedIds.has(c.id) ? P.verifiedBadge : P.declaredBadge}</Badge>
-            ))}
-            {pass.declared_skills.length === 0 && <p className="text-sm text-ink-500">—</p>}
+            {declaredOnly.map((c) => <Badge key={c.id} tone="neutral">{competencyName(locale, c)}</Badge>)}
+            {declaredOnly.length === 0 && <p className="text-sm text-ink-500">—</p>}
           </div>
           <h3 className="mb-2 mt-5 text-sm font-bold">{P.interests}</h3>
           <div className="flex flex-wrap gap-2">{p.interests.map((i) => <Badge key={i} tone="gold">{t.enums.interests[i as keyof typeof t.enums.interests] ?? i}</Badge>)}</div>

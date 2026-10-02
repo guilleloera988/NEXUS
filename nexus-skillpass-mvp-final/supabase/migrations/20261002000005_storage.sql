@@ -49,12 +49,15 @@ begin
                    and a.challenge_id::text = (storage.foldername(name))[2]))
   $p$;
 
-  -- Read access mirrors evidence visibility: owner, reviewers of the challenge (non-draft), admin.
+  -- Read access mirrors evidence visibility (owner, reviewers of the challenge for non-draft
+  -- evidence, admin). Owners always see their own folder: Storage returns the inserted row on
+  -- upload and needs SELECT visibility to delete, before an evidence row references the file.
   execute $p$
     create policy evidence_select_visible on storage.objects for select to authenticated
     using (
       bucket_id = 'evidence'
-      and exists(select 1 from public.evidence e where e.storage_path = name))
+      and ((storage.foldername(name))[1] = auth.uid()::text
+           or exists(select 1 from public.evidence e where e.storage_path = name)))
   $p$;
 
   -- Anonymous (and any signed-in) visitors may read files of explicitly public evidence.

@@ -1,11 +1,10 @@
-import type { PGlite } from '@electric-sql/pglite';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { CHALLENGE, COMP, ORGS, USERS, createDatabase, rpc, sql } from './helpers/pg';
+import { CHALLENGE, COMP, ORGS, USERS, createDatabase, rpc, sql, type TestDb } from './helpers/pg';
 
 type Row = Record<string, unknown>;
 type Json = Record<string, any>; // eslint-disable-line @typescript-eslint/no-explicit-any
 
-let db: PGlite;
+let db: TestDb;
 const APP_TABLES = 24;
 
 const challengeInput = (overrides: Json = {}) => ({

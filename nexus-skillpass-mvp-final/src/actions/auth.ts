@@ -9,6 +9,7 @@ import { appOrigin, supabaseConfig } from '@/lib/server/env';
 import { AppError } from '@/lib/server/errors';
 import { supabaseServer } from '@/lib/server/supabase';
 import { forgotSchema, loginSchema, resetSchema, signupSchema } from '@/lib/schemas';
+import { safeNextPath } from '@/lib/safety';
 
 async function clientKey() {
   const h = await headers();
@@ -22,12 +23,8 @@ async function origin() {
   return appOrigin(host ? `${proto}://${host}` : null);
 }
 
-function safeNext(value: string) {
-  return value.startsWith('/') && !value.startsWith('//') && !value.startsWith('/\\') ? value : '/dashboard';
-}
-
 export async function login(_prev: ActionState, fd: FormData): Promise<ActionState> {
-  const next = safeNext(fdString(fd, 'next'));
+  const next = safeNextPath(fdString(fd, 'next'));
   const result = await runAction(async () => {
     rateLimit(`login:${await clientKey()}`, 10);
     if (!supabaseConfig()) throw new AppError('supabase_not_configured', 503);

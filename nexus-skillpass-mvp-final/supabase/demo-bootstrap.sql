@@ -3,8 +3,10 @@
 -- migrations rely on: the anon/authenticated roles, auth.users and auth.uid().
 -- The server sets request.jwt.claim.sub per transaction and switches role, so
 -- row level security is evaluated exactly as it would be for a Supabase JWT.
-create role anon nologin;
-create role authenticated nologin;
+do $$ begin
+  if not exists (select 1 from pg_roles where rolname = 'anon') then create role anon nologin; end if;
+  if not exists (select 1 from pg_roles where rolname = 'authenticated') then create role authenticated nologin; end if;
+end $$;
 create schema auth;
 create table auth.users (
   id uuid primary key,

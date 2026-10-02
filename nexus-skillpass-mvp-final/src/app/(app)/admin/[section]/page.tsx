@@ -44,9 +44,9 @@ function filtersFor(section: Section, t: Messages): { value: string; label: stri
 }
 
 function changeText(before: Row | null, after: Row | null) {
-  const keys = new Set([...Object.keys(before ?? {}), ...Object.keys(after ?? {})]);
+  const keys = Object.keys(after ?? {});
   const show = (v: unknown) => (v === null || v === undefined ? '∅' : typeof v === 'object' ? JSON.stringify(v) : String(v));
-  return [...keys].slice(0, 4).map((k) => (before && k in before ? `${k}: ${show(before[k])} → ${show(after?.[k])}` : `${k}: ${show(after?.[k])}`)).join(' · ');
+  return keys.slice(0, 4).map((k) => (before && k in before ? `${k}: ${show(before[k])} → ${show(after?.[k])}` : `${k}: ${show(after?.[k])}`)).join(' · ');
 }
 
 function Table({ head, children, empty }: { head: string[]; children: ReactNode; empty: string }) {
@@ -106,7 +106,7 @@ export default async function AdminSectionPage({ params, searchParams }: PagePro
               <td className={td}>{r.university ?? r.organizations ?? '—'}</td>
               <td className={td}>{r.onboarding_completed ? t.common.yes : t.common.no}</td>
               <td className={td}>{r.role === 'student' ? (r.skillpass_public ? t.common.yes : t.common.no) : '—'}</td>
-              <td className={td}>{dt(r.created_at)}</td>
+              <td className={`${td} whitespace-nowrap`}>{dt(r.created_at)}</td>
               <td className={td}>
                 {r.role === 'admin' || r.id === me.profile.id ? <span className="text-xs text-ink-400">{A.protectedRole}</span> : (
                   <form action={setUserRole} className="flex items-center gap-1.5">
@@ -172,7 +172,7 @@ export default async function AdminSectionPage({ params, searchParams }: PagePro
             <tr key={r.id}>
               <td className={td}>{r.student}</td><td className={td}>{r.challenge}</td>
               <td className={td}><StatusBadge status={r.status} label={t.status.application[r.status as keyof typeof t.status.application]} /></td>
-              <td className={td}>{formatNumber(locale, r.match_score)}%</td><td className={td}>{dt(r.created_at)}</td>
+              <td className={td}>{formatNumber(locale, r.match_score)}%</td><td className={`${td} whitespace-nowrap`}>{dt(r.created_at)}</td>
               <td className={td}>{r.decided_by ? `${r.decided_by} · ${dt(r.decided_at)}` : '—'}</td>
             </tr>
           ))}
@@ -203,7 +203,7 @@ export default async function AdminSectionPage({ params, searchParams }: PagePro
         <Table empty={A.noResults} head={[t.common.date, C.student, C.challenge, t.workspace.vath.fields.activity, C.submitted, C.verified, t.common.status, C.validatedBy]}>
           {items.map((r) => (
             <tr key={r.id}>
-              <td className={td}>{dt(r.activity_date)}</td><td className={td}>{r.student}</td><td className={td}>{r.challenge}</td>
+              <td className={`${td} whitespace-nowrap`}>{dt(r.activity_date)}</td><td className={td}>{r.student}</td><td className={td}>{r.challenge}</td>
               <td className={`${td} max-w-xs`}><span className="line-clamp-2">{r.activity}</span></td>
               <td className={td}>{formatHours(locale, r.submitted_hours)}</td>
               <td className={td}>{r.verified_hours === null ? '—' : formatHours(locale, r.verified_hours)}</td>
@@ -222,7 +222,7 @@ export default async function AdminSectionPage({ params, searchParams }: PagePro
               <td className={td}><Link href={`/validations/${r.id}`} className="font-semibold hover:underline">{r.student}</Link></td><td className={td}>{r.challenge}</td>
               <td className={td}><StatusBadge status={r.status} label={t.status.request[r.status as keyof typeof t.status.request]} /></td>
               <td className={td}>{r.outcome ? <StatusBadge status={r.outcome} label={t.status.outcome[r.outcome as keyof typeof t.status.outcome]} /> : '—'}</td>
-              <td className={td}>{formatNumber(locale, r.decisions)}</td><td className={td}>{dt(r.created_at)}</td>
+              <td className={td}>{formatNumber(locale, r.decisions)}</td><td className={`${td} whitespace-nowrap`}>{dt(r.created_at)}</td>
               <td className={td}>{r.completed_by ? `${r.completed_by} · ${dt(r.completed_at)}` : '—'}</td>
             </tr>
           ))}
@@ -286,7 +286,7 @@ export default async function AdminSectionPage({ params, searchParams }: PagePro
       break;
     case 'audit':
       body = (
-        <Table empty={A.noResults} head={[t.common.date, C.actor, t.common.actions, C.entity, C.subject, C.change]}>
+        <Table empty={A.noResults} head={[t.common.date, C.actor, C.action, C.entity, C.subject, C.change]}>
           {items.map((r) => (
             <tr key={r.id}>
               <td className={`${td} whitespace-nowrap text-xs`}>{formatDateTime(locale, r.created_at)}</td>

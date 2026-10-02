@@ -10,10 +10,7 @@ import { DEMO_COOKIE, signDemoSession, verifyDemoSession } from '@/lib/server/de
 import { demoMode, demoTtlHours } from '@/lib/server/env';
 import { AppError } from '@/lib/server/errors';
 import { supabaseServer } from '@/lib/server/supabase';
-
-function safeNext(value: string) {
-  return value.startsWith('/') && !value.startsWith('//') && !value.startsWith('/\\') ? value : '/dashboard';
-}
+import { safeNextPath } from '@/lib/safety';
 
 /**
  * Signs the visitor in as a fictional demo persona.
@@ -22,7 +19,7 @@ function safeNext(value: string) {
  */
 export async function enterDemo(_prev: ActionState, fd: FormData): Promise<ActionState> {
   const persona = fdString(fd, 'persona') as DemoPersona;
-  const next = safeNext(fdString(fd, 'next') || '/dashboard');
+  const next = safeNextPath(fdString(fd, 'next') || '/dashboard');
   const fresh = fdString(fd, 'fresh') === '1';
   const result = await runAction(async () => {
     if (!DEMO_PERSONA_KEYS.includes(persona)) throw new AppError('invalid_field', 400, 'persona');

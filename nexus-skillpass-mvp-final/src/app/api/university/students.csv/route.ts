@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import type { UniversityData } from '@/components/dashboards/university-dashboard';
 import { read } from '@/lib/server/backend';
+import { toCsv } from '@/lib/safety';
 import { AppError } from '@/lib/server/errors';
 
 /** CSV export of the university's aggregated student results (same data as the dashboard, same authorization). */
@@ -8,15 +9,9 @@ export async function GET() {
   try {
     const data = await read<UniversityData>('sp_university_dashboard');
     if (!data.organization || data.pending || !data.students) return new NextResponse('Forbidden', { status: 403 });
-    const escape = (value: unknown) => {
-      const text = String(value ?? '');
-      // Neutralize spreadsheet formulas and quote every field.
-      const safe = /^[=+\-@\t\r]/.test(text) ? `'${text}` : text;
-      return `"${safe.replace(/"/g, '""')}"`;
-    };
     const header = ['student', 'program', 'semester', 'challenges', 'verified_vath', 'verified_competencies', 'credentials', 'active', 'demo_data'];
     const rows = data.students.map((s) => [s.full_name, s.career, s.semester ?? '', s.challenges, s.verified_vath, s.competencies, s.credentials, s.active, s.is_demo]);
-    const csv = '﻿' + [header, ...rows].map((r) => r.map(escape).join(',')).join('\r\n');
+    const csv = toCsv([header, ...rows]);
     return new NextResponse(csv, {
       headers: {
         'Content-Type': 'text/csv; charset=utf-8',

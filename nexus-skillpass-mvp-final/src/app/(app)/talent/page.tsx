@@ -76,13 +76,13 @@ export default async function TalentPage({ searchParams }: PageProps<'/talent'>)
                   </div>
                   <div className="mt-3 flex gap-2 text-sm">
                     <Badge tone="success"><BadgeCheck className="size-3.5" aria-hidden />{formatHours(locale, s.verified_vath)} VATH</Badge>
-                    <Badge tone="dark">{fmt(T.credentials, { n: s.credentials })}</Badge>
+                    <Badge tone="dark">{s.credentials === 1 ? T.credentialOne : fmt(T.credentials, { n: s.credentials })}</Badge>
                   </div>
                   <p className="mt-3 text-xs font-semibold uppercase tracking-wide text-ink-500">{T.verified}</p>
                   <div className="mt-1 flex flex-wrap gap-1">{s.verified_competencies.length ? s.verified_competencies.map((c) => <Badge key={c.slug} tone="success">{competencyName(locale, c)} · {c.level}</Badge>) : <span className="text-xs text-ink-400">—</span>}</div>
                   <p className="mt-3 text-xs font-semibold uppercase tracking-wide text-ink-500">{T.declared}</p>
                   <div className="mt-1 flex flex-wrap gap-1">{s.declared_skills.slice(0, 6).map((c) => <Badge key={c.id} tone="neutral">{competencyName(locale, c)}</Badge>)}</div>
-                  <Link href={`/talent/${s.id}`} className="btn-outline btn-sm mt-auto self-start pt-2">{T.viewProfile}</Link>
+                  <div className="mt-auto pt-4"><Link href={`/talent/${s.id}`} className="btn-outline btn-sm">{T.viewProfile}</Link></div>
                 </li>
               ))}
             </ul>

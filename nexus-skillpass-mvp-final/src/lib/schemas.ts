@@ -11,16 +11,17 @@ import {
 
 const uuid = z.string().uuid();
 const text = (max: number, min = 0) => z.string().trim().min(min).max(max);
-const optionalUuid = z.union([uuid, z.literal(''), z.null(), z.undefined()]).transform((v) => (v ? v : null));
+// `.optional()` before `.transform()` lets the key be absent (zod 4 decides key optionality from the input side).
+const optionalUuid = z.union([uuid, z.literal(''), z.null()]).optional().transform((v) => (v ? v : null));
 const date = z.string().regex(/^\d{4}-\d{2}-\d{2}$/).refine((s) => !Number.isNaN(Date.parse(s)), 'invalid_date');
-const optionalDate = z.union([date, z.literal(''), z.null(), z.undefined()]).transform((v) => (v ? v : null));
+const optionalDate = z.union([date, z.literal(''), z.null()]).optional().transform((v) => (v ? v : null));
 const httpsUrl = z.string().trim().max(2048).url().refine((value) => {
   const url = new URL(value);
   return url.protocol === 'https:' && !url.username && !url.password;
 }, 'https_only');
 const optionalHttps = z.union([httpsUrl, z.literal('')]).default('');
 const intFromForm = (min: number, max: number) => z.coerce.number().int().min(min).max(max);
-const optionalInt = (min: number, max: number) => z.union([z.literal(''), z.null(), z.undefined(), z.coerce.number().int().min(min).max(max)])
+const optionalInt = (min: number, max: number) => z.union([z.literal(''), z.null(), z.coerce.number().int().min(min).max(max)]).optional()
   .transform((v) => (v === '' || v === null || v === undefined ? null : v));
 
 export const loginSchema = z.object({ email: z.string().trim().toLowerCase().email().max(254), password: z.string().min(1).max(128) });
