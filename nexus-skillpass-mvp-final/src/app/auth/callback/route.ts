@@ -1,4 +1,5 @@
-import { NextResponse, type NextRequest } from 'next/server';
+import type { NextRequest } from 'next/server';
+import { relativeRedirect } from '@/lib/redirect';
 import { supabaseServer } from '@/lib/server/supabase';
 import { supabaseConfig } from '@/lib/server/env';
 import { safeNextPath } from '@/lib/safety';
@@ -13,8 +14,8 @@ export async function GET(request: NextRequest) {
     const { error } = await supabase.auth.exchangeCodeForSession(code);
     if (!error) {
       await supabase.rpc('sp_accept_invitations', { p: {} });
-      return NextResponse.redirect(new URL(next, url.origin));
+      return relativeRedirect(next);
     }
   }
-  return NextResponse.redirect(new URL('/login', url.origin));
+  return relativeRedirect('/login');
 }

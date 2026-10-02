@@ -37,8 +37,10 @@ export async function proxy(request: NextRequest) {
     response.headers.set('Cache-Control', 'private, no-store');
     response.headers.set('X-Robots-Tag', 'noindex, nofollow');
     if (!authenticated) {
-      const url = new URL('/login', request.url);
-      url.searchParams.set('next', request.nextUrl.pathname + request.nextUrl.search);
+      // Next relativizes same-origin proxy redirects, so the visitor stays on the host they used.
+      const url = request.nextUrl.clone();
+      url.pathname = '/login';
+      url.search = `?${new URLSearchParams({ next: request.nextUrl.pathname + request.nextUrl.search })}`;
       const redirect = NextResponse.redirect(url);
       for (const cookie of response.cookies.getAll()) redirect.cookies.set(cookie);
       return redirect;

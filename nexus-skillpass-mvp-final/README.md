@@ -1,94 +1,192 @@
-# AINDEV NEXUS | SkillPass
+# SkillPass by AINDEV NEXUS
 
-**Experiencia real → evidencia → validación humana → habilidades verificadas → SkillPass compartible.**
+**Prove what you can do.** SkillPass convierte retos reales de empresas en experiencia profesional verificada.
 
-MVP en español de AINDEV TECH MÉXICO. Permite registrar trabajo aplicado, vincular habilidades y evidencia, solicitar una revisión profesional y generar una credencial consultable por URL y QR. Las horas declaradas se separan de las horas verificadas (VATH). No promete empleo, certificación oficial ni convenios institucionales.
+```
+RETO INDUSTRIAL → TRABAJO APLICADO → EVIDENCIA → VATH → VALIDACIÓN DEL SUPERVISOR
+→ COMPETENCIAS VERIFICADAS → SKILLPASS → OPORTUNIDADES
+```
 
-## Estado y alcance
+MVP funcional (no maquetas) de **Skills Intelligence + Employability + Applied Experience Verification** para universidades, estudiantes, empresas, evaluadores e inversionistas. AINDEV TECH es la empresa tecnológica detrás de la plataforma.
 
-El repositorio incluye la aplicación, esquema PostgreSQL reproducible, políticas RLS, un adaptador Supabase y una DEMO local aislada con PostgreSQL embebido PGlite. Los datos de la DEMO son ficticios y se identifican como tales. La DEMO permite ejecutar las mismas transiciones de negocio en base de datos sin secretos externos; no sustituye la comprobación de Supabase Auth ni un deployment real.
+> Todos los datos precargados son **ficticios** (marcados `is_demo` y con la etiqueta «DEMO · Datos ficticios»). No representan tracción, convenios, empresas, universidades ni resultados reales.
 
-Consultar [VERIFICATION.md](docs/VERIFICATION.md) para resultados efectivamente ejecutados y [P0_DOD.md](docs/P0_DOD.md) para trazabilidad. No se debe anunciar el MVP como completamente desplegado o la Definition of Done como cerrada mientras existan gates pendientes.
+---
 
-## Desarrollo local
+## Índice
 
-Requisitos: Node.js compatible con la versión de Next.js fijada en el lockfile, npm y un navegador moderno. Usar Node.js 22 LTS o posterior compatible.
+1. [Problema y solución](#problema-y-solución) · 2. [Arquitectura](#arquitectura) · 3. [Stack](#stack) · 4. [Roles](#roles) · 5. [Flujo principal](#flujo-principal) · 6. [VATH](#vath) · 7. [Instalación](#instalación) · 8. [Variables de entorno](#variables-de-entorno) · 9. [Base de datos y Supabase](#base-de-datos-y-supabase) · 10. [Seed](#seed) · 11. [Ejecutar](#ejecutar) · 12. [Pruebas](#pruebas) · 13. [Build](#build) · 14. [Deployment](#deployment) · 15. [Demo](#demo) · 16. [Seguridad](#seguridad) · 17. [Limitaciones conocidas](#limitaciones-conocidas) · 18. [Roadmap](#roadmap)
 
-```powershell
+Documentación detallada en [`docs/`](docs): [ARCHITECTURE](docs/ARCHITECTURE.md) · [DATABASE](docs/DATABASE.md) · [UX-FLOWS](docs/UX-FLOWS.md) · [SECURITY](docs/SECURITY.md) · [DEPLOYMENT](docs/DEPLOYMENT.md) · [DEMO-GUIDE](docs/DEMO-GUIDE.md) · [ROADMAP](docs/ROADMAP.md) · [QA-REPORT](docs/QA-REPORT.md) · [STATUS](docs/STATUS.md).
+
+---
+
+## Problema y solución
+
+**Problema.** Los currículos y perfiles profesionales están llenos de habilidades autodeclaradas y certificados de cursos sin trabajo aplicado. Para un reclutador o una universidad es difícil comprobar qué hizo realmente un estudiante, cuánto tiempo y con qué calidad.
+
+**Solución.** SkillPass organiza el trabajo real en retos de empresas verificadas. Cada avance se respalda con evidencia, las horas aplicadas (VATH) se declaran y un supervisor autorizado las verifica, ajusta o rechaza, y evalúa competencias con una rúbrica 1–5. El resultado es un **SkillPass**: credenciales con código único y QR que cualquiera puede verificar sin iniciar sesión.
+
+Lo que SkillPass **no** es: un LMS, una red social, una bolsa de empleo ni un generador de certificados. No promete empleo, no es certificación oficial ni equivale a créditos académicos.
+
+## Arquitectura
+
+```
+Navegador ──► Next.js 16 (App Router, Server Components, Server Actions)
+                 │  proxy.ts (sesión, rutas privadas)
+                 │  src/lib/server/backend.ts  ← única puerta a la base de datos
+                 │     · lista blanca de RPCs (lectura / escritura / públicas)
+                 ▼
+        ┌──────────────── modo Supabase ────────────────┐   ┌──── modo DEMO local ────┐
+        │ Supabase Auth (JWT del usuario)                │   │ PGlite (PostgreSQL WASM) │
+        │ PostgreSQL + RLS + RPCs SECURITY INVOKER/DEFINER│   │ una base aislada por      │
+        │ Storage (bucket privado «evidence» + políticas) │   │ visitante, mismas          │
+        └────────────────────────────────────────────────┘   │ migraciones y seed         │
+                                                             └───────────────────────────┘
+```
+
+- **Toda** la lógica de negocio y autorización vive en PostgreSQL: RLS en las 24 tablas, grants sólo de `SELECT`, y mutaciones exclusivamente vía RPCs `SECURITY DEFINER` que validan rol, pertenencia, estado y reglas (trabajo justo, transiciones, inmutabilidad). El frontend nunca es la única barrera.
+- La DEMO local ejecuta **exactamente** las mismas migraciones y el mismo seed que Supabase, así que RLS y RPCs se comportan igual.
+- Detalle: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
+
+## Stack
+
+| Capa | Tecnología |
+|---|---|
+| Web | Next.js 16.3 (App Router, `proxy.ts`), React 19.3, TypeScript 6 estricto |
+| UI | Tailwind CSS 4.3, lucide-react, Plus Jakarta Sans, QR SVG del lado del servidor (`qrcode`) |
+| Validación | zod 4 (forma y tamaño) + RPCs SQL (reglas y autorización) |
+| Datos | Supabase (Auth, PostgreSQL, Storage) · PGlite 0.5 para la DEMO local y pruebas |
+| Pruebas | Vitest 5 (unitarias + base de datos), PostgreSQL 16 real (`npm run test:pg`), Playwright 1.63 (E2E) |
+| i18n | Español (predeterminado) e inglés, diccionarios tipados con paridad verificada por pruebas |
+
+## Roles
+
+| Rol | Qué puede hacer |
+|---|---|
+| **Estudiante** | Perfil (declarado vs verificado), explorar retos con Skills Match transparente, aplicar, workspace (tareas, evidencias, VATH), enviar a validación, SkillPass y privacidad. |
+| **Empresa** | Organización, crear/publicar retos (requiere verificación AINDEV), candidatos y decisiones con historial, equipo, talento verificado, invitaciones. |
+| **Supervisor** | Bandeja de validación: verificar/ajustar/rechazar VATH, aprobar evidencia, evaluar competencias 1–5 y emitir credenciales. Sólo se obtiene por invitación de la organización. |
+| **Universidad** | Analítica agregada de sus estudiantes (VATH por carrera, competencias, empresas, participación) y exportación CSV. Nunca lee evidencia ni horas individuales. |
+| **Admin AINDEV** | Talent OS: verificación de organizaciones, usuarios y roles, retos, aplicaciones, evidencias, VATH, validaciones, competencias, credenciales (revocación), incidentes y bitácora de auditoría. Nunca se obtiene por registro. |
+
+## Flujo principal
+
+1. La **empresa** crea un reto (problema, objetivo, competencias, entregables, fechas, supervisor, compensación, propiedad intelectual, confidencialidad y permisos de publicación) y lo publica.
+2. El **estudiante** lo descubre con un **Skills Match** basado en reglas (no IA): competencias 60 pts (verificada 100 %, declarada 60 %), intereses 15, carrera 10, disponibilidad 15.
+3. La empresa acepta la aplicación; queda un historial de decisiones.
+4. En el **workspace** el estudiante organiza tareas, sube **evidencias** (archivos verificados por contenido o enlaces https) y registra **VATH** vinculadas a evidencia.
+5. Envía a validación; el **supervisor** revisa horas y evidencias, ajusta con justificación, evalúa competencias y emite la credencial.
+6. El **SkillPass** se actualiza con el proyecto, las VATH verificadas y sólo las competencias con nivel ≥ 3.
+7. Cualquiera verifica la credencial en `/verify/<código>` o escaneando el **QR**; la universidad ve la analítica actualizada.
+
+Estados de reto: Borrador → Publicado → Convocatoria abierta → En curso → En revisión → Completado → Archivado (transiciones validadas en base de datos).
+
+## VATH
+
+**Verified Applied Talent Hours**: horas de trabajo aplicado en un reto real que un supervisor autorizado verificó.
+
+- Se separan siempre `submitted_hours` (declaradas) y `verified_hours` (verificadas).
+- 0.25–16 h por registro, sin fechas futuras ni duplicados, con al menos una evidencia vinculada.
+- Ajustar o rechazar exige comentario; una vez decididas son inmutables (trigger en base de datos).
+- VATH **no** es una calificación ni un crédito académico.
+
+## Instalación
+
+Requisitos: Node.js ≥ 22, npm. Opcional: PostgreSQL 15+ para `npm run test:pg`.
+
+```bash
+cd nexus-skillpass-mvp-final
 npm ci
-Copy-Item .env.example .env.local
-npm run dev
+cp .env.example .env.local     # opcional para la DEMO local
+npm run dev                    # http://127.0.0.1:3000
 ```
 
-Abrir `http://127.0.0.1:3000/demo`. No es necesario configurar Supabase para probar la DEMO local. Seguir las variables y valores de `.env.example`; no guardar secretos en Git. `NEXT_PUBLIC_APP_URL` define el origen de enlaces compartidos y callbacks y debe coincidir con la URL del entorno.
+Abre `http://127.0.0.1:3000/demo`. La DEMO local no necesita Supabase ni secretos.
 
-Para una presentación local con la compilación de producción:
+## Variables de entorno
 
-```powershell
+Ver [`.env.example`](.env.example). Resumen:
+
+| Variable | Uso |
+|---|---|
+| `NEXT_PUBLIC_APP_URL` | Origen público para enlaces y QR (p. ej. `https://skillpass.aindev.com.mx`). Se fija en build. |
+| `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY` (o `_PUBLISHABLE_KEY`) | Proyecto Supabase. Sólo la llave **pública**: la app nunca usa la service-role en runtime. |
+| `NEXUS_DEMO_MODE` | `local` (PGlite aislado por visitante), `supabase` (cuentas demo en un proyecto Supabase de demo) u `off`. |
+| `NEXUS_DEMO_SECRET` | Firma HMAC de la cookie DEMO (≥ 32 caracteres). |
+| `NEXUS_DEMO_PASSWORD` | Contraseña de las cuentas ficticias en modo `supabase`. |
+| `MAX_UPLOAD_MB` | Tamaño máximo de evidencia (≤ 4 en Vercel). |
+| `SUPABASE_SERVICE_ROLE_KEY`, `SUPABASE_DB_URL` | **Sólo** en la máquina del operador para `npm run seed -- --supabase`. Nunca en Vercel ni en git. |
+
+## Base de datos y Supabase
+
+- Migraciones en [`supabase/migrations`](supabase/migrations): esquema (24 tablas, triggers de integridad), seguridad (helpers + políticas RLS + grants), RPCs de flujo, RPCs de lectura y Storage.
+- Aplicar en Supabase: `supabase link --project-ref <ref>` y `supabase db push` (o `npm run seed -- --supabase --confirm-demo-project --apply-migrations` en un proyecto de demo vacío).
+- En Supabase Auth: habilitar email/password, configurar *Site URL* = `NEXT_PUBLIC_APP_URL` y *Redirect URL* `…/auth/callback`.
+- Detalle de tablas, RLS y RPCs: [docs/DATABASE.md](docs/DATABASE.md).
+
+## Seed
+
+```bash
+npm run seed           # reconstruye la plantilla DEMO local (PGlite) e imprime un resumen
+npm run demo:reset     # borra todos los escenarios DEMO locales
+npm run seed -- --supabase --confirm-demo-project   # carga la demo en un proyecto Supabase DEDICADO de demo
+```
+
+El modo Supabase crea las 16 cuentas ficticias con la Admin API, ejecuta `supabase/seed.sql` y sube los archivos de evidencia demo. Se niega a correr si el proyecto contiene cuentas que no son de demo.
+
+## Ejecutar
+
+| Comando | Descripción |
+|---|---|
+| `npm run dev` | Desarrollo (webpack) en `127.0.0.1:3000` |
+| `npm run build && npm start` | Build y servidor de producción local |
+
+## Pruebas
+
+| Comando | Qué cubre | Resultado actual |
+|---|---|---|
+| `npm run lint` | ESLint (Next + React hooks) | 0 errores, 0 warnings |
+| `npm run typecheck` | `next typegen` + `tsc --noEmit` estricto | OK |
+| `npm test` | 54 unitarias + 39 de base de datos (RLS, grants, FLOW 01–10, aislamiento, integridad, Storage) en PGlite | 93/93 |
+| `npm run test:pg` | Las 39 pruebas de base de datos sobre **PostgreSQL 16 real** (levanta un cluster temporal o usa `TEST_DATABASE_URL`) | 39/39 |
+| `npm run test:e2e` | Playwright: FLOW 01–10 por la UI real (incl. decodificación del QR), seguridad, demo guiada de 9 pasos y móvil | ver [QA-REPORT](docs/QA-REPORT.md) |
+
+CI: [`.github/workflows/skillpass-quality.yml`](../.github/workflows/skillpass-quality.yml) (raíz del repositorio) corre todo lo anterior con un servicio PostgreSQL 16.
+
+## Build
+
+```bash
 npm run build
-npm run demo:serve
 ```
 
-Este lanzador genera o reutiliza una clave local privada en `.demo-data/.session-key` y sirve sólo en `127.0.0.1`. No publica una URL externa ni requiere modificar `.env.example`. Para detenerlo, Ctrl+C. No ejecutar al mismo tiempo dos procesos sobre la misma carpeta de datos.
+Ver [QA-REPORT](docs/QA-REPORT.md) para la salida del último build.
 
-La cookie DEMO dura ocho horas y se renueva al cambiar de personaje. Los escenarios y sus URLs públicas persisten en disco después de vencer la cookie; no existe eliminación automática. Se permiten 30 escenarios por defecto y se mantienen hasta tres bases abiertas simultáneamente. Las nuevas migraciones se aplican al abrir cada escenario, con seguimiento en `.nexus-migrations.json`. Los escenarios creados antes de ese seguimiento reconocen las dos migraciones iniciales por su esquema.
+## Deployment
 
-Para liberar capacidad, **detener primero el servidor**, listar escenarios con `npm run demo:cleanup` y eliminar únicamente un escenario ficticio elegido con `npm run demo:cleanup -- UUID`. El script verifica que el UUID resuelva a una carpeta directa dentro del directorio DEMO. El borrado es permanente y hace que sus enlaces dejen de funcionar; no afecta Supabase ni elimina la clave local. No compartir `.demo-data`, cookies ni trazas de navegador.
+Objetivo: `https://skillpass.aindev.com.mx` en Vercel + Supabase. Guía completa (proyecto Supabase, variables, dominio, SSL, checks y cómo hospedar la DEMO interactiva): [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md). **No** se ha configurado DNS ni publicado nada sin autorización.
 
-## Modos de ejecución
+## Demo
 
-| Modo | Base de datos | Identidad | Uso |
-| --- | --- | --- | --- |
-| DEMO local | PGlite persistente en disco, aislado por sesión DEMO | Selector de personaje ficticio y cookie de sesión del servidor | Pruebas, presentación local y ensayo del ciclo |
-| Supabase | PostgreSQL del proyecto configurado | Supabase Auth con sesión por cookies | Piloto con usuarios autorizados tras verificar configuración |
+`/demo` ofrece una **demo guiada de 9 pasos** (Conoce a la estudiante → Explora el reto → Revisa el trabajo → Inspecciona la evidencia → Verifica VATH → Valida competencias → Abre el SkillPass → Verifica la credencial → Analítica institucional) y acceso directo a cada persona. Cada visitante obtiene un escenario aislado; cambiar de persona conserva el mismo escenario. Guion para presentaciones: [docs/DEMO-GUIDE.md](docs/DEMO-GUIDE.md).
 
-La DEMO no es un mecanismo de acceso a usuarios reales. Compartir su identificador permite consultar únicamente el subconjunto público del escenario. No otorga una sesión privada.
+## Seguridad
 
-El disco local de la DEMO requiere un proceso Node con almacenamiento persistente. No desplegar este modo como si fuera una base durable en funciones Vercel. Para Vercel, usar Supabase y deshabilitar la DEMO local; preparar un entorno de demostración separado antes de publicar `/demo` funcional allí.
+- RLS obligatorio en todas las tablas; los roles `anon`/`authenticated` sólo tienen `SELECT` y escriben únicamente por RPCs con autorización explícita.
+- Ningún rol privilegiado se obtiene por metadatos de registro; supervisor sólo por invitación, admin nunca.
+- Credenciales con snapshot inmutable; decisiones, evaluaciones y bitácora de sólo inserción.
+- Subidas con lista blanca MIME, verificación por *magic numbers*, límite de tamaño y descargas por URL firmada tras una consulta con RLS.
+- CSP estricta, HSTS, `nosniff`, `frame-ancestors 'none'`, CSV sin inyección de fórmulas, redirecciones sin *open redirect*.
+- Detalle y resultados de la revisión: [docs/SECURITY.md](docs/SECURITY.md).
 
-## Supabase
+## Limitaciones conocidas
 
-1. Crear un proyecto Supabase dedicado al entorno.
-2. Configurar URL y clave pública/anon según `.env.example`. La aplicación no necesita una clave service role.
-3. Aplicar los archivos de `supabase/migrations/` en orden, usando Supabase CLI o una conexión PostgreSQL administrativa autorizada. El esquema se mantiene en código.
-4. Configurar Site URL y las redirect URLs de Auth para el origen local o publicado, incluido `/auth/callback`.
-5. Registrar usuarios reales mediante `/signup`; la alta pública siempre crea rol `student`.
-6. Provisionar administradores y membresías con una operación administrativa controlada, como se explica en [DEPLOYMENT.md](docs/DEPLOYMENT.md).
-7. Verificar registro, confirmación de correo, login, recuperación de sesión, logout, RLS y aislamiento entre organizaciones contra ese proyecto.
+- No hay despliegue público todavía: falta un proyecto Supabase, acceso a Vercel y autorización DNS (ver [docs/STATUS.md](docs/STATUS.md)).
+- El flujo con Supabase real (Auth por email, Storage) está implementado y probado a nivel SQL/políticas, pero no se ha ejecutado contra un proyecto Supabase vivo.
+- La DEMO local necesita disco persistente (no corre en funciones serverless de Vercel); en Vercel se usa `NEXUS_DEMO_MODE=supabase` o `off`.
+- Sin envío de correos propios (sólo los de Supabase Auth); notificaciones dentro de la app.
+- Sin IA: el Skills Match es por reglas y se declara así.
 
-`supabase/seed.sql` contiene únicamente fixtures DEMO. No ejecutarlo sobre producción con datos reales. Leer su preámbulo y [DATA_MODEL.md](docs/DATA_MODEL.md) antes de usarlo. No existen contraseñas de producción compartidas ni cuentas privilegiadas precreadas en la aplicación.
+## Roadmap
 
-## Personajes y rutas de demostración
-
-Los botones de `/demo` abren los personajes Estudiante, Supervisor, Universidad y Admin. El estudiante ficticio es Ana Martínez; la empresa y universidad de ejemplo son DEMO, no socios confirmados. El cambio de personaje conserva el escenario para completar el ciclo. Las instrucciones detalladas están en [DEMO.md](docs/DEMO.md).
-
-Rutas principales: `/`, `/demo`, `/login`, `/signup`, `/dashboard`, `/profile`, `/challenges`, `/experiences/new`, `/review`, `/admin`, `/skillpass/[slug]` y `/verify/[id]`.
-
-## Comprobaciones
-
-```powershell
-npm run lint
-npm run typecheck
-npm test
-npx playwright install chromium
-npm run test:e2e
-npm run build
-npm run start
-```
-
-Los tests de base de datos deben verificar invariantes y permisos, y los E2E el recorrido real de navegador. Una compilación exitosa no acredita por sí sola un deployment, Auth remoto ni políticas RLS aplicadas a un proyecto externo. Consultar los resultados registrados antes de repetir afirmaciones de funcionamiento.
-
-## Arquitectura y documentos
-
-- [ARCHITECTURE](docs/ARCHITECTURE.md): componentes, fronteras de confianza y decisiones.
-- [DATA_MODEL](docs/DATA_MODEL.md): relaciones, estados, métricas e integridad.
-- [SECURITY](docs/SECURITY.md): permisos, controles, privacidad y límites.
-- [DEPLOYMENT](docs/DEPLOYMENT.md): Supabase, Vercel, dominio y gates de publicación.
-- [DEMO](docs/DEMO.md): guion de 90 segundos y ensayo completo.
-- [ROADMAP](docs/ROADMAP.md): pendientes priorizados y criterios go/no-go.
-- [COMPETITION_EVIDENCE](docs/COMPETITION_EVIDENCE.md): evidencia para evaluación y fuentes primarias.
-- [PITCH](docs/PITCH.md): narrativa comercial sin tracción inventada.
-- [P0_DOD](docs/P0_DOD.md): cobertura de requisitos y Definition of Done.
-- [VERIFICATION](docs/VERIFICATION.md): resultados y restricciones verificables.
-
-Se difieren Storage, validación mediante token sin cuenta, IA, pagos, blockchain, SSO e integraciones. La evidencia se registra mediante URL HTTPS y metadatos. La credencial es un registro verificable dentro de NEXUS; no se presenta como certificación académica oficial ni como una credencial criptográfica interoperable.
+AI Skills Extraction, AI Matching, Advanced Skills Intelligence, Academy, Recruiting Marketplace, Talent OS completo, estándares de Verifiable Credentials (W3C VC / Open Badges 3.0), módulos de gobierno y Venture Studio. Ver [docs/ROADMAP.md](docs/ROADMAP.md).
