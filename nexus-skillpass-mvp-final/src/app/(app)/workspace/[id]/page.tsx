@@ -13,6 +13,7 @@ import { getMessages } from '@/lib/i18n/server';
 import { getMe, read } from '@/lib/server/backend';
 import { maxUploadBytes } from '@/lib/server/env';
 import type { Evidence, Workspace } from '@/lib/types';
+import { ReportIncidentForm } from '@/components/profile-client';
 
 const TABS = ['overview', 'tasks', 'evidence', 'vath', 'team', 'validation'] as const;
 type Tab = (typeof TABS)[number];
@@ -190,6 +191,7 @@ export default async function WorkspacePage({ params, searchParams }: PageProps<
                 </ul>
               )}
             </Card>
+            <Card title={t.incidents.title}><ReportIncidentForm entityType="challenge" entityId={c.id} /></Card>
           </div>
         </div>
       )}

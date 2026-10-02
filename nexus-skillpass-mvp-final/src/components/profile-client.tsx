@@ -96,10 +96,11 @@ export function InviteToChallengeForm({ studentId, challenges }: { studentId: st
 export function ReportIncidentForm({ entityType, entityId }: { entityType: string; entityId?: string }) {
   const { t } = useI18n();
   return (
-    <ActionForm action={reportIncident} className="space-y-3" success={t.common.done} resetOnSuccess>
+    <ActionForm action={reportIncident} className="space-y-3" success={t.incidents.sent} resetOnSuccess>
+      <p className="text-xs text-ink-500">{t.incidents.text}</p>
       <input type="hidden" name="entity_type" value={entityType} />
       {entityId && <input type="hidden" name="entity_id" value={entityId} />}
-      <Field as="select" label={t.common.details} name="category" required defaultValue="incorrect_data"
+      <Field as="select" label={t.dashboard.admin.cols.category} name="category" required defaultValue="incorrect_data"
         options={(['incorrect_data', 'misconduct', 'privacy', 'suspected_fraud', 'technical', 'other'] as const).map((c) => ({ value: c, label: t.enums.incidentCategory[c] }))} />
       <Field as="textarea" label={t.common.description} name="description" required maxLength={2000} rows={3} />
       <SubmitButton className="btn-outline btn-sm">{t.common.submit}</SubmitButton>

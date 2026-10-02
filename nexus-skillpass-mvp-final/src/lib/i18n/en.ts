@@ -435,6 +435,10 @@ const en: Messages = {
     added: 'Person added to the organization.', pendingInvites: 'Pending invitations', revoke: 'Revoke', removeMember: 'Remove', verification: 'Verification',
     renameWarning: 'Renaming a verified organization requires a new AINDEV verification.', none: 'You do not belong to an organization.',
   },
+  incidents: {
+    title: 'Report a problem', text: 'If you spot incorrect data, misconduct or a privacy issue, tell AINDEV. The report is recorded with your name and reviewed in Talent OS.',
+    sent: 'Report sent. AINDEV will review it.',
+  },
   notifications: {
     title: 'Notifications', markAll: 'Mark all as read', empty: 'You have no notifications.', unread: '{n} unread',
     kinds: {

@@ -434,6 +434,10 @@ const es = {
     added: 'Persona agregada a la organización.', pendingInvites: 'Invitaciones pendientes', revoke: 'Revocar', removeMember: 'Quitar', verification: 'Verificación',
     renameWarning: 'Cambiar el nombre de una organización verificada requiere una nueva verificación de AINDEV.', none: 'No perteneces a una organización.',
   },
+  incidents: {
+    title: 'Reportar un problema', text: 'Si detectas datos incorrectos, conducta indebida o un problema de privacidad, avisa a AINDEV. El reporte queda registrado con tu nombre y se revisa en Talent OS.',
+    sent: 'Reporte enviado. AINDEV lo revisará.',
+  },
   notifications: {
     title: 'Notificaciones', markAll: 'Marcar todas como leídas', empty: 'No tienes notificaciones.', unread: '{n} sin leer',
     kinds: {

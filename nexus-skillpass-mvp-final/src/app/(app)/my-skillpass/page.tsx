@@ -13,6 +13,7 @@ import { getMessages } from '@/lib/i18n/server';
 import { getMe, read } from '@/lib/server/backend';
 import { publicUrl } from '@/lib/server/urls';
 import type { SkillPassMe } from '@/lib/types';
+import { ReportIncidentForm } from '@/components/profile-client';
 
 const TABS = ['credentials', 'competencies', 'progress', 'privacy'] as const;
 
@@ -151,13 +152,16 @@ export default async function MySkillPassPage({ searchParams }: PageProps<'/my-s
       {tab === 'privacy' && (
         <div className="grid gap-6 lg:grid-cols-3">
           <Card title={S.privacyTitle} className="lg:col-span-2"><PrivacyForm profile={p} /></Card>
-          <Card title={S.publicUrl}>
-            <p className="break-all rounded-lg bg-ink-50 p-3 font-mono text-xs text-ink-700">{skillpassUrl}</p>
-            <div className="mt-3 flex flex-wrap gap-2">
-              <CopyButton value={skillpassUrl} label={S.copyLink} />
-              {p.skillpass_public && <a href={skillpassUrl} target="_blank" rel="noopener" className="btn-outline btn-sm"><Users className="size-4" aria-hidden /> {S.viewOnline}</a>}
-            </div>
-          </Card>
+          <div className="space-y-6">
+            <Card title={S.publicUrl}>
+              <p className="break-all rounded-lg bg-ink-50 p-3 font-mono text-xs text-ink-700">{skillpassUrl}</p>
+              <div className="mt-3 flex flex-wrap gap-2">
+                <CopyButton value={skillpassUrl} label={S.copyLink} />
+                {p.skillpass_public && <a href={skillpassUrl} target="_blank" rel="noopener" className="btn-outline btn-sm"><Users className="size-4" aria-hidden /> {S.viewOnline}</a>}
+              </div>
+            </Card>
+            <Card title={t.incidents.title}><ReportIncidentForm entityType="credential" /></Card>
+          </div>
         </div>
       )}
     </>

@@ -148,9 +148,9 @@ El modo Supabase crea las 16 cuentas ficticias con la Admin API, ejecuta `supaba
 |---|---|---|
 | `npm run lint` | ESLint (Next + React hooks) | 0 errores, 0 warnings |
 | `npm run typecheck` | `next typegen` + `tsc --noEmit` estricto | OK |
-| `npm test` | 54 unitarias + 39 de base de datos (RLS, grants, FLOW 01–10, aislamiento, integridad, Storage) en PGlite | 93/93 |
-| `npm run test:pg` | Las 39 pruebas de base de datos sobre **PostgreSQL 16 real** (levanta un cluster temporal o usa `TEST_DATABASE_URL`) | 39/39 |
-| `npm run test:e2e` | Playwright: FLOW 01–10 por la UI real (incl. decodificación del QR), seguridad, demo guiada de 9 pasos y móvil | ver [QA-REPORT](docs/QA-REPORT.md) |
+| `npm test` | 56 unitarias + 39 de base de datos (RLS, grants, FLOW 01–10, aislamiento, integridad, Storage) en PGlite | 95/95 |
+| `npm run test:pg` | Las 39 pruebas de base de datos sobre **PostgreSQL real** (levanta un cluster temporal o usa `TEST_DATABASE_URL`) | 39/39 en PG 16.14 y en PG 17.11 (imagen de Supabase) |
+| `npm run test:e2e` | Playwright: FLOW 01–10 por la UI real (incl. decodificación del QR), seguridad, incidentes, demo guiada de 9 pasos y móvil; con `E2E_SUPABASE=1` además registro/login reales | 15/15 en DEMO local · 17/17 contra Supabase (ver [QA-REPORT](docs/QA-REPORT.md)) |
 
 CI: [`.github/workflows/skillpass-quality.yml`](../.github/workflows/skillpass-quality.yml) (raíz del repositorio) corre todo lo anterior con un servicio PostgreSQL 16.
 
@@ -182,7 +182,7 @@ Objetivo: `https://skillpass.aindev.com.mx` en Vercel + Supabase. Guía completa
 ## Limitaciones conocidas
 
 - No hay despliegue público todavía: falta un proyecto Supabase, acceso a Vercel y autorización DNS (ver [docs/STATUS.md](docs/STATUS.md)).
-- El flujo con Supabase real (Auth por email, Storage) está implementado y probado a nivel SQL/políticas, pero no se ha ejecutado contra un proyecto Supabase vivo.
+- El modo Supabase se probó contra el stack oficial local de Supabase (Auth, PostgREST, Storage); falta repetirlo en un proyecto en la nube con SMTP real.
 - La DEMO local necesita disco persistente (no corre en funciones serverless de Vercel); en Vercel se usa `NEXUS_DEMO_MODE=supabase` o `off`.
 - Sin envío de correos propios (sólo los de Supabase Auth); notificaciones dentro de la app.
 - Sin IA: el Skills Match es por reglas y se declara así.
