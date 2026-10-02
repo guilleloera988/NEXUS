@@ -1,1 +1,0 @@
-export default function Loading(){return <main className="centered"><div role="status"><span className="eyebrow">AINDEV NEXUS</span><h2>Cargando tu siguiente paso…</h2><div className="loading-line"/></div></main>}

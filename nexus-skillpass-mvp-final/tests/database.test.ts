@@ -1,37 +1,425 @@
-import { afterAll,beforeAll,describe,expect,it } from 'vitest';
-import { PGlite } from '@electric-sql/pglite';
-import { readFile,readdir } from 'node:fs/promises';
-import { DEMO_USERS } from '../src/lib/types';
-import type { Snapshot } from '../src/components/workspace';
-let db:PGlite;
-const student=DEMO_USERS.student,supervisor=DEMO_USERS.supervisor,admin=DEMO_USERS.admin;
-const org='20000000-0000-4000-8000-000000000001',challenge='40000000-0000-4000-8000-000000000001',skill='30000000-0000-4000-8000-000000000001';
-const fixture={organization_id:org,title:'Experiencia de prueba',description:'Trabajo aplicado documentado',responsibilities:'Analizar procesos',deliverables:'Reporte técnico',start_date:'2026-09-01',end_date:'2026-09-20',hours:16,skill_ids:[skill]};
-async function sql<T=Record<string,unknown>>(actor:string|null,query:string,params:unknown[]=[]) {return db.transaction(async tx=>{await tx.query("select set_config('request.jwt.claim.sub',$1,true)",[actor||'']);await tx.exec(actor?'set local role authenticated':'set local role anon');return (await tx.query<T>(query,params)).rows;});}
-async function action(actor:string,name:string,payload:Record<string,unknown>){return (await sql<{r:{id:string}}>(actor,'select nexus_action($1,$2::jsonb) as r',[name,JSON.stringify(payload)]))[0].r;}
-async function snapshot(actor=student){return (await sql<{r:Snapshot}>(actor,'select nexus_snapshot() as r'))[0].r;}
-async function makePending(){const {id}=await action(student,'create_experience',fixture);await action(student,'add_evidence',{experience_id:id,title:'Evidencia de prueba',description:'Reporte de ejemplo',url:'https://example.com/report',kind:'document',is_public:true});await action(student,'request_validation',{experience_id:id});return id;}
-beforeAll(async()=>{db=new PGlite();await db.exec(await readFile('supabase/demo-bootstrap.sql','utf8'));await db.exec("create table public.external_app(value text); grant select on public.external_app to anon; alter default privileges in schema public grant all on tables to anon,authenticated; alter default privileges in schema public grant execute on functions to anon,authenticated;");for(const file of (await readdir('supabase/migrations')).filter(x=>x.endsWith('.sql')).sort())await db.exec(await readFile('supabase/migrations/'+file,'utf8'));await db.exec(await readFile('supabase/seed.sql','utf8'));});
-afterAll(async()=>{await db?.close();});
-describe('Actual PostgreSQL migrations, RLS and workflow',()=>{
- it('loads the DEMO fixture and distinguishes declared hours from VATH',async()=>{const s=await snapshot();expect(s.profile.full_name).toBe('Ana Martínez');expect(Number(s.experiences[0].hours)).toBe(32);expect(Number(s.experiences[0].verified_hours)).toBe(28);expect(s.credentials).toHaveLength(1);});
- it('enables RLS on every app table',async()=>{const r=await db.query<{relname:string;relrowsecurity:boolean}>("select relname,relrowsecurity from pg_class c join pg_namespace n on n.oid=c.relnamespace where n.nspname='public' and c.relkind='r' and relname<>'external_app'");expect(r.rows.length).toBe(15);expect(r.rows.every(x=>x.relrowsecurity)).toBe(true);});
- it('preserves unrelated tables and removes Supabase default anonymous function grants',async()=>{await expect(sql(null,'select * from external_app')).resolves.toEqual([]);await expect(sql(null,'select nexus_is_admin()')).rejects.toThrow();await expect(sql(null,'select * from student_skills')).rejects.toThrow();const rights=await db.query<{allowed:boolean}>("select has_function_privilege('anon','public.nexus_action(text,jsonb)','execute') as allowed");expect(rights.rows[0].allowed).toBe(false);});
- it('blocks rewriting final experiences and mismatching credential lineage',async()=>{await expect(db.query("update experiences set organization_id='20000000-0000-4000-8000-000000000002' where id='50000000-0000-4000-8000-000000000001'")).rejects.toThrow('immutable');await expect(db.query("update credentials set issuer_id='10000000-0000-4000-8000-000000000001' where id='60000000-0000-4000-8000-000000000001'")).rejects.toThrow('immutable');});
- it('blocks anonymous table reads and private RPCs',async()=>{await expect(sql(null,'select * from profiles')).rejects.toThrow();await expect(sql(null,'select nexus_snapshot()')).rejects.toThrow();await expect(sql(null,"select nexus_action('create_skill','{}')")).rejects.toThrow();});
- it('prevents direct role, state, audit and credential forgery',async()=>{for(const q of ["update profiles set role='admin'", "update experiences set status='verified'",'delete from credentials',"insert into activity_events(action) values('fake')"])await expect(sql(student,q)).rejects.toThrow();expect((await snapshot()).profile.role).toBe('student');});
- it('forces new Auth profiles to student even with hostile metadata',async()=>{await db.query("insert into auth.users(id,email,raw_user_meta_data) values('10000000-0000-4000-8000-000000000099','test@demo.invalid','{\"full_name\":\"Other User\",\"role\":\"admin\"}')");const s=await snapshot('10000000-0000-4000-8000-000000000099');expect(s.profile.role).toBe('student');expect(s.profile.is_public).toBe(false);expect(s.experiences).toHaveLength(0);expect(s.credentials).toHaveLength(0);});
- it('blocks privileged actions from a student',async()=>{for(const [name,payload] of [['create_organization',{name:'Intruder',type:'company'}],['create_skill',{name:'Fake',category:'technical'}],['set_member',{organization_id:org,user_id:student,role:'supervisor'}],['revoke_credential',{credential_id:'60000000-0000-4000-8000-000000000001',reason:'Forged'}]] as const)await expect(action(student,name,payload)).rejects.toThrow();});
- it('requires participation before creating challenge-linked experience and joins idempotently',async()=>{await expect(action(student,'create_experience',{...fixture,challenge_id:challenge})).rejects.toThrow();await action(student,'join_challenge',{challenge_id:challenge});await action(student,'join_challenge',{challenge_id:challenge});expect((await snapshot()).challenge_participants).toHaveLength(1);expect((await action(student,'create_experience',{...fixture,challenge_id:challenge})).id).toBeTruthy();});
- it('requires evidence and skills before submission',async()=>{const {id}=await action(student,'create_experience',fixture);await expect(action(student,'request_validation',{experience_id:id})).rejects.toThrow();});
- it('rejects self-validation and freezes submitted work',async()=>{const id=await makePending();await expect(action(student,'validate_experience',{experience_id:id,decision:'approve',rating:5,verified_hours:16,comment:'Fake approval'})).rejects.toThrow();await expect(action(student,'update_experience',{...fixture,id})).rejects.toThrow();await expect(action(student,'add_evidence',{experience_id:id,title:'Tamper',url:'https://example.com',kind:'url'})).rejects.toThrow();});
- it('rejects cross-organization reviewers and private reads',async()=>{await db.query("insert into organizations(id,name,type) values('20000000-0000-4000-8000-000000000099','Other company','company')");await action(admin,'set_member',{user_id:'10000000-0000-4000-8000-000000000099',organization_id:'20000000-0000-4000-8000-000000000099',role:'supervisor'});const id=await makePending();await expect(action('10000000-0000-4000-8000-000000000099','validate_experience',{experience_id:id,decision:'approve',rating:4,verified_hours:16,comment:'Other company'})).rejects.toThrow();expect((await snapshot('10000000-0000-4000-8000-000000000099')).evidence).toHaveLength(0);});
- it('atomically creates approval, skill levels, credential and audit; rejects repeat approval',async()=>{const id=await makePending();await expect(action(supervisor,'validate_experience',{experience_id:id,decision:'approve',rating:4,verified_hours:17,comment:'Too many hours'})).rejects.toThrow();const result=await action(supervisor,'validate_experience',{experience_id:id,decision:'approve',rating:4,verified_hours:12,comment:'Evidence reviewed'});const s=await snapshot();expect(s.experiences.find(e=>e.id===id)?.status).toBe('verified');expect(Number(s.experiences.find(e=>e.id===id)?.verified_hours)).toBe(12);expect(s.credentials.find(c=>c.id===result.id)?.status).toBe('active');expect(s.credential_skills.some(c=>c.credential_id===result.id&&c.level===4)).toBe(true);expect(s.activity_events.some(a=>a.action==='credential_created'&&a.entity_id===result.id)).toBe(true);await expect(action(supervisor,'validate_experience',{experience_id:id,decision:'approve',rating:4,verified_hours:12,comment:'Duplicate'})).rejects.toThrow();});
- it('supports changes, correction, resubmission and rejection without verified hours',async()=>{const id=await makePending();await action(supervisor,'validate_experience',{experience_id:id,decision:'request_changes',rating:2,verified_hours:0,comment:'Improve supporting evidence'});await action(student,'update_experience',{...fixture,id,title:'Experiencia corregida'});await action(student,'request_validation',{experience_id:id});await action(supervisor,'validate_experience',{experience_id:id,decision:'reject',rating:1,verified_hours:0,comment:'Insufficient evidence'});const s=await snapshot();expect(s.experiences.find(e=>e.id===id)?.status).toBe('rejected');expect(Number(s.experiences.find(e=>e.id===id)?.verified_hours)).toBe(0);expect(s.credentials.some(c=>c.experience_id===id)).toBe(false);});
- it('returns a minimal public record without emails, comments, private evidence, or audit',async()=>{const data=(await sql<{r:Snapshot}>(null,"select nexus_public_skillpass('ana-martinez-demo') as r"))[0].r;expect(data.profile.full_name).toBe('Ana Martínez');expect(data.evidence.some(e=>e.is_public===false)).toBe(false);expect(data.activity_events).toEqual([]);expect(data.validation_requests).toEqual([]);expect(JSON.stringify(data)).not.toContain('private-notes');expect(data.validations.every(v=>!v.comment)).toBe(true);expect(data.experiences.every(e=>['verified','revoked'].includes(String(e.status)))).toBe(true);});
- it('honors withdrawal of public consent immediately',async()=>{await action(student,'update_profile',{full_name:'Ana Martínez',is_public:false});expect((await sql<{r:unknown}>(null,"select nexus_public_credential('60000000-0000-4000-8000-000000000001') as r"))[0].r).toBeNull();await action(student,'update_profile',{full_name:'Ana Martínez',is_public:true});});
- it('revokes publicly and removes hours and skills from current claims',async()=>{const credential='60000000-0000-4000-8000-000000000001';await action(admin,'revoke_credential',{credential_id:credential,reason:'Fixture revoke test'});const publicData=(await sql<{r:Snapshot}>(null,'select nexus_public_credential($1::uuid) as r',[credential]))[0].r;expect(publicData.credential?.status).toBe('revoked');expect(publicData.experiences.find(e=>e.id==='50000000-0000-4000-8000-000000000001')?.status).toBe('revoked');const skills=await sql<{skill_id:string}>(student,'select * from student_skills');expect(skills.every(s=>s.skill_id===skill)).toBe(true);});
- it('institution can observe assigned students but not private evidence or reviews',async()=>{const s=await snapshot(DEMO_USERS.university);expect(s.experiences.length).toBeGreaterThan(0);expect(s.evidence).toHaveLength(0);expect(s.validations).toHaveLength(0);await expect(action(DEMO_USERS.university,'validate_experience',{experience_id:'50000000-0000-4000-8000-000000000001',decision:'approve',rating:5,verified_hours:20,comment:'Not allowed'})).rejects.toThrow();});
- it('academic observers still cannot read private artifacts when assigned to the company',async()=>{await action(admin,'set_member',{user_id:DEMO_USERS.university,organization_id:org,role:'university'});const s=await snapshot(DEMO_USERS.university);expect(s.experiences.length).toBeGreaterThan(0);expect(s.evidence).toHaveLength(0);expect(s.validations).toHaveLength(0);expect(s.validation_requests).toHaveLength(0);expect(s.activity_events.every(e=>e.actor_id===DEMO_USERS.university||e.subject_id===DEMO_USERS.university)).toBe(true);});
- it('returns null for unknown public UUIDs',async()=>{expect((await sql<{r:unknown}>(null,"select nexus_public_credential('00000000-0000-4000-8000-000000000001') as r"))[0].r).toBeNull();});
+import type { PGlite } from '@electric-sql/pglite';
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { CHALLENGE, COMP, ORGS, USERS, createDatabase, rpc, sql } from './helpers/pg';
+
+type Row = Record<string, unknown>;
+type Json = Record<string, any>; // eslint-disable-line @typescript-eslint/no-explicit-any
+
+let db: PGlite;
+const APP_TABLES = 24;
+
+const challengeInput = (overrides: Json = {}) => ({
+  organization_id: ORGS.nova,
+  title: 'Quality Inspection Digital Checklist',
+  summary: 'Digitalizar la lista de verificación de calidad.',
+  description: 'Reto de prueba automatizada.',
+  problem: 'Las inspecciones se registran en papel y se pierden.',
+  objective: 'Entregar un prototipo de checklist digital validado en planta.',
+  industry: 'manufacturing',
+  tags: ['manufacturing', 'software'],
+  target_careers: ['Sistemas'],
+  modality: 'hybrid',
+  location: 'Aguascalientes, Ags.',
+  duration_weeks: 4,
+  start_date: '2026-09-01',
+  end_date: '2026-12-15',
+  max_participants: 2,
+  estimated_vath: 40,
+  supervisor_id: USERS.carlos,
+  conditions: 'Visitas a planta acordadas.',
+  compensation_type: 'stipend',
+  compensation_details: 'Apoyo económico de prueba.',
+  ip_policy: 'shared',
+  ip_details: 'Acuerdo de prueba.',
+  confidentiality: 'public',
+  publication_policy: 'public_allowed',
+  competencies: [{ competency_id: COMP(5), required_level: 3 }, { competency_id: COMP(20), required_level: 3 }],
+  deliverables: [{ title: 'Prototipo de checklist', description: 'Versión funcional', due_date: '2026-11-30' }],
+  ...overrides,
+});
+
+const expectError = async (promise: Promise<unknown>, pattern: RegExp) => {
+  await expect(promise).rejects.toThrow(pattern);
+};
+
+beforeAll(async () => {
+  db = await createDatabase({
+    extraSql: 'create table public.unrelated_app(value text); grant select on public.unrelated_app to anon;'
+      + ' alter default privileges in schema public grant all on tables to anon, authenticated;'
+      + ' alter default privileges in schema public grant execute on functions to anon, authenticated;',
+  });
+});
+afterAll(async () => { await db?.close(); });
+
+describe('schema, grants and RLS baseline', () => {
+  it('enables RLS on every application table', async () => {
+    const rows = await db.query<{ relname: string; relrowsecurity: boolean }>(
+      "select relname, relrowsecurity from pg_class c join pg_namespace n on n.oid = c.relnamespace where n.nspname = 'public' and c.relkind = 'r' and relname <> 'unrelated_app'");
+    expect(rows.rows).toHaveLength(APP_TABLES);
+    expect(rows.rows.filter((r) => !r.relrowsecurity)).toEqual([]);
+  });
+
+  it('never grants direct write privileges to API roles, even with Supabase-style default privileges', async () => {
+    const rows = await db.query<Row>(
+      "select table_name, privilege_type, grantee from information_schema.role_table_grants where table_schema = 'public' and table_name <> 'unrelated_app' and grantee in ('anon','authenticated') and privilege_type <> 'SELECT'");
+    expect(rows.rows).toEqual([]);
+    const anon = await db.query<Row>(
+      "select table_name from information_schema.role_table_grants where table_schema = 'public' and table_name <> 'unrelated_app' and grantee = 'anon'");
+    expect(anon.rows).toEqual([]);
+  });
+
+  it('keeps unrelated tables untouched and exposes only the public verification functions to anon', async () => {
+    await expect(sql(db, null, 'select * from public.unrelated_app')).resolves.toEqual([]);
+    const fns = await db.query<{ proname: string }>(
+      "select p.proname from pg_proc p join pg_namespace n on n.oid = p.pronamespace where n.nspname = 'public' and p.proname like 'sp\\_%' and has_function_privilege('anon', p.oid, 'execute') order by 1");
+    expect(fns.rows.map((r) => r.proname)).toEqual(['sp_is_public_evidence_object', 'sp_public_credential', 'sp_public_evidence_file', 'sp_public_skillpass']);
+  });
+
+  it('blocks anonymous table reads and private RPCs', async () => {
+    await expectError(sql(db, null, 'select * from public.profiles'), /permission denied/);
+    await expectError(sql(db, null, 'select * from public.evidence'), /permission denied/);
+    await expectError(rpc(db, null, 'sp_me'), /permission denied/);
+    await expectError(rpc(db, null, 'sp_save_challenge', challengeInput()), /permission denied/);
+  });
+
+  it('rejects direct writes from signed-in users (mutations must use RPCs)', async () => {
+    for (const q of [
+      "update public.profiles set role = 'admin'",
+      "update public.vath_entries set status = 'verified', verified_hours = submitted_hours",
+      "insert into public.credentials(code) values ('SKP-2026-AAAA-BBBB')",
+      'delete from public.audit_logs',
+      "insert into public.competency_assessments(level) values (5)",
+    ]) {
+      await expectError(sql(db, USERS.maria, q), /permission denied/);
+    }
+  });
+});
+
+describe('account creation and roles', () => {
+  it('never grants privileged roles from sign-up metadata', async () => {
+    await db.query("insert into auth.users(id, email, raw_user_meta_data) values ('10000000-0000-4000-8000-000000000099', 'hostile@test.invalid', '{\"full_name\":\"Hostile\",\"account_type\":\"admin\"}')");
+    const [p] = (await db.query<Row>("select role, onboarding_completed from public.profiles where id = '10000000-0000-4000-8000-000000000099'")).rows;
+    expect(p).toEqual({ role: 'student', onboarding_completed: false });
+  });
+
+  it('grants supervisor only through an invitation from the organization', async () => {
+    await expectError(rpc(db, USERS.maria, 'sp_invite_member', { organization_id: ORGS.nova, email: 'nuevo.supervisor@test.invalid', member_role: 'supervisor' }), /forbidden/);
+    const result = await rpc<Json>(db, USERS.laura, 'sp_invite_member', { organization_id: ORGS.nova, email: 'nuevo.supervisor@test.invalid', member_role: 'supervisor' });
+    expect(result.status).toBe('invited');
+    await db.query("insert into auth.users(id, email, raw_user_meta_data) values ('10000000-0000-4000-8000-000000000098', 'nuevo.supervisor@test.invalid', '{\"full_name\":\"Nuevo Supervisor\",\"account_type\":\"student\"}')");
+    const [p] = (await db.query<Row>("select p.role, m.member_role from public.profiles p join public.organization_members m on m.user_id = p.id where p.id = '10000000-0000-4000-8000-000000000098'")).rows;
+    expect(p).toEqual({ role: 'supervisor', member_role: 'supervisor' });
+  });
+
+  it('does not let a user change their own role through profile updates', async () => {
+    const hostile = '10000000-0000-4000-8000-000000000099';
+    await rpc(db, hostile, 'sp_update_profile', { full_name: 'Hostile', role: 'admin', skill_ids: [COMP(1)] });
+    const me = await rpc<Json>(db, hostile, 'sp_me');
+    expect(me.profile.role).toBe('student');
+    await expectError(rpc(db, hostile, 'sp_admin_set_user_role', { user_id: hostile, role: 'company' }), /admin_only/);
+  });
+});
+
+describe('core workflow — acceptance flows 01 to 10', () => {
+  let challengeId = '';
+  let applicationId = '';
+  let evidenceId = '';
+  let vathId = '';
+  let requestId = '';
+  let credentialCode = '';
+
+  it('FLOW 01 · a company creates and publishes a challenge that persists', async () => {
+    const created = await rpc<Json>(db, USERS.laura, 'sp_save_challenge', challengeInput());
+    challengeId = created.id;
+    const published = await rpc<Json>(db, USERS.laura, 'sp_set_challenge_status', { challenge_id: challengeId, status: 'recruiting' });
+    expect(published.status).toBe('recruiting');
+    const detail = await rpc<Json>(db, USERS.valeria, 'sp_challenge', { id: challengeId });
+    expect(detail.challenge.title).toBe('Quality Inspection Digital Checklist');
+    expect(detail.competencies).toHaveLength(2);
+    expect(detail.deliverables).toHaveLength(1);
+    expect(detail.challenge.compensation_type).toBe('stipend');
+  });
+
+  it('FLOW 01 · enforces company authorization, verification and the fair-work guardrail', async () => {
+    await expectError(rpc(db, USERS.maria, 'sp_save_challenge', challengeInput()), /forbidden/);
+    await expectError(rpc(db, USERS.mariana, 'sp_save_challenge', challengeInput({ id: challengeId })), /forbidden/);
+    await expectError(rpc(db, USERS.carlos, 'sp_save_challenge', challengeInput({ id: challengeId })), /forbidden/);
+    await expectError(rpc(db, USERS.laura, 'sp_save_challenge', challengeInput({ compensation_type: 'none', estimated_vath: 120 })), /fair_work_unpaid_limit/);
+    const pending = await rpc<Json>(db, USERS.ruben, 'sp_save_challenge', challengeInput({ organization_id: ORGS.agroPending, supervisor_id: null }));
+    await expectError(rpc(db, USERS.ruben, 'sp_set_challenge_status', { challenge_id: pending.id, status: 'recruiting' }), /organization_not_verified/);
+    await expectError(rpc(db, USERS.laura, 'sp_set_challenge_status', { challenge_id: challengeId, status: 'completed' }), /invalid_transition/);
+    const draft = await rpc<Json>(db, USERS.valeria, 'sp_challenge', { id: pending.id });
+    expect(draft).toBeNull();
+  });
+
+  it('FLOW 02 · a student applies with a transparent Skills Match and is assigned', async () => {
+    const applied = await rpc<Json>(db, USERS.valeria, 'sp_apply', { challenge_id: challengeId, motivation: 'Quiero digitalizar procesos de calidad en planta con datos reales.' });
+    applicationId = applied.id;
+    expect(applied.match_score).toBeGreaterThanOrEqual(0);
+    await expectError(rpc(db, USERS.valeria, 'sp_apply', { challenge_id: challengeId, motivation: 'Segundo intento de aplicación repetida.' }), /already_applied/);
+    await expectError(rpc(db, USERS.laura, 'sp_apply', { challenge_id: challengeId, motivation: 'Una empresa no puede aplicar a retos.' }), /students_only/);
+
+    const asCompany = await rpc<Json>(db, USERS.laura, 'sp_challenge', { id: challengeId });
+    const app = asCompany.applications.find((a: Json) => a.id === applicationId);
+    expect(app.match.score).toBe(app.score);
+    expect(app.match.skills + app.match.interests + app.match.career + app.match.availability).toBeCloseTo(app.score, -0.5);
+
+    await expectError(rpc(db, USERS.hector, 'sp_decide_application', { application_id: applicationId, decision: 'accept' }), /forbidden/);
+    await expectError(rpc(db, USERS.valeria, 'sp_decide_application', { application_id: applicationId, decision: 'accept' }), /forbidden/);
+    const decided = await rpc<Json>(db, USERS.laura, 'sp_decide_application', { application_id: applicationId, decision: 'accept', note: 'Bienvenida al reto.' });
+    expect(decided.status).toBe('accepted');
+
+    const workspace = await rpc<Json>(db, USERS.valeria, 'sp_workspace', { challenge_id: challengeId });
+    expect(workspace.role_view).toBe('participant');
+    expect(workspace.my_assignment.status).toBe('active');
+    const outsider = await rpc<Json>(db, USERS.andres, 'sp_workspace', { challenge_id: challengeId });
+    expect(outsider).toEqual({ forbidden: true });
+  });
+
+  it('FLOW 02 · records the decision history', async () => {
+    const detail = await rpc<Json>(db, USERS.laura, 'sp_challenge', { id: challengeId });
+    const actions = detail.decision_history.map((h: Json) => h.action);
+    expect(actions).toContain('application_decided');
+    const decision = detail.decision_history.find((h: Json) => h.action === 'application_decided');
+    expect(decision.before.status).toBe('submitted');
+    expect(decision.after.status).toBe('accepted');
+  });
+
+  it('FLOW 03 · evidence is attached to the challenge and assignment', async () => {
+    const link = await rpc<Json>(db, USERS.valeria, 'sp_add_evidence', {
+      challenge_id: challengeId, title: 'Prototipo del checklist', description: 'Enlace al prototipo', kind: 'link',
+      url: 'https://example.com/checklist', competency_ids: [COMP(5)],
+    });
+    evidenceId = link.id;
+    const file = await rpc<Json>(db, USERS.valeria, 'sp_add_evidence', {
+      challenge_id: challengeId, title: 'Reporte de pruebas', kind: 'pdf', storage_path: `${USERS.valeria}/${challengeId}/abc123-reporte.pdf`,
+      file_name: 'reporte.pdf', mime_type: 'application/pdf', size_bytes: 2048,
+    });
+    expect(file.id).toBeTruthy();
+    const [row] = await sql<Row>(db, USERS.valeria, 'select challenge_id, status, student_id from public.evidence where id = $1', [evidenceId]);
+    expect(row).toEqual({ challenge_id: challengeId, status: 'draft', student_id: USERS.valeria });
+
+    await expectError(rpc(db, USERS.valeria, 'sp_add_evidence', { challenge_id: challengeId, title: 'Ruta ajena', kind: 'pdf',
+      storage_path: `${USERS.maria}/${challengeId}/x.pdf`, file_name: 'x.pdf', mime_type: 'application/pdf', size_bytes: 10 }), /invalid_field/);
+    await expectError(rpc(db, USERS.valeria, 'sp_add_evidence', { challenge_id: challengeId, title: 'Ejecutable', kind: 'file',
+      storage_path: `${USERS.valeria}/${challengeId}/x.exe`, file_name: 'x.exe', mime_type: 'application/x-msdownload', size_bytes: 10 }), /invalid_file_type/);
+    await expectError(rpc(db, USERS.valeria, 'sp_add_evidence', { challenge_id: challengeId, title: 'Inseguro', kind: 'link', url: 'http://example.com' }), /invalid_field/);
+    await expectError(rpc(db, USERS.andres, 'sp_add_evidence', { challenge_id: challengeId, title: 'Intruso', kind: 'link', url: 'https://example.com' }), /not_assigned/);
+  });
+
+  it('FLOW 03 · drafts stay private to their author', async () => {
+    const reviewerView = await sql<Row>(db, USERS.carlos, 'select id from public.evidence where id = $1', [evidenceId]);
+    expect(reviewerView).toEqual([]);
+  });
+
+  it('FLOW 04 · VATH entries validate hours, dates, duplicates and evidence', async () => {
+    const base = { challenge_id: challengeId, activity_date: '2026-09-20', activity: 'Diseño del checklist', description: 'Diseño de los campos de inspección con el equipo de calidad.', hours: 6, evidence_ids: [evidenceId] };
+    await expectError(rpc(db, USERS.valeria, 'sp_save_vath', { ...base, hours: -2 }), /invalid_field/);
+    await expectError(rpc(db, USERS.valeria, 'sp_save_vath', { ...base, hours: 0 }), /invalid_field/);
+    await expectError(rpc(db, USERS.valeria, 'sp_save_vath', { ...base, hours: 20 }), /invalid_field/);
+    await expectError(rpc(db, USERS.valeria, 'sp_save_vath', { ...base, activity_date: '2099-01-01' }), /vath_future_date/);
+    const saved = await rpc<Json>(db, USERS.valeria, 'sp_save_vath', base);
+    vathId = saved.id;
+    await expectError(rpc(db, USERS.valeria, 'sp_save_vath', base), /vath_duplicate/);
+    await expectError(rpc(db, USERS.valeria, 'sp_save_vath', { ...base, activity: 'Otra actividad del mismo día', hours: 11 }), /vath_daily_limit/);
+    const noEvidence = await rpc<Json>(db, USERS.valeria, 'sp_save_vath', { ...base, activity_date: '2026-09-21', activity: 'Pruebas sin evidencia', evidence_ids: [] });
+    await expectError(rpc(db, USERS.valeria, 'sp_submit_for_validation', { challenge_id: challengeId }), /vath_requires_evidence/);
+    await rpc(db, USERS.valeria, 'sp_delete_vath', { id: noEvidence.id });
+  });
+
+  it('FLOW 04 · submitted hours stay pending validation with submitted and verified hours separated', async () => {
+    const submitted = await rpc<Json>(db, USERS.valeria, 'sp_submit_for_validation', { challenge_id: challengeId, note: 'Primera entrega.' });
+    requestId = submitted.request_id;
+    expect(submitted.vath_count).toBe(1);
+    expect(submitted.evidence_count).toBe(2);
+    const [entry] = await sql<Row>(db, USERS.valeria, 'select status, submitted_hours::float8 as submitted, verified_hours from public.vath_entries where id = $1', [vathId]);
+    expect(entry).toEqual({ status: 'submitted', submitted: 6, verified_hours: null });
+    await expectError(rpc(db, USERS.valeria, 'sp_save_vath', { id: vathId, challenge_id: challengeId, activity_date: '2026-09-20', activity: 'Cambio tardío', description: 'Intento de editar horas enviadas.', hours: 12 }), /vath_locked/);
+  });
+
+  it('FLOW 05 · the supervisor can review hours and evidence; other organizations cannot', async () => {
+    const queue = await rpc<Json>(db, USERS.carlos, 'sp_validation_queue');
+    expect(queue.pending.map((r: Json) => r.id)).toContain(requestId);
+    const detail = await rpc<Json>(db, USERS.carlos, 'sp_validation', { id: requestId });
+    expect(detail.can_decide).toBe(true);
+    expect(detail.vath).toHaveLength(1);
+    expect(detail.evidence.length).toBeGreaterThanOrEqual(2);
+    expect(detail.student.full_name).toBe('Valeria Núñez');
+
+    expect(await rpc(db, USERS.hector, 'sp_validation', { id: requestId })).toBeNull();
+    expect(await rpc(db, USERS.elena, 'sp_validation', { id: requestId })).toBeNull();
+    await expectError(rpc(db, USERS.hector, 'sp_complete_validation', { request_id: requestId }), /forbidden/);
+    await expectError(rpc(db, USERS.elena, 'sp_complete_validation', { request_id: requestId }), /forbidden/);
+    await expectError(rpc(db, USERS.valeria, 'sp_complete_validation', { request_id: requestId }), /forbidden/);
+  });
+
+  it('FLOW 06 · validation requires justified adjustments and stores verified hours, rubric and audit trail', async () => {
+    const detail = await rpc<Json>(db, USERS.carlos, 'sp_validation', { id: requestId });
+    const evidence = detail.evidence.filter((e: Json) => e.in_request).map((e: Json) => ({ id: e.id, decision: 'approve' }));
+    const competencies = [{ competency_id: COMP(5), level: 4, comment: 'Automatización bien resuelta.' }, { competency_id: COMP(20), level: 2 }];
+
+    await expectError(rpc(db, USERS.carlos, 'sp_complete_validation', { request_id: requestId, vath: [], evidence, competencies }), /missing_decision/);
+    await expectError(rpc(db, USERS.carlos, 'sp_complete_validation', { request_id: requestId, vath: [{ id: vathId, decision: 'adjust', verified_hours: 5 }], evidence, competencies }), /comment_required/);
+    await expectError(rpc(db, USERS.carlos, 'sp_complete_validation', { request_id: requestId, vath: [{ id: vathId, decision: 'adjust', verified_hours: 7, comment: 'Más horas que las declaradas.' }], evidence, competencies }), /adjust_must_reduce/);
+    await expectError(rpc(db, USERS.carlos, 'sp_complete_validation', { request_id: requestId, vath: [{ id: vathId, decision: 'verify' }], evidence, competencies: [{ competency_id: COMP(9), level: 4 }] }), /invalid_field/);
+
+    const result = await rpc<Json>(db, USERS.carlos, 'sp_complete_validation', {
+      request_id: requestId,
+      vath: [{ id: vathId, decision: 'adjust', verified_hours: 5, comment: 'Se reconocen 5 h según la minuta de la sesión.' }],
+      evidence, competencies, summary_comment: 'Buen trabajo.', issue_credential: true,
+    });
+    expect(result.outcome).toBe('approved');
+    expect(Number(result.verified_hours)).toBe(5);
+    credentialCode = result.credential_code;
+    expect(credentialCode).toMatch(/^SKP-\d{4}-[A-F0-9]{4}-[A-F0-9]{4}$/);
+
+    const [entry] = await sql<Row>(db, USERS.valeria, 'select status, submitted_hours::float8 as submitted, verified_hours::float8 as verified, validated_by from public.vath_entries where id = $1', [vathId]);
+    expect(entry).toEqual({ status: 'adjusted', submitted: 6, verified: 5, validated_by: USERS.carlos });
+    const decisions = await sql<Row>(db, USERS.valeria, "select item_type, decision, previous_value, new_value, decided_by from public.validation_decisions where request_id = $1 and item_type = 'vath'", [requestId]);
+    expect(decisions).toEqual([{ item_type: 'vath', decision: 'adjusted', previous_value: { status: 'submitted', submitted_hours: 6 }, new_value: { status: 'adjusted', verified_hours: 5 }, decided_by: USERS.carlos }]);
+    const assessments = await sql<Row>(db, USERS.valeria, 'select competency_id, level, assessor_id from public.competency_assessments where request_id = $1 order by level desc', [requestId]);
+    expect(assessments).toHaveLength(2);
+    await expectError(rpc(db, USERS.carlos, 'sp_complete_validation', { request_id: requestId }), /request_closed/);
+  });
+
+  it('FLOW 07 · SkillPass shows the verified project, VATH and only competencies assessed at level 3+', async () => {
+    const pass = await rpc<Json>(db, USERS.valeria, 'sp_skillpass_me');
+    const credential = pass.credentials.find((c: Json) => c.code === credentialCode);
+    expect(credential.challenge_title).toBe('Quality Inspection Digital Checklist');
+    expect(Number(credential.verified_hours)).toBe(5);
+    expect(credential.competencies.map((c: Json) => c.slug)).toEqual(['process-automation']);
+    expect(pass.verified_competencies.map((c: Json) => c.slug)).toContain('process-automation');
+    expect(pass.verified_competencies.map((c: Json) => c.slug)).not.toContain('problem-solving');
+    expect(pass.developing.map((c: Json) => c.slug)).toContain('problem-solving');
+    expect(Number(pass.totals.credentialed_vath)).toBe(26 + 5);
+  });
+
+  it('FLOW 08 · anyone can verify the credential without signing in; private data stays out', async () => {
+    const pub = await rpc<Json>(db, null, 'sp_public_credential', { code: credentialCode.toLowerCase() });
+    expect(pub.verification.status).toBe('valid');
+    expect(pub.holder.full_name).toBe('Valeria Núñez');
+    expect(pub.credential.organization_name).toBe('Nova Manufacturing (DEMO)');
+    const serialized = JSON.stringify(pub);
+    expect(serialized).not.toMatch(/@|storage_path|review_comment|validation_comment|motivation/);
+    expect(await rpc(db, null, 'sp_public_credential', { code: 'SKP-2026-0000-0000' })).toBeNull();
+    expect(await rpc(db, null, 'sp_public_credential', { code: "' or 1=1 --" })).toBeNull();
+  });
+
+  it('FLOW 08 · the holder controls publication of the SkillPass and of each credential', async () => {
+    const pass = await rpc<Json>(db, null, 'sp_public_skillpass', { slug: 'valeria-nunez-demo' });
+    expect(pass.credentials.map((c: Json) => c.code)).toContain(credentialCode);
+    await rpc(db, USERS.valeria, 'sp_update_privacy', { skillpass_public: false });
+    expect(await rpc(db, null, 'sp_public_skillpass', { slug: 'valeria-nunez-demo' })).toBeNull();
+    const own = await rpc<Json>(db, USERS.valeria, 'sp_skillpass_me');
+    const credId = own.credentials.find((c: Json) => c.code === credentialCode).id;
+    await rpc(db, USERS.valeria, 'sp_set_credential_verification', { credential_id: credId, enabled: false });
+    expect(await rpc(db, null, 'sp_public_credential', { code: credentialCode })).toBeNull();
+    await rpc(db, USERS.valeria, 'sp_set_credential_verification', { credential_id: credId, enabled: true });
+    await rpc(db, USERS.valeria, 'sp_update_privacy', { skillpass_public: true });
+    await expectError(rpc(db, USERS.maria, 'sp_set_credential_verification', { credential_id: credId, enabled: false }), /forbidden/);
+  });
+
+  it('FLOW 08 · public pages list only evidence the student published and the challenge allows', async () => {
+    const pub = await rpc<Json>(db, null, 'sp_public_credential', { code: 'SKP-2026-4A7C-91D2' });
+    expect(pub.credential.confidential).toBe(false);
+    expect(pub.credential.public_evidence.map((e: Json) => e.title)).toEqual(['Tablero de inventario (captura)']);
+    const file = await rpc<Json>(db, null, 'sp_public_evidence_file', { evidence_id: '60000000-0000-4000-8000-000000000005' });
+    expect(file.storage_path).toContain('dashboard-inventario.png');
+    expect(await rpc(db, null, 'sp_public_evidence_file', { evidence_id: '60000000-0000-4000-8000-000000000006' })).toBeNull();
+  });
+
+  it('FLOW 10 · university analytics aggregate real records for their own students only', async () => {
+    const before = await rpc<Json>(db, USERS.elena, 'sp_university_dashboard');
+    expect(before.stats.completed_projects).toBe(5); // 4 seeded + Valeria's new credential
+    expect(Number(before.stats.verified_vath)).toBe(112 + 5);
+    expect(before.students.map((s: Json) => s.full_name)).not.toContain('Camila Ortiz');
+    const other = await rpc<Json>(db, USERS.luis, 'sp_university_dashboard');
+    expect(other.students.map((s: Json) => s.full_name).sort()).toEqual(['Camila Ortiz', 'Ricardo Peña']);
+    expect(await rpc<Json>(db, USERS.maria, 'sp_university_dashboard')).toEqual({ organization: null });
+  });
+
+  it('revocation is admin-only, final, and removes the credential from public totals', async () => {
+    const own = await rpc<Json>(db, USERS.valeria, 'sp_skillpass_me');
+    const credId = own.credentials.find((c: Json) => c.code === credentialCode).id;
+    await expectError(rpc(db, USERS.laura, 'sp_revoke_credential', { credential_id: credId, reason: 'Intento de empresa.' }), /admin_only/);
+    await rpc(db, USERS.admin, 'sp_revoke_credential', { credential_id: credId, reason: 'Prueba automatizada de revocación.' });
+    const pub = await rpc<Json>(db, null, 'sp_public_credential', { code: credentialCode });
+    expect(pub.verification.status).toBe('revoked');
+    const pass = await rpc<Json>(db, null, 'sp_public_skillpass', { slug: 'valeria-nunez-demo' });
+    expect(pass.credentials.map((c: Json) => c.code)).not.toContain(credentialCode);
+    await expectError(rpc(db, USERS.admin, 'sp_revoke_credential', { credential_id: credId, reason: 'Segunda revocación.' }), /credential_not_active/);
+  });
+});
+
+describe('row level security isolation', () => {
+  it('reviewers of another company cannot read Nova records', async () => {
+    const vath = await sql<Row>(db, USERS.hector, "select id from public.vath_entries where challenge_id = $1", [CHALLENGE(1)]);
+    const evidence = await sql<Row>(db, USERS.hector, "select id from public.evidence where challenge_id = $1", [CHALLENGE(1)]);
+    const applications = await sql<Row>(db, USERS.hector, "select id from public.applications where challenge_id = $1", [CHALLENGE(3)]);
+    expect([vath, evidence, applications]).toEqual([[], [], []]);
+  });
+
+  it('teammates share the workspace but never each other\'s hours', async () => {
+    const hours = await sql<Row>(db, USERS.maria, 'select student_id from public.vath_entries where challenge_id = $1', [CHALLENGE(1)]);
+    expect(new Set(hours.map((h) => h.student_id))).toEqual(new Set([USERS.maria]));
+    const tasks = await sql<Row>(db, USERS.maria, 'select id from public.tasks where challenge_id = $1', [CHALLENGE(1)]);
+    expect(tasks.length).toBeGreaterThan(0);
+    const teammateEvidence = await sql<Row>(db, USERS.maria, "select status from public.evidence where student_id = $1", [USERS.diego]);
+    expect(teammateEvidence.every((e) => e.status !== 'draft')).toBe(true);
+  });
+
+  it('university staff never read evidence content or VATH rows directly', async () => {
+    expect(await sql<Row>(db, USERS.elena, 'select id from public.evidence')).toEqual([]);
+    expect(await sql<Row>(db, USERS.elena, 'select id from public.vath_entries')).toEqual([]);
+    const students = await sql<Row>(db, USERS.elena, "select id from public.profiles where role = 'student'");
+    expect(students.length).toBe(6);
+  });
+
+  it('a student only sees their own notifications, applications and credentials', async () => {
+    const notifications = await sql<Row>(db, USERS.maria, 'select distinct user_id from public.notifications');
+    expect(notifications.map((n) => n.user_id)).toEqual([USERS.maria]);
+    const apps = await sql<Row>(db, USERS.maria, 'select distinct student_id from public.applications');
+    expect(apps.map((a) => a.student_id)).toEqual([USERS.maria]);
+    const creds = await sql<Row>(db, USERS.maria, 'select distinct student_id from public.credentials');
+    expect(creds.map((c) => c.student_id)).toEqual([USERS.maria]);
+  });
+
+  it('Verified Talent lists only opted-in students and only for verified companies', async () => {
+    const talent = await rpc<Json>(db, USERS.laura, 'sp_talent');
+    const names = talent.items.map((t: Json) => t.full_name);
+    expect(names).not.toContain('Jorge Lozano'); // opted out
+    expect(names).toContain('María Torres');
+    const pending = await rpc<Json>(db, USERS.ruben, 'sp_talent');
+    expect(pending.allowed).toBe(false);
+    const asStudent = await rpc<Json>(db, USERS.maria, 'sp_talent');
+    expect(asStudent.items).toEqual([]);
+  });
+
+  it('admin can read across organizations; other roles get nothing from admin RPCs', async () => {
+    const overview = await rpc<Json>(db, USERS.admin, 'sp_admin_overview');
+    expect(overview.pending_organizations.map((o: Json) => o.name)).toContain('Agroindustrias del Centro (DEMO)');
+    expect(await rpc(db, USERS.laura, 'sp_admin_overview')).toBeNull();
+    expect(await rpc(db, USERS.laura, 'sp_admin_list', { entity: 'users' })).toBeNull();
+    const audit = await rpc<Json>(db, USERS.admin, 'sp_admin_list', { entity: 'audit' });
+    expect(audit.total).toBeGreaterThan(10);
+  });
+});
+
+describe('integrity guards', () => {
+  it('credential snapshots and lineage are immutable even for the database owner', async () => {
+    await expectError(db.query("update public.credentials set snapshot = '{}'::jsonb where code = 'SKP-2026-4A7C-91D2'"), /credential_immutable/);
+    await expectError(db.query("delete from public.credentials where code = 'SKP-2026-4A7C-91D2'"), /credential_immutable/);
+  });
+
+  it('decided VATH entries and audit records cannot be rewritten', async () => {
+    await expectError(db.query("update public.vath_entries set verified_hours = 8 where id = '61000000-0000-4000-8000-000000000002'"), /vath_immutable/);
+    await expectError(db.query('update public.audit_logs set action = action'), /append_only/);
+    await expectError(db.query('delete from public.validation_decisions'), /append_only/);
+  });
+
+  it('organization verification is controlled by AINDEV admin', async () => {
+    await expectError(rpc(db, USERS.ruben, 'sp_admin_set_org_status', { organization_id: ORGS.agroPending, status: 'verified' }), /admin_only/);
+    const result = await rpc<Json>(db, USERS.admin, 'sp_admin_set_org_status', { organization_id: ORGS.agroPending, status: 'verified' });
+    expect(result.status).toBe('verified');
+  });
 });

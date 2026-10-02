@@ -7,6 +7,20 @@
 --
 -- Skipped automatically where the storage schema does not exist (local PGlite DEMO).
 
+-- True only for files of evidence the student published, the challenge allows publishing,
+-- and whose credential is active and publicly verifiable. Lets anonymous visitors of a
+-- public SkillPass open those files without a service-role key in the application.
+create function public.sp_is_public_evidence_object(p_name text) returns boolean
+language sql stable security definer set search_path = public, pg_temp as $$
+  select exists(
+    select 1 from public.evidence e
+    join public.credentials cr on cr.assignment_id = e.assignment_id and cr.status = 'active' and cr.verification_enabled
+    where e.storage_path = p_name and e.is_public and e.status = 'approved'
+      and cr.snapshot->>'publication_policy' = 'public_allowed')
+$$;
+revoke all on function public.sp_is_public_evidence_object(text) from public, anon, authenticated;
+grant execute on function public.sp_is_public_evidence_object(text) to anon, authenticated;
+
 do $outer$
 begin
   if to_regclass('storage.objects') is null or to_regclass('storage.buckets') is null then
@@ -41,6 +55,12 @@ begin
     using (
       bucket_id = 'evidence'
       and exists(select 1 from public.evidence e where e.storage_path = name))
+  $p$;
+
+  -- Anonymous (and any signed-in) visitors may read files of explicitly public evidence.
+  execute $p$
+    create policy evidence_select_public on storage.objects for select to anon, authenticated
+    using (bucket_id = 'evidence' and public.sp_is_public_evidence_object(name))
   $p$;
 
   -- Owners may remove a file only while its evidence row is still a draft (or was never registered).
