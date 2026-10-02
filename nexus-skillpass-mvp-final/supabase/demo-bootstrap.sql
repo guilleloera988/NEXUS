@@ -1,5 +1,8 @@
--- DEMO ONLY. Never execute in an existing Supabase project.
--- PGlite has no Supabase Auth service; the server sets this claim per transaction.
+-- LOCAL DEMO / TESTS ONLY. Never execute in a Supabase project.
+-- PGlite has no Supabase Auth service. This file emulates the minimum surface the
+-- migrations rely on: the anon/authenticated roles, auth.users and auth.uid().
+-- The server sets request.jwt.claim.sub per transaction and switches role, so
+-- row level security is evaluated exactly as it would be for a Supabase JWT.
 create role anon nologin;
 create role authenticated nologin;
 create schema auth;
@@ -14,8 +17,3 @@ create function auth.uid() returns uuid language sql stable as $$
 $$;
 grant usage on schema auth to anon, authenticated;
 grant execute on function auth.uid() to anon, authenticated;
-insert into auth.users(id,email,raw_user_meta_data) values
-('10000000-0000-4000-8000-000000000001','student@demo.invalid','{"full_name":"Ana Martínez"}'),
-('10000000-0000-4000-8000-000000000002','supervisor@demo.invalid','{"full_name":"Supervisor Demo"}'),
-('10000000-0000-4000-8000-000000000003','university@demo.invalid','{"full_name":"Observatorio Demo"}'),
-('10000000-0000-4000-8000-000000000004','admin@demo.invalid','{"full_name":"Admin Demo"}');
