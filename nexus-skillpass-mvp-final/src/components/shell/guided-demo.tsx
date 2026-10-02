@@ -22,29 +22,34 @@ export function GuidedDemo({ persona }: { persona: DemoPersona | null }) {
   const router = useRouter();
   const pathname = usePathname();
   const search = useSearchParams();
-  const [step, setStep] = useState(0);
-  const [open, setOpen] = useState(false);
-  const [ready, setReady] = useState(false);
-  const [switching, setSwitching] = useState<DemoPersona | null>(null);
-  const formRef = useRef<HTMLFormElement>(null);
   const total = GUIDE_STEPS.length;
+  const start = search.get('guide') === '1';
+  // Rendered client-only (see guided-demo-loader), so localStorage is available during the first render.
+  const [step, setStep] = useState(() => {
+    if (start) return 0;
+    const saved = Number(read(GUIDE_STEP_KEY));
+    return Number.isFinite(saved) ? Math.min(Math.max(saved, 0), total - 1) : 0;
+  });
+  const [open, setOpen] = useState(() => start || read(GUIDE_OPEN_KEY) === '1');
+  const [switching, setSwitching] = useState<DemoPersona | null>(null);
+  const [seen, setSeen] = useState({ start, persona });
+  if (seen.start !== start || seen.persona !== persona) {
+    // Adjust state while rendering when the guide is restarted or a persona switch has landed.
+    setSeen({ start, persona });
+    if (start && !seen.start) { setStep(0); setOpen(true); }
+    if (persona !== seen.persona) setSwitching(null);
+  }
+  const formRef = useRef<HTMLFormElement>(null);
   const steps = t.demo.guided.steps;
 
   useEffect(() => {
-    const start = search.get('guide') === '1';
-    const savedStep = Number(read(GUIDE_STEP_KEY));
-    const nextStep = start ? 0 : Number.isFinite(savedStep) ? Math.min(Math.max(savedStep, 0), total - 1) : 0;
-    setStep(nextStep);
-    setOpen(start || read(GUIDE_OPEN_KEY) === '1');
-    if (start) {
-      store(GUIDE_STEP_KEY, '0');
-      store(GUIDE_OPEN_KEY, '1');
-      const params = new URLSearchParams(search.toString());
-      params.delete('guide');
-      router.replace(params.size ? `${pathname}?${params}` : pathname, { scroll: false });
-    }
-    setReady(true);
-  }, [search, pathname, router, total]);
+    if (!start) return;
+    store(GUIDE_STEP_KEY, '0');
+    store(GUIDE_OPEN_KEY, '1');
+    const params = new URLSearchParams(search.toString());
+    params.delete('guide');
+    router.replace(params.size ? `${pathname}?${params}` : pathname, { scroll: false });
+  }, [start, search, pathname, router]);
 
   function go(index: number) {
     const target = GUIDE_STEPS[index];
@@ -68,7 +73,6 @@ export function GuidedDemo({ persona }: { persona: DemoPersona | null }) {
     store(GUIDE_OPEN_KEY, value ? '1' : '0');
   }
 
-  if (!ready) return null;
   const current = steps[step];
   const here = GUIDE_STEPS[step].href.split('?')[0] === pathname;
 

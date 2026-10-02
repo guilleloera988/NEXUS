@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState, useSyncExternalStore, type ReactNode } from 'react';
 import { Check, Copy, Printer, X } from 'lucide-react';
 import { useI18n } from '@/lib/i18n/client';
 
@@ -32,9 +32,10 @@ export function PrintButton({ label, className = 'btn-outline btn-sm' }: { label
   );
 }
 
+const noopSubscribe = () => () => undefined;
+
 export function ShareButton({ url, title, label, className = 'btn-outline btn-sm' }: { url: string; title: string; label: string; className?: string }) {
-  const [supported, setSupported] = useState(false);
-  useEffect(() => { setSupported(typeof navigator !== 'undefined' && typeof navigator.share === 'function'); }, []);
+  const supported = useSyncExternalStore(noopSubscribe, () => typeof navigator.share === 'function', () => false);
   if (!supported) return <CopyButton value={url} label={label} className={className} />;
   return (
     <button type="button" className={className} onClick={() => navigator.share({ title, url }).catch(() => undefined)}>{label}</button>

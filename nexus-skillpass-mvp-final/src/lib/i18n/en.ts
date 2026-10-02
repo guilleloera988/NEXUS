@@ -78,6 +78,7 @@ const en: Messages = {
       file: 'File', image: 'Image', pdf: 'PDF', document: 'Document', presentation: 'Presentation', link: 'Link', repository: 'Repository', video: 'Video',
     },
     orgSize: { '1-10': '1–10 people', '11-50': '11–50 people', '51-200': '51–200 people', '201-1000': '201–1,000 people', '1000+': '1,000+ people' },
+    incidentCategory: { incorrect_data: 'Incorrect data', misconduct: 'Misconduct', privacy: 'Privacy', suspected_fraud: 'Suspected fraud', technical: 'Technical issue', other: 'Other' },
     memberRole: { owner: 'Owner', manager: 'Manager', supervisor: 'Supervisor', staff: 'Staff' },
   },
   rubric: {
@@ -256,6 +257,20 @@ const en: Messages = {
       total: '{n} records', revoke: 'Revoke', revokeReason: 'Revocation reason', revokeConfirm: 'Revoke credential', changeRole: 'Change role',
       saveCompetency: 'Save competency', newCompetency: 'New competency', updateIncident: 'Update', resolution: 'Resolution',
       byRole: 'by role', searchPlaceholder: 'Search…',
+      cols: {
+        user: 'User', role: 'Role', organization: 'Organization', kind: 'Type', members: 'Members', students: 'Students', challenge: 'Challenge',
+        student: 'Student', hours: 'Hours', submitted: 'Submitted', verified: 'Verified', outcome: 'Outcome', decisions: 'Decisions',
+        code: 'Code', issuedBy: 'Issued by', slug: 'Identifier', category: 'Category', active: 'Active', usage: 'Usage', reporter: 'Reported by',
+        entity: 'Entity', actor: 'Actor', subject: 'Subject', change: 'Change', match: 'Match', decidedBy: 'Decided by', validatedBy: 'Validated by',
+        onboarding: 'Profile complete', publicPass: 'Public SkillPass', applications: 'Applications', participants: 'Participants', version: 'Version', visibility: 'Visibility',
+      },
+      kinds: { company: 'Company', university: 'University', aindev: 'AINDEV' },
+      usageText: '{a} assessments · {c} challenges', noResults: 'No records for this filter.', protectedRole: 'Protected role', editCompetency: 'Edit competency',
+      nameEs: 'Name (Spanish)', nameEn: 'Name (English)', descriptionEs: 'Description (Spanish)', descriptionEn: 'Description (English)',
+      slugHelp: 'Lowercase letters, numbers and hyphens. Cannot be reused.', competencyActive: 'Available for new challenges',
+      revokeHelp: 'Revocation is immediate, is recorded in the audit log, and public verification will show the credential as revoked.',
+      revokedOn: 'Revoked on {date}: {reason}', publicStatus: 'Public verification', publicOn: 'On', publicOff: 'Turned off by the student',
+      pageInfo: 'Page {page} of {pages}', integrityNote: 'Validation decisions, assessments and the audit log are insert-only: they cannot be edited or deleted.',
     },
   },
   challenges: {
@@ -283,6 +298,7 @@ const en: Messages = {
       deliverableTitle: 'Deliverable', deliverableDescription: 'Description', dueDate: 'Due date', addDeliverable: 'Add deliverable',
     },
     fairWork: 'Fair work: unpaid challenges are limited to 60 estimated VATH. For larger scopes, declare a compensation.',
+    publishNow: 'Publish and open applications',
     saveDraft: 'Save draft', saveChanges: 'Save changes', created: 'Challenge saved.',
     lifecycle: 'Lifecycle', changeStatus: 'Change status', transitionTo: 'Move to: {status}',
     statusHelp: {
@@ -313,6 +329,7 @@ const en: Messages = {
     tabs: { overview: 'Overview', tasks: 'Tasks', evidence: 'Evidence', vath: 'VATH', team: 'Team', validation: 'Validation' },
     progress: 'Progress', milestones: 'Milestones (deliverables)', objective: 'Objective', supervisor: 'Supervisor', company: 'Company', dates: 'Dates',
     reviewerView: 'Supervisor view', reviewerHint: 'You are viewing this challenge as a reviewer. Validations are resolved in the validations inbox.',
+    actions: { task_created: 'created a task', task_status_changed: 'updated a task', evidence_added: 'added evidence', validation_requested: 'submitted work for validation', validation_completed: 'completed a validation', credential_issued: 'issued a credential', challenge_status_changed: 'changed the challenge status', application_decided: 'resolved an application' },
     goToValidations: 'Go to validations', activity: 'Recent activity', noActivity: 'No activity yet.',
     stats: { tasks: 'Tasks completed', verified: 'Verified VATH', pending: 'VATH in validation', draft: 'VATH in draft', deliverables: 'Deliverables with approved evidence' },
     tasks: {

@@ -6,7 +6,7 @@ import { fdAll, fdBool, fdString, runAction } from '@/lib/server/action';
 import { getMe, write } from '@/lib/server/backend';
 import { AppError } from '@/lib/server/errors';
 import {
-  inviteSchema, organizationOnboardingSchema, organizationSchema, privacySchema, staffProfileSchema, studentProfileSchema,
+  incidentSchema, inviteSchema, organizationOnboardingSchema, organizationSchema, privacySchema, staffProfileSchema, studentProfileSchema,
 } from '@/lib/schemas';
 
 const lines = (value: string) => value.split(/\r?\n|,/).map((v) => v.trim()).filter(Boolean);
@@ -107,7 +107,6 @@ export async function markNotificationsRead(fd: FormData) {
 }
 
 export async function reportIncident(_prev: ActionState, fd: FormData): Promise<ActionState> {
-  const { incidentSchema } = await import('@/lib/schemas');
   return runAction(async () => {
     await write('sp_report_incident', incidentSchema.parse({
       entity_type: fdString(fd, 'entity_type') || 'other', entity_id: fdString(fd, 'entity_id'), category: fdString(fd, 'category'), description: fdString(fd, 'description'),

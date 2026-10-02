@@ -5,7 +5,7 @@ import { exitDemo, switchPersona } from '@/actions/demo';
 import { DEMO_PERSONA_KEYS, personaForUser } from '@/lib/demo-personas';
 import { getMessages } from '@/lib/i18n/server';
 import type { Me } from '@/lib/types';
-import { GuidedDemo } from './guided-demo';
+import { GuidedDemoLoader } from './guided-demo-loader';
 import { LocaleSwitch } from './locale-switch';
 import { navFor } from './nav';
 import { MobileNav, Sidebar, UserMenu } from './shell-client';
@@ -83,7 +83,7 @@ export async function AppShell({ me, children }: { me: Me; children: ReactNode }
         </header>
         <main id="main" className="mx-auto max-w-7xl px-4 py-6 sm:px-6 sm:py-8">{children}</main>
       </div>
-      {isDemo && <GuidedDemo persona={persona} />}
+      {isDemo && <GuidedDemoLoader persona={persona} />}
     </div>
   );
 }

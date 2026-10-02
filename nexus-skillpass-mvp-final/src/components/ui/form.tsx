@@ -18,9 +18,9 @@ export function errorText(t: Messages, state: ActionState) {
 }
 
 /** Form bound to a Server Action with accessible success/error feedback. */
-export function ActionForm({ action, children, className = '', success, resetOnSuccess = false, onSuccess, encType, id }: {
+export function ActionForm({ action, children, className = '', success, resetOnSuccess = false, onSuccess, id }: {
   action: Action; children: ReactNode; className?: string; success?: string; resetOnSuccess?: boolean;
-  onSuccess?: (state: ActionState) => void; encType?: 'multipart/form-data'; id?: string;
+  onSuccess?: (state: ActionState) => void; id?: string;
 }) {
   const [state, formAction] = useActionState(action, IDLE);
   const { t } = useI18n();
@@ -35,7 +35,7 @@ export function ActionForm({ action, children, className = '', success, resetOnS
     }
   }, [state, resetOnSuccess, onSuccess]);
   return (
-    <form ref={ref} action={formAction} className={className} encType={encType} id={id} noValidate={false}>
+    <form ref={ref} action={formAction} className={className} id={id}>
       {children}
       <FormFeedback state={state} success={success} t={t} />
     </form>

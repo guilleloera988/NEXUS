@@ -77,7 +77,8 @@ export function MobileNav({ items, footer }: { items: NavItem[]; footer: React.R
   const { t } = useI18n();
   const [open, setOpen] = useState(false);
   const pathname = usePathname();
-  useEffect(() => { setOpen(false); }, [pathname]);
+  const [lastPath, setLastPath] = useState(pathname);
+  if (lastPath !== pathname) { setLastPath(pathname); setOpen(false); }
   return (
     <div className="lg:hidden">
       <button type="button" onClick={() => setOpen(true)} className="btn-ghost px-2.5" aria-label={t.nav.openMenu} aria-expanded={open} aria-controls="mobile-nav">

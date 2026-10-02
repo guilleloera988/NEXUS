@@ -77,6 +77,7 @@ const es = {
       file: 'Archivo', image: 'Imagen', pdf: 'PDF', document: 'Documento', presentation: 'Presentación', link: 'Enlace', repository: 'Repositorio', video: 'Video',
     },
     orgSize: { '1-10': '1–10 personas', '11-50': '11–50 personas', '51-200': '51–200 personas', '201-1000': '201–1,000 personas', '1000+': 'Más de 1,000 personas' },
+    incidentCategory: { incorrect_data: 'Datos incorrectos', misconduct: 'Conducta indebida', privacy: 'Privacidad', suspected_fraud: 'Sospecha de fraude', technical: 'Problema técnico', other: 'Otro' },
     memberRole: { owner: 'Responsable', manager: 'Gestor', supervisor: 'Supervisor', staff: 'Personal' },
   },
   rubric: {
@@ -255,6 +256,20 @@ const es = {
       total: '{n} registros', revoke: 'Revocar', revokeReason: 'Motivo de la revocación', revokeConfirm: 'Revocar credencial', changeRole: 'Cambiar rol',
       saveCompetency: 'Guardar competencia', newCompetency: 'Nueva competencia', updateIncident: 'Actualizar', resolution: 'Resolución',
       byRole: 'por rol', searchPlaceholder: 'Buscar…',
+      cols: {
+        user: 'Usuario', role: 'Rol', organization: 'Organización', kind: 'Tipo', members: 'Miembros', students: 'Estudiantes', challenge: 'Reto',
+        student: 'Estudiante', hours: 'Horas', submitted: 'Declaradas', verified: 'Verificadas', outcome: 'Resultado', decisions: 'Decisiones',
+        code: 'Código', issuedBy: 'Emitida por', slug: 'Identificador', category: 'Categoría', active: 'Activa', usage: 'Uso', reporter: 'Reportó',
+        entity: 'Entidad', actor: 'Actor', subject: 'Sujeto', change: 'Cambio', match: 'Compatibilidad', decidedBy: 'Resolvió', validatedBy: 'Validó',
+        onboarding: 'Perfil completo', publicPass: 'SkillPass público', applications: 'Aplicaciones', participants: 'Participantes', version: 'Versión', visibility: 'Visibilidad',
+      },
+      kinds: { company: 'Empresa', university: 'Universidad', aindev: 'AINDEV' },
+      usageText: '{a} evaluaciones · {c} retos', noResults: 'Sin registros para este filtro.', protectedRole: 'Rol protegido', editCompetency: 'Editar competencia',
+      nameEs: 'Nombre (español)', nameEn: 'Nombre (inglés)', descriptionEs: 'Descripción (español)', descriptionEn: 'Descripción (inglés)',
+      slugHelp: 'Minúsculas, números y guiones. No se puede reutilizar.', competencyActive: 'Disponible para nuevos retos',
+      revokeHelp: 'La revocación es inmediata, queda en la bitácora y la verificación pública mostrará la credencial como revocada.',
+      revokedOn: 'Revocada el {date}: {reason}', publicStatus: 'Verificación pública', publicOn: 'Activa', publicOff: 'Desactivada por el estudiante',
+      pageInfo: 'Página {page} de {pages}', integrityNote: 'Las decisiones de validación, evaluaciones y bitácora son de sólo inserción: no pueden editarse ni borrarse.',
     },
   },
   challenges: {
@@ -282,6 +297,7 @@ const es = {
       deliverableTitle: 'Entregable', deliverableDescription: 'Descripción', dueDate: 'Fecha compromiso', addDeliverable: 'Agregar entregable',
     },
     fairWork: 'Trabajo justo: los retos sin compensación están limitados a 60 VATH estimadas. Para alcances mayores declara una compensación.',
+    publishNow: 'Publicar y abrir convocatoria',
     saveDraft: 'Guardar borrador', saveChanges: 'Guardar cambios', created: 'Reto guardado.',
     lifecycle: 'Ciclo de vida', changeStatus: 'Cambiar estado', transitionTo: 'Mover a: {status}',
     statusHelp: {
@@ -312,6 +328,7 @@ const es = {
     tabs: { overview: 'Resumen', tasks: 'Tareas', evidence: 'Evidencias', vath: 'VATH', team: 'Equipo', validation: 'Validación' },
     progress: 'Avance', milestones: 'Hitos (entregables)', objective: 'Objetivo', supervisor: 'Supervisor', company: 'Empresa', dates: 'Fechas',
     reviewerView: 'Vista de supervisión', reviewerHint: 'Estás viendo el reto como revisor. Las validaciones se resuelven en la bandeja de validaciones.',
+    actions: { task_created: 'creó una tarea', task_status_changed: 'actualizó una tarea', evidence_added: 'agregó evidencia', validation_requested: 'envió trabajo a validación', validation_completed: 'completó una validación', credential_issued: 'emitió una credencial', challenge_status_changed: 'cambió el estado del reto', application_decided: 'resolvió una aplicación' },
     goToValidations: 'Ir a validaciones', activity: 'Actividad reciente', noActivity: 'Sin actividad todavía.',
     stats: { tasks: 'Tareas completadas', verified: 'VATH verificadas', pending: 'VATH en validación', draft: 'VATH en borrador', deliverables: 'Entregables con evidencia aprobada' },
     tasks: {

@@ -79,6 +79,7 @@ export async function write<T = Record<string, unknown>>(fn: WriteRpc, payload: 
 
 /** Anonymous verification RPCs. `demoId` selects an isolated local demo scenario. */
 export async function publicRead<T>(fn: PublicRpc, payload: Record<string, unknown>, demoId?: string | null): Promise<T | null> {
+  if (!(PUBLIC_RPCS as readonly string[]).includes(fn)) throw new AppError('forbidden', 403);
   try {
     if (demoId) {
       if (demoMode() !== 'local') return null;

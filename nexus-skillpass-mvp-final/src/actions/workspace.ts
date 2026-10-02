@@ -1,5 +1,6 @@
 'use server';
 
+import { redirect } from 'next/navigation';
 import type { ActionState } from '@/lib/action-state';
 import { fdAll, fdBool, fdString, rateLimit, runAction } from '@/lib/server/action';
 import { requireSession, write } from '@/lib/server/backend';
@@ -82,8 +83,11 @@ export async function deleteVath(fd: FormData) {
 }
 
 export async function submitForValidation(_prev: ActionState, fd: FormData): Promise<ActionState> {
-  return runAction(async () => {
-    const result = await write<{ request_id: string }>('sp_submit_for_validation', submitSchema.parse({ challenge_id: fdString(fd, 'challenge_id'), note: fdString(fd, 'note') }));
-    return { message: 'submitted', id: result.request_id };
+  const input = { challenge_id: fdString(fd, 'challenge_id'), note: fdString(fd, 'note') };
+  const result = await runAction(async () => {
+    const saved = await write<{ request_id: string }>('sp_submit_for_validation', submitSchema.parse(input));
+    return { message: 'submitted', id: saved.request_id };
   });
+  if (result.ok) redirect(`/workspace/${input.challenge_id}?tab=validation&submitted=1`);
+  return result;
 }
