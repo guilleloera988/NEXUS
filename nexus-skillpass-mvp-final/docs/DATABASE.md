@@ -11,6 +11,8 @@ PostgreSQL (Supabase en producción; PGlite en la DEMO local y en pruebas; Postg
 | `20261002000003_workflow_rpcs.sql` | RPCs de mutación (`SECURITY DEFINER`), helpers de validación, auditoría, notificaciones, Skills Match, snapshot de credenciales y trigger de alta de usuarios. |
 | `20261002000004_read_rpcs.sql` | RPCs de lectura (`SECURITY INVOKER`, RLS decide), RPCs públicas acotadas y grants finales de funciones. |
 | `20261002000005_storage.sql` | Bucket privado `evidence` y sus políticas (se omite automáticamente si no existe el esquema `storage`). |
+| `20261007000001_rls_initplan.sql` | Reescribe 13 políticas `SELECT` para evaluar `auth.uid()`, `sp_is_admin()`, `sp_my_university_id()` y `sp_auth_email()` una vez por consulta (`(select …)` → *InitPlan*) en lugar de por fila. Mismas reglas de acceso. |
+| `20261007000002_fk_indexes.sql` | 12 índices para llaves foráneas que sí se consultan o se recorren al borrar (evidencia, VATH, tareas, validaciones, credenciales, incidentes). Las otras 28 que señala el *advisor* son columnas de auditoría que nunca se filtran. |
 
 `supabase/demo-bootstrap.sql` emula lo mínimo de Supabase Auth (roles `anon`/`authenticated`, `auth.users`, `auth.uid()`) **sólo** para PGlite/pruebas. Nunca se ejecuta en Supabase.
 
