@@ -75,3 +75,5 @@ Leyenda: **COMPLETE** (funcional, persistente, probado) · **PARTIAL** (funciona
 | OI-07 | Baja | La DEMO local usa ~42 MB de disco por escenario. | Ajustar límites o implementar snapshot comprimido. |
 | OI-08 | Baja | `Dockerfile` no construido en este entorno. | Construir en CI o en la máquina del operador. |
 | OI-09 | Baja | Recuperación de contraseña sin prueba de punta a punta. | Probar en staging con SMTP. |
+| OI-10 | Media (bloqueante para producción) | Hallazgos de seguridad H-1 (`sp_invite_member`), H-2 (`sp_match_score`) y H-3 (enmascaramiento de credenciales confidenciales). | Migraciones de corrección; ver SECURITY §6. |
+| OI-11 | Baja | Hallazgos H-4 (`sp_activity_feed` muestra borradores de compañeros) y H-5 (listado público del bucket `evidence`). | Migraciones de corrección; ver SECURITY §6. |

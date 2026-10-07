@@ -95,5 +95,35 @@ Hallazgos corregidos durante la revisión:
 | Políticas de contraseña/confirmación dependen de la configuración de Supabase Auth | Configurar longitud mínima ≥ 10, confirmación de email y protección de contraseñas filtradas. |
 | Modo DEMO `supabase` comparte estado entre visitantes | Usar un proyecto Supabase exclusivo de demo y re-sembrar periódicamente; nunca en el proyecto productivo. |
 | DEMO local: ~42 MB de disco por escenario | Ajustar `NEXUS_DEMO_MAX_SESSIONS` y `NEXUS_DEMO_TTL_HOURS` al disco disponible. |
-| Sin pruebas contra un proyecto Supabase vivo | Ejecutar `supabase db push` + seed en un proyecto de staging y repetir los E2E apuntando a él (`E2E_BASE_URL`). |
+| Pruebas contra Supabase en la nube sólo en el proyecto de demo | Repetir migraciones, checklist y E2E en un staging del proyecto productivo antes de abrirlo (la demo ya pasó FLOW 01–10, ver DEPLOYMENT §8). |
 | Sin DPA/aviso de privacidad legal | Requiere decisión legal de AINDEV (LFPDPPP en México): aviso de privacidad, términos y acuerdos con empresas/universidades. |
+
+## 6. Supabase Advisors y hallazgos abiertos (7 oct 2026)
+
+Revisión de los *advisors* del proyecto de demo, con cada aviso trazado al código y cada hallazgo **reproducido** con un script (PGlite con las migraciones y el seed reales; el de Storage, además, con peticiones anónimas de sólo lectura a la demo).
+
+**Rendimiento.** `auth_rls_initplan` (11) quedó en 0 con `20261007000001_rls_initplan.sql`; `unindexed_foreign_keys` bajó de 40 a 28 con `20261007000002_fk_indexes.sql` (las 28 restantes son columnas de auditoría que nunca se filtran). Los 13 `unused_index` son esperables mientras la demo tenga poco tráfico.
+
+**`SECURITY DEFINER` ejecutables por `anon`/`authenticated` (63 avisos).** Son el diseño: las tablas sólo se leen bajo RLS y toda escritura pasa por RPCs que autorizan al llamante. Clasificación:
+
+| Tipo | Funciones | Conclusión |
+|---|---|---|
+| RPC de mutación que se autoriza sola (`sp_actor`, rol, pertenencia, estado) | 34 | ✔ salvo `sp_invite_member` (H-1) |
+| Helpers de RLS (sólo responden sobre las relaciones del propio llamante) | 15 | ✔ deben ser ejecutables porque las políticas se evalúan como el llamante |
+| Lecturas acotadas al llamante | 3 | ✔ salvo `sp_activity_feed` (H-4) |
+| Superficie pública por diseño (verificación de credenciales y SkillPass) | 6 | ✔ salvo el enmascaramiento confidencial (H-3) y el listado de Storage (H-5) |
+| Cálculo de compatibilidad | 1 | ✘ `sp_match_score` (H-2) |
+
+Protección de contraseñas filtradas (HaveIBeenPwned): requiere plan Pro de Supabase.
+
+**Hallazgos abiertos** (existen desde la versión inicial; ninguno lo introdujeron las migraciones de rendimiento):
+
+| ID | Severidad | Hallazgo | Corrección propuesta |
+|---|---|---|---|
+| H-1 | Media | `sp_invite_member`: (a) un *manager* puede «invitar» el correo del dueño con rol `supervisor`, lo que lo degrada (el *upsert* sobrescribe `member_role`), y luego quitarlo con `sp_remove_member`: la organización queda sin dueño; (b) las respuestas `added` / `user_role_incompatible` / `invited` permiten enumerar cuentas y su tipo, incluso desde una empresa sin verificar; (c) cuentas existentes se agregan a la organización sin su consentimiento; (d) una invitación previa a un correo aún sin cuenta convierte al futuro estudiante en miembro de esa organización al registrarse. | Nunca cambiar el rol de un miembro existente desde una invitación; respuesta única `invited`; invitación pendiente que el invitado acepta explícitamente (requiere botón «Aceptar»); exigir organización verificada; no forzar el rol en el alta si el tipo de cuenta elegido no coincide. |
+| H-2 | Media | `sp_match_score(estudiante, reto)` sólo exige poder revisar *algún* reto: una empresa recién registrada (sin verificar) con un reto en borrador puede consultar de cualquier estudiante qué competencias tiene verificadas o declaradas, si su carrera coincide (aunque la oculte), sus intereses y su disponibilidad. Los UUID de estudiantes se obtienen de la verificación pública de evidencia. | Permitirlo sólo al propio estudiante, al admin o a quien revisa el reto **y** el estudiante aplicó o está asignado a ese reto. |
+| H-3 | Media | Credenciales de retos confidenciales: la verificación pública oculta reto y empresa pero publica `supervisor_name` y `supervisor_title` (p. ej. «Gerente de Mejora Continua · Nova Manufacturing»), que revelan la empresa. El seed no tiene credenciales confidenciales. | En `sp_credential_public_json`, devolver `null` en ambos campos cuando la política es `confidential` (el *snapshot* es inmutable, así que se enmascara al leer). |
+| H-4 | Baja | `sp_activity_feed`: compañeros y revisores ven los títulos de evidencia **en borrador** de un compañero (la bitácora registra `evidence_added` al crearla) y pueden inferir el resultado de la validación de un compañero. Contradice la fila «Compañeros no ven… validaciones ajenas» de §4 para el *feed*. | Filtrar eventos: `evidence_added` sólo si la evidencia ya no es borrador; eventos de validación sólo para el estudiante involucrado y los revisores. |
+| H-5 | Baja | La política `evidence_select_public` de Storage también aplica al **listado** del bucket: con la llave pública cualquiera puede enumerar los archivos de evidencia pública (y descargarlos) sin tener el código de la credencial, incluso si el estudiante desactivó su SkillPass público. No expone evidencia no pública. | Limitar la política a la operación de firma de URL (`storage.operation` = `storage.object.sign`), que es el único uso público de la app. |
+
+Cada corrección irá en una migración nueva (las existentes ya están aplicadas en la demo).

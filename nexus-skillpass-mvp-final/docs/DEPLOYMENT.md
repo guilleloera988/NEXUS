@@ -126,7 +126,11 @@ Cómo se cargó (equivalente a `npm run seed -- --supabase --confirm-demo-projec
 3. `supabase/seed.sql` por la misma API. Conteos idénticos a la plantilla local: 16 usuarios, 5 organizaciones, 8 retos, 11 evidencias, 18 VATH, 5 credenciales, 0 perfiles no-demo.
 4. Los 3 archivos de `supabase/seed/files` se subieron a `evidence` con la sesión de su estudiante (llave pública + contraseña demo). El de un reto ya completado (`…/40000000-…-0002/b71d09-dashboard-inventario.png`) lo rechaza `evidence_insert_own`; se subió con una política temporal limitada a esa ruta y a ese usuario, eliminada en el mismo paso.
 
-Re-sembrar: el seed es idempotente, pero el reto y la credencial que crean los E2E se acumulan en la demo compartida. Para rotar la contraseña demo, actualizar `encrypted_password` de las cuentas `@demo.skillpass.invalid` (o correr el script con `SUPABASE_SERVICE_ROLE_KEY`) y la variable `NEXUS_DEMO_PASSWORD` en Vercel, y volver a desplegar.
+Migraciones posteriores aplicadas en la demo (7 oct 2026, misma vía y registradas en `supabase_migrations`): `20261007000001_rls_initplan.sql` y `20261007000002_fk_indexes.sql`.
+
+Datos de prueba pendientes de limpiar: la corrida de E2E del 7 oct dejó en la demo el reto «E2E MUYC0NAT · Bitácora digital de mantenimiento» con su aplicación, evidencia (y su PDF en Storage), VATH, validación y la credencial `SKP-2026-FC08-7CCE`, más un incidente «(E2E muyc1vyp)», 7 notificaciones y 11 entradas de bitácora (31 filas, todas posteriores al seed). Borrarlas exige desactivar momentáneamente los *triggers* de inmutabilidad (bitácora, decisiones, evaluaciones, credenciales, evidencia y VATH) dentro de la misma transacción.
+
+Re-sembrar: el seed es idempotente, pero no borra lo que crean los visitantes o los E2E; esos datos se acumulan en la demo compartida. Para rotar la contraseña demo, actualizar `encrypted_password` de las cuentas `@demo.skillpass.invalid` (o correr el script con `SUPABASE_SERVICE_ROLE_KEY`) y la variable `NEXUS_DEMO_PASSWORD` en Vercel, y volver a desplegar.
 
 Verificación (7 oct 2026) contra `https://skillpass-demo.vercel.app`, con `E2E_BASE_URL=https://skillpass-demo.vercel.app`:
 
