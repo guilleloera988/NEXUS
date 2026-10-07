@@ -102,10 +102,15 @@ export async function createDatabase({ seed = true, extraSql = '' } = {}): Promi
   return db;
 }
 
-/** Runs SQL as an API caller: role anon (actor null) or authenticated with a JWT subject. */
-export async function sql<T = Record<string, unknown>>(db: TestDb, actor: string | null, query: string, params: unknown[] = []) {
+/**
+ * Runs SQL as an API caller: role anon (actor null) or authenticated with a JWT subject.
+ * `settings` are transaction-local GUCs the platform sets per request (e.g. storage.operation).
+ */
+export async function sql<T = Record<string, unknown>>(db: TestDb, actor: string | null, query: string, params: unknown[] = [],
+  settings: Record<string, string> = {}) {
   return db.transaction(async (tx) => {
     await tx.query("select set_config('request.jwt.claim.sub', $1, true)", [actor ?? '']);
+    for (const [key, value] of Object.entries(settings)) await tx.query('select set_config($1, $2, true)', [key, value]);
     await tx.exec(actor ? 'set local role authenticated' : 'set local role anon');
     return (await tx.query<T>(query, params)).rows;
   });

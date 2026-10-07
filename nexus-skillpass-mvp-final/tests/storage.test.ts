@@ -23,8 +23,11 @@ const MARIA_C2_PNG = `${USERS.maria}/${CHALLENGE(2)}/b71d09-dashboard-inventario
 const DIEGO_C1_PDF = `${USERS.diego}/${CHALLENGE(1)}/c52e71-bitacora-entrevistas.pdf`;
 
 let db: TestDb;
-const visible = async (actor: string | null) =>
-  (await sql<{ name: string }>(db, actor, "select name from storage.objects where bucket_id = 'evidence' order by name")).map((r) => r.name);
+// Supabase Storage sets storage.operation per request: listing is 'storage.object.list',
+// createSignedUrl (the only public download path) is 'storage.object.sign'.
+const visible = async (actor: string | null, operation = 'storage.object.list') =>
+  (await sql<{ name: string }>(db, actor, "select name from storage.objects where bucket_id = 'evidence' order by name", [],
+    { 'storage.operation': operation })).map((r) => r.name);
 
 beforeAll(async () => {
   db = await createDatabase({ extraSql: STORAGE_STUB });
@@ -45,14 +48,20 @@ describe('evidence storage bucket and policies', () => {
     expect(rows[0].allowed_mime_types).not.toContain('text/html');
   });
 
-  it('anonymous visitors only reach files of published evidence behind an active, verifiable credential', async () => {
-    expect(await visible(null)).toEqual([MARIA_C2_PNG]);
+  it('anonymous visitors can sign only files of published evidence behind an active, verifiable credential', async () => {
+    expect(await visible(null, 'storage.object.sign')).toEqual([MARIA_C2_PNG]);
   });
 
-  it('owners see their files; unrelated students only see public files', async () => {
+  it('public evidence files cannot be listed (no enumeration without the credential)', async () => {
+    expect(await visible(null)).toEqual([]);
+    expect(await visible(null, '')).toEqual([]);
+    expect(await visible(USERS.jorge)).toEqual([]);
+  });
+
+  it('owners see their files; unrelated students only reach public files by exact path', async () => {
     const maria = await visible(USERS.maria);
     expect(maria).toEqual(expect.arrayContaining([MARIA_C1_PDF, MARIA_C2_PNG]));
-    expect(await visible(USERS.jorge)).toEqual([MARIA_C2_PNG]);
+    expect(await visible(USERS.jorge, 'storage.object.sign')).toEqual([MARIA_C2_PNG]);
   });
 
   it('the challenge supervisor can open submitted evidence files', async () => {

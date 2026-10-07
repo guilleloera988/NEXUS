@@ -105,7 +105,7 @@ describe('account creation and roles', () => {
     await expectError(rpc(db, USERS.maria, 'sp_invite_member', { organization_id: ORGS.nova, email: 'nuevo.supervisor@test.invalid', member_role: 'supervisor' }), /forbidden/);
     const result = await rpc<Json>(db, USERS.laura, 'sp_invite_member', { organization_id: ORGS.nova, email: 'nuevo.supervisor@test.invalid', member_role: 'supervisor' });
     expect(result.status).toBe('invited');
-    await db.query("insert into auth.users(id, email, raw_user_meta_data) values ('10000000-0000-4000-8000-000000000098', 'nuevo.supervisor@test.invalid', '{\"full_name\":\"Nuevo Supervisor\",\"account_type\":\"student\"}')");
+    await db.query("insert into auth.users(id, email, raw_user_meta_data) values ('10000000-0000-4000-8000-000000000098', 'nuevo.supervisor@test.invalid', '{\"full_name\":\"Nuevo Supervisor\",\"account_type\":\"company\"}')");
     const [p] = (await db.query<Row>("select p.role, m.member_role from public.profiles p join public.organization_members m on m.user_id = p.id where p.id = '10000000-0000-4000-8000-000000000098'")).rows;
     expect(p).toEqual({ role: 'supervisor', member_role: 'supervisor' });
   });
@@ -420,5 +420,102 @@ describe('integrity guards', () => {
     await expectError(rpc(db, USERS.ruben, 'sp_admin_set_org_status', { organization_id: ORGS.agroPending, status: 'verified' }), /admin_only/);
     const result = await rpc<Json>(db, USERS.admin, 'sp_admin_set_org_status', { organization_id: ORGS.agroPending, status: 'verified' });
     expect(result.status).toBe('verified');
+  });
+});
+
+describe('security review regressions (docs/SECURITY.md §6)', () => {
+  const signUp = (id: string, email: string, accountType: string, fullName: string) =>
+    db.query('insert into auth.users(id, email, raw_user_meta_data) values ($1, $2, $3::jsonb)',
+      [id, email, JSON.stringify({ full_name: fullName, account_type: accountType })]);
+  const memberRole = async (org: string, user: string) =>
+    (await db.query<Row>('select member_role from public.organization_members where organization_id = $1 and user_id = $2', [org, user])).rows[0]?.member_role ?? null;
+  const feed = async (actor: string, challenge: string) =>
+    (await sql<{ r: Json[] }>(db, actor, 'select public.sp_activity_feed($1::uuid) as r', [challenge]))[0].r;
+
+  it('H-1 · invitations never change existing members, reveal accounts or override the chosen account type', async () => {
+    const manager = '10000000-0000-4000-8000-000000000097';
+    await rpc(db, USERS.laura, 'sp_invite_member', { organization_id: ORGS.nova, email: 'gerente.h1@test.invalid', member_role: 'manager' });
+    await signUp(manager, 'gerente.h1@test.invalid', 'company', 'Gerente H1');
+    expect(await memberRole(ORGS.nova, manager)).toBe('manager');
+
+    // (a) a manager can neither demote the owner through an invitation nor remove them.
+    await expectError(rpc(db, manager, 'sp_invite_member', { organization_id: ORGS.nova, email: 'laura.rios@demo.skillpass.invalid', member_role: 'supervisor' }), /already_member/);
+    expect(await memberRole(ORGS.nova, USERS.laura)).toBe('owner');
+    await expectError(rpc(db, manager, 'sp_remove_member', { organization_id: ORGS.nova, user_id: USERS.laura }), /forbidden/);
+
+    // (b) the same answer for a student, a member of another company and an unknown address; nobody is added.
+    for (const email of ['maria.torres@demo.skillpass.invalid', 'hector.aguilar@demo.skillpass.invalid', 'nadie.h1@test.invalid']) {
+      expect(await rpc<Json>(db, USERS.laura, 'sp_invite_member', { organization_id: ORGS.nova, email, member_role: 'supervisor' })).toEqual({ status: 'invited' });
+    }
+    expect(await memberRole(ORGS.nova, USERS.maria)).toBeNull();
+    expect(await memberRole(ORGS.nova, USERS.hector)).toBeNull();
+
+    // (c) signing in does not move an established member of another company.
+    expect(await rpc<Json>(db, USERS.hector, 'sp_accept_invitations')).toEqual({ accepted: 0 });
+    expect(await memberRole(ORGS.nova, USERS.hector)).toBeNull();
+    expect(await memberRole(ORGS.bajio, USERS.hector)).toBe('supervisor');
+
+    // (d) a student sign-up stays a student even if someone invited that address beforehand.
+    const student = '10000000-0000-4000-8000-000000000096';
+    await rpc(db, USERS.laura, 'sp_invite_member', { organization_id: ORGS.nova, email: 'futura.estudiante@test.invalid', member_role: 'supervisor' });
+    await signUp(student, 'futura.estudiante@test.invalid', 'student', 'Futura Estudiante');
+    const [profile] = (await db.query<Row>('select role from public.profiles where id = $1', [student])).rows;
+    expect(profile.role).toBe('student');
+    expect(await memberRole(ORGS.nova, student)).toBeNull();
+  });
+
+  it('H-1 · a company account without an organization joins through its invitation on sign-in', async () => {
+    const person = '10000000-0000-4000-8000-000000000095';
+    await signUp(person, 'sin.org.h1@test.invalid', 'company', 'Sin Organización');
+    await rpc(db, USERS.laura, 'sp_invite_member', { organization_id: ORGS.nova, email: 'sin.org.h1@test.invalid', member_role: 'supervisor' });
+    expect(await rpc<Json>(db, person, 'sp_accept_invitations')).toEqual({ accepted: 1 });
+    expect(await memberRole(ORGS.nova, person)).toBe('supervisor');
+  });
+
+  it('H-2 · Skills Match only scores applicants of the reviewer\'s challenge, the student themselves, or for admin', async () => {
+    const draft = await rpc<Json>(db, USERS.ruben, 'sp_save_challenge', challengeInput({ organization_id: ORGS.agroPending, supervisor_id: null, title: 'Reto borrador para sondear perfiles' }));
+    const score = async (actor: string, student: string, challenge: string) =>
+      (await sql<{ r: Json | null }>(db, actor, 'select public.sp_match_score($1::uuid, $2::uuid) as r', [student, challenge]))[0].r;
+    expect(await score(USERS.ruben, USERS.maria, draft.id)).toBeNull();
+    expect(await score(USERS.ruben, USERS.jorge, draft.id)).toBeNull();
+    expect(await score(USERS.laura, USERS.maria, CHALLENGE(1))).toMatchObject({ score: expect.any(Number) });
+    expect(await score(USERS.laura, USERS.jorge, CHALLENGE(1))).toBeNull();
+    expect(await score(USERS.maria, USERS.maria, CHALLENGE(1))).toMatchObject({ score: expect.any(Number) });
+    expect(await score(USERS.maria, USERS.maria, draft.id)).toBeNull();
+    expect(await score(USERS.admin, USERS.jorge, draft.id)).toMatchObject({ score: expect.any(Number) });
+  });
+
+  it('H-3 · confidential credentials hide the validator as well as the company and the challenge', async () => {
+    const created = await rpc<Json>(db, USERS.laura, 'sp_save_challenge', challengeInput({ title: 'Reto confidencial de calidad', publication_policy: 'confidential', confidentiality: 'confidential' }));
+    await rpc(db, USERS.laura, 'sp_set_challenge_status', { challenge_id: created.id, status: 'recruiting' });
+    const application = await rpc<Json>(db, USERS.andres, 'sp_apply', { challenge_id: created.id, motivation: 'Quiero aportar al reto confidencial de calidad.' });
+    await rpc(db, USERS.laura, 'sp_decide_application', { application_id: application.id, decision: 'accept' });
+    const evidence = await rpc<Json>(db, USERS.andres, 'sp_add_evidence', { challenge_id: created.id, title: 'Minuta de levantamiento', kind: 'link', url: 'https://example.com/minuta' });
+    const vath = await rpc<Json>(db, USERS.andres, 'sp_save_vath', { challenge_id: created.id, activity_date: '2026-09-25', activity: 'Levantamiento', description: 'Levantamiento de requerimientos con el equipo de calidad.', hours: 3, evidence_ids: [evidence.id] });
+    const request = await rpc<Json>(db, USERS.andres, 'sp_submit_for_validation', { challenge_id: created.id });
+    const done = await rpc<Json>(db, USERS.carlos, 'sp_complete_validation', {
+      request_id: request.request_id, vath: [{ id: vath.id, decision: 'verify' }], evidence: [{ id: evidence.id, decision: 'approve' }],
+      competencies: [{ competency_id: COMP(5), level: 4 }, { competency_id: COMP(20), level: 3 }], issue_credential: true,
+    });
+    const pub = await rpc<Json>(db, null, 'sp_public_credential', { code: done.credential_code });
+    expect(pub.credential.confidential).toBe(true);
+    expect(pub.credential).toMatchObject({ challenge_title: null, organization_name: null, supervisor_name: null, supervisor_title: null });
+    expect(JSON.stringify(pub)).not.toMatch(/Nova|Carlos|Mejora Continua|Reto confidencial/);
+  });
+
+  it('H-4 · the activity feed shows teammates and reviewers only what RLS lets them read', async () => {
+    await rpc(db, USERS.diego, 'sp_add_evidence', { challenge_id: CHALLENGE(1), title: 'Borrador privado de Diego', kind: 'link', url: 'https://example.com/borrador' });
+    const titles = async (actor: string) => (await feed(actor, CHALLENGE(1))).map((x) => x.details?.title);
+    expect(await titles(USERS.diego)).toContain('Borrador privado de Diego');
+    expect(await titles(USERS.maria)).not.toContain('Borrador privado de Diego');
+    expect(await titles(USERS.carlos)).not.toContain('Borrador privado de Diego');
+
+    // A validation outcome is shown to the student it concerns and to reviewers, not to teammates.
+    await db.query(`insert into public.audit_logs(actor_id, action, entity_type, entity_id, organization_id, challenge_id, subject_id, after)
+      values ($1, 'validation_completed', 'validation_request', gen_random_uuid(), $2, $3, $4, '{"outcome":"rejected","title":"Validación de Diego"}')`,
+    [USERS.carlos, ORGS.nova, CHALLENGE(1), USERS.diego]);
+    expect(await titles(USERS.diego)).toContain('Validación de Diego');
+    expect(await titles(USERS.carlos)).toContain('Validación de Diego');
+    expect(await titles(USERS.maria)).not.toContain('Validación de Diego');
   });
 });
