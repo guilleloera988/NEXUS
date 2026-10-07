@@ -164,7 +164,7 @@ Ver [QA-REPORT](docs/QA-REPORT.md) para la salida del último build.
 
 ## Deployment
 
-Objetivo: `https://skillpass.aindev.com.mx` en Vercel + Supabase. Guía completa (proyecto Supabase, variables, dominio, SSL, checks y cómo hospedar la DEMO interactiva): [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md). **No** se ha configurado DNS ni publicado nada sin autorización.
+Objetivo: `https://skillpass.aindev.com.mx` en Vercel + Supabase. Guía completa (proyecto Supabase, variables, dominio, SSL, checks y cómo hospedar la DEMO interactiva): [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md). Demo pública desplegada en **https://skillpass-demo.vercel.app** (Supabase de demo; detalle en [DEPLOYMENT §8](docs/DEPLOYMENT.md#8-despliegue-actual--demo-pública)). **No** se ha configurado DNS.
 
 ## Demo
 
@@ -181,8 +181,8 @@ Objetivo: `https://skillpass.aindev.com.mx` en Vercel + Supabase. Guía completa
 
 ## Limitaciones conocidas
 
-- No hay despliegue público todavía: falta un proyecto Supabase, acceso a Vercel y autorización DNS (ver [docs/STATUS.md](docs/STATUS.md)).
-- El modo Supabase se probó contra el stack oficial local de Supabase (Auth, PostgREST, Storage); falta repetirlo en un proyecto en la nube con SMTP real.
+- Sólo la demo está desplegada (https://skillpass-demo.vercel.app); producción en `skillpass.aindev.com.mx` requiere un proyecto Supabase productivo y autorización DNS (ver [docs/STATUS.md](docs/STATUS.md)).
+- El modo Supabase se verificó en un proyecto en la nube (FLOW 01–10 E2E contra la demo); falta SMTP propio y probar registro con confirmación por correo de punta a punta.
 - La DEMO local necesita disco persistente (no corre en funciones serverless de Vercel); en Vercel se usa `NEXUS_DEMO_MODE=supabase` o `off`.
 - Sin envío de correos propios (sólo los de Supabase Auth); notificaciones dentro de la app.
 - Sin IA: el Skills Match es por reglas y se declara así.

@@ -56,7 +56,7 @@ Fiel a las 9 pantallas de referencia y al logo real: barra lateral negra con act
 
 ## 11. Deployment
 
-Listo para Vercel (Root Directory `nexus-skillpass-mvp-final`) + Supabase (`supabase db push`), con variables, Auth, Storage, dominio, SSL, checklist post-deploy y dos opciones para la demo interactiva (proyecto Supabase de demo o contenedor con disco). No se publicó nada ni se tocó DNS. Guía: [DEPLOYMENT.md](DEPLOYMENT.md).
+Listo para Vercel (Root Directory `nexus-skillpass-mvp-final`) + Supabase (`supabase db push`), con variables, Auth, Storage, dominio, SSL, checklist post-deploy y dos opciones para la demo interactiva (proyecto Supabase de demo o contenedor con disco). Demo pública desplegada en https://skillpass-demo.vercel.app (proyecto Supabase de demo; FLOW 01–10 verificado contra el despliegue); producción y DNS pendientes. Guía: [DEPLOYMENT.md](DEPLOYMENT.md).
 
 ## 12. Limitaciones
 

@@ -17,6 +17,7 @@ Todas las cifras de este documento provienen de ejecuciones reales en esta entre
 | E2E · DEMO local (dev) | `npm run test:e2e` | ✔ **15/15** (+3 omitidas: requieren Supabase) |
 | E2E · DEMO local (build de producción, modo CI) | `CI=1 npm run test:e2e` | ✔ **15/15** (+3 omitidas) |
 | E2E · Supabase real (stack local: Auth, PostgREST, Storage, Kong) | `E2E_BASE_URL=… E2E_SUPABASE=1 npx playwright test` | ✔ **17/17** (+1 omitida: sólo DEMO local) |
+| E2E · despliegue Vercel + Supabase en la nube (7 oct 2026) | `E2E_BASE_URL=https://skillpass-demo.vercel.app E2E_SUPABASE=1 npx playwright test` (sin `auth-supabase`) | ✔ **14/14**: FLOW 01–10 + seguridad, demo guiada, incidentes y móvil (+1 omitida: sólo DEMO local). Ver [DEPLOYMENT §8](DEPLOYMENT.md#8-despliegue-actual--demo-pública) |
 | Migraciones en Supabase | `supabase start` (CLI 2.119, PG 17) | ✔ las 5 migraciones aplican sin errores |
 | Seed en Supabase | `npm run seed -- --supabase --confirm-demo-project` | ✔ 16 cuentas vía Admin API, seed SQL, 3 archivos a Storage |
 | Sondeo directo de la API (PostgREST) | `curl` con llave anónima y JWT de estudiante | ✔ ver §5 |

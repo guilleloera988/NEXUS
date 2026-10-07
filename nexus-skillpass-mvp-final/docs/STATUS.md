@@ -30,7 +30,7 @@ Leyenda: **COMPLETE** (funcional, persistente, probado) · **PARTIAL** (funciona
 | — | Incidentes (reporte y gestión) | **PARTIAL** | Reporte desde la app y gestión en admin; sin notificaciones por correo ni SLA. |
 | — | Seed (`npm run seed`) local y Supabase | **COMPLETE** | Supabase probado contra el stack local oficial. |
 | — | Pruebas (lint, tipos, unitarias, BD, E2E) y CI | **COMPLETE** | CI en `.github/workflows/skillpass-quality.yml`. |
-| — | Deployment Vercel + Supabase | **BLOCKED** | Listo y documentado; requiere proyecto Supabase, acceso a Vercel y autorización DNS. |
+| — | Deployment Vercel + Supabase | **PARTIAL** | Demo pública en https://skillpass-demo.vercel.app (Supabase de demo, FLOW 01–10 verificado E2E). Producción pendiente: proyecto Supabase productivo y DNS. Ver DEPLOYMENT §8. |
 | — | Dominio `skillpass.aindev.com.mx` + SSL | **BLOCKED** | Requiere autorización para crear el CNAME. |
 | — | Correo transaccional propio (SMTP) | **BLOCKED** | Requiere proveedor/credenciales. |
 | — | Aviso de privacidad, términos, acuerdos de IP | **BLOCKED** | Decisión legal de AINDEV. |
@@ -66,7 +66,7 @@ Leyenda: **COMPLETE** (funcional, persistente, probado) · **PARTIAL** (funciona
 
 | ID | Severidad | Descripción | Próximo paso |
 |---|---|---|---|
-| OI-01 | Alta (bloqueante para producción) | Sin proyecto Supabase en la nube ni despliegue en Vercel. | Recibir credenciales/acceso y seguir DEPLOYMENT.md. |
+| OI-01 | Alta (bloqueante para producción) | Sólo la demo está desplegada (https://skillpass-demo.vercel.app); falta el proyecto Supabase productivo (`NEXUS_DEMO_MODE=off`). | Crear el proyecto productivo y seguir DEPLOYMENT.md §2–3. |
 | OI-02 | Alta (bloqueante para dominio) | DNS de `skillpass.aindev.com.mx` no configurado (requiere autorización). | Crear CNAME `skillpass → cname.vercel-dns.com`. |
 | OI-03 | Media | CSP con `'unsafe-inline'` en scripts. | Nonces vía `proxy.ts`. |
 | OI-04 | Media | *Rate limiting* en memoria por instancia. | Limitador compartido + CAPTCHA de Supabase Auth. |

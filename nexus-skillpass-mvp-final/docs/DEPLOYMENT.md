@@ -2,7 +2,7 @@
 
 Objetivo: **`https://skillpass.aindev.com.mx`** en Vercel + Supabase.
 
-> Estado: el código está listo para desplegar, pero **no se ha desplegado** ni se ha tocado DNS. Hace falta (1) un proyecto Supabase, (2) acceso al equipo de Vercel y (3) autorización para crear el registro DNS. Ningún secreto está en el repositorio.
+> Estado (7 oct 2026): la **demo pública** está desplegada en **https://skillpass-demo.vercel.app** (opción A de §5, ver §8). Producción (`skillpass.aindev.com.mx`, `NEXUS_DEMO_MODE=off`) sigue pendiente: falta un proyecto Supabase productivo y la autorización para el registro DNS, que no se ha tocado. Ningún secreto está en el repositorio.
 
 ## 1. Topología recomendada
 
@@ -108,3 +108,29 @@ Cada escenario ocupa ~42 MB de disco; `NEXUS_DEMO_MAX_SESSIONS × 42 MB` debe ca
 - **Monitoreo**: Vercel Analytics/Logs; logs de Postgres y Auth en Supabase. Los errores de servidor se registran con el prefijo `[skillpass]` sin datos personales.
 - **Rotación de secretos**: rotar la llave pública/`service_role` desde Supabase si se expone; `NEXUS_DEMO_SECRET` invalida las cookies DEMO al cambiar.
 - **Migraciones nuevas**: agregar archivos `supabase/migrations/<timestamp>_<nombre>.sql`; probar con `npm test` y `npm run test:pg`; aplicar con `supabase db push`.
+
+## 8. Despliegue actual — demo pública
+
+| | |
+|---|---|
+| URL | **https://skillpass-demo.vercel.app** |
+| Vercel | Proyecto `skillpass-demo` (equipo `aindev-tech`), *Root Directory* `nexus-skillpass-mvp-final`, Node.js 22.x, *Install* `npm ci`. Rama de producción: `claude/aindev-nexus-skillpass-mvp-khihxn` (`main` aún no contiene la app). *Deployment Protection*: Standard (la URL de producción `.vercel.app` es pública; los *previews* piden sesión de Vercel). |
+| Variables | `NEXT_PUBLIC_APP_URL=https://skillpass-demo.vercel.app` (sólo Production; en Preview se usa el host), `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `NEXUS_DEMO_MODE=supabase`, `NEXUS_DEMO_PASSWORD` (tipo *sensitive*), `MAX_UPLOAD_MB=4`. Sin `service_role` ni URL de base de datos. |
+| Supabase | Proyecto `pezqzunbvtfvwwnfybxy` (us-east-1, PostgreSQL 17), **exclusivo de la demo**. |
+| Auth | *Site URL* `https://skillpass-demo.vercel.app`; *Redirect URLs* `https://skillpass-demo.vercel.app/auth/callback` y `https://skillpass-demo-*-aindev-tech.vercel.app/**` (previews). Confirmación de correo activada; contraseña mínima 10. Protección de contraseñas filtradas: requiere plan Pro (no activada). SMTP: el integrado de Supabase (límite bajo de correos/hora). |
+
+Cómo se cargó (equivalente a `npm run seed -- --supabase --confirm-demo-project --apply-migrations`, pero por la Management API, sin conexión directa a Postgres ni `service_role` en la máquina del operador):
+
+1. Las 5 migraciones se aplicaron en una sola transacción con `POST /v1/projects/<ref>/database/query` y se registraron en `supabase_migrations.schema_migrations`, así que `supabase db push` las reconoce como aplicadas.
+2. Las 16 cuentas de `supabase/seed/demo-auth-users.sql` se crearon por SQL en `auth.users` + `auth.identities` (correo confirmado, mismos UUID y metadatos, contraseña = `NEXUS_DEMO_PASSWORD` con bcrypt); el *trigger* `sp_on_auth_user_created` creó los perfiles.
+3. `supabase/seed.sql` por la misma API. Conteos idénticos a la plantilla local: 16 usuarios, 5 organizaciones, 8 retos, 11 evidencias, 18 VATH, 5 credenciales, 0 perfiles no-demo.
+4. Los 3 archivos de `supabase/seed/files` se subieron a `evidence` con la sesión de su estudiante (llave pública + contraseña demo). El de un reto ya completado (`…/40000000-…-0002/b71d09-dashboard-inventario.png`) lo rechaza `evidence_insert_own`; se subió con una política temporal limitada a esa ruta y a ese usuario, eliminada en el mismo paso.
+
+Re-sembrar: el seed es idempotente, pero el reto y la credencial que crean los E2E se acumulan en la demo compartida. Para rotar la contraseña demo, actualizar `encrypted_password` de las cuentas `@demo.skillpass.invalid` (o correr el script con `SUPABASE_SERVICE_ROLE_KEY`) y la variable `NEXUS_DEMO_PASSWORD` en Vercel, y volver a desplegar.
+
+Verificación (7 oct 2026) contra `https://skillpass-demo.vercel.app`, con `E2E_BASE_URL=https://skillpass-demo.vercel.app`:
+
+- `/api/health` → `{"status":"ok","supabase":true,"demoMode":"supabase"}`; cabeceras CSP, HSTS, `nosniff` y `X-Frame-Options: DENY` presentes.
+- `e2e/critical-flow.spec.ts` (**FLOW 01–10**): ✔ 1/1, los 10 pasos, sin errores de consola ni HTTP ≥ 400.
+- `security`, `guided-demo`, `incidents`, `mobile` (con `E2E_SUPABASE=1`): ✔ 13/13 (+1 omitida: enlaces `?demo=` sólo existen en la DEMO local).
+- `auth-supabase.spec.ts` no se ejecutó: exige la confirmación de correo desactivada y enviaría correos reales.
