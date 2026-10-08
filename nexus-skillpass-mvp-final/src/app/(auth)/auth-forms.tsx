@@ -105,7 +105,10 @@ export function CheckEmailPanel({ email, pending }: { email: string | null; pend
   const [openedAt] = useState(() => Date.now());
   const now = useSyncExternalStore(subscribeClock, clockNow, noClock);
   const lastSent = state.at ?? (pending ? null : openedAt);
-  const wait = now !== null && lastSent !== null ? Math.max(0, Math.ceil((lastSent + RESEND_COOLDOWN_MS - now) / 1000)) : 0;
+  // The clock ticks in whole seconds (a stable snapshot), so clamp the rounding to the cooldown.
+  const wait = now !== null && lastSent !== null
+    ? Math.min(RESEND_COOLDOWN_MS / 1000, Math.max(0, Math.ceil((lastSent + RESEND_COOLDOWN_MS - now) / 1000)))
+    : 0;
   return (
     <div>
       <div className="flex size-14 items-center justify-center rounded-2xl bg-gold-50 ring-1 ring-gold-300">
@@ -114,7 +117,7 @@ export function CheckEmailPanel({ email, pending }: { email: string | null; pend
       <h1 className="mt-5 text-2xl font-extrabold">{c.title}</h1>
       {pending && <Alert tone="gold" className="mt-4">{c.pending}</Alert>}
       <p className="mt-3 text-ink-600" role="status">
-        {email ? <>{c.sentTo} <strong className="break-all font-semibold text-ink-950">{email}</strong></> : c.sentGeneric}
+        {email ? <>{c.sentTo} <strong className="break-words font-semibold text-ink-950">{email}</strong></> : c.sentGeneric}
       </p>
       <div className="mt-6 rounded-2xl border border-ink-200 p-5">
         <h2 className="text-sm font-bold">{c.stepsTitle}</h2>
