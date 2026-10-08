@@ -549,14 +549,20 @@ describe('security review regressions (docs/SECURITY.md §6)', () => {
   });
 
   it('H-6 · verified companies read talent-pool credentials only through masked output', async () => {
-    const [{ challenge_id: confidentialChallenge, request_id: confidentialRequest }] = (await db.query<Row>(
-      "select challenge_id, request_id from public.credentials where student_id = $1 and snapshot->>'publication_policy' = 'confidential'", [USERS.andres])).rows;
+    const [{ code: confidentialCode, challenge_id: confidentialChallenge, request_id: confidentialRequest }] = (await db.query<Row>(
+      "select code, challenge_id, request_id from public.credentials where student_id = $1 and snapshot->>'publication_policy' = 'confidential'", [USERS.andres])).rows;
 
-    // The supervisor who issued it reads it while the student is NOT in the talent pool (validation page).
-    const validation = await rpc<Json>(db, USERS.carlos, 'sp_validation', { id: confidentialRequest });
-    expect(validation.request.credential_code).toMatch(/^SKP-/);
+    // Andrés holds the confidential Nova credential issued in H-3. Outside the talent pool, the supervisor
+    // who issued it still reads it on the validation pages and the dashboard; another company only sees the
+    // credential it issued itself (Bajío's SKP-2026-E05B-3D68).
+    await rpc(db, USERS.andres, 'sp_update_privacy', { open_to_opportunities: false });
+    expect((await rpc<Json>(db, USERS.carlos, 'sp_validation', { id: confidentialRequest })).request.credential_code).toBe(confidentialCode);
+    expect((await rpc<Json>(db, USERS.carlos, 'sp_validation_queue')).completed.find((r: Json) => r.id === confidentialRequest).credential_code).toBe(confidentialCode);
+    expect((await rpc<Json>(db, USERS.carlos, 'sp_company_dashboard')).observed_talent.map((t: Json) => t.code)).toContain(confidentialCode);
+    const outsidePool = (await sql<{ j: Json }>(db, USERS.mariana, 'select public.sp_visible_credentials_json($1) as j', [USERS.andres]))[0].j;
+    expect(outsidePool.map((c: Json) => c.code)).toEqual(['SKP-2026-E05B-3D68']);
 
-    // Andrés holds the confidential Nova credential issued in H-3 and now opts into the talent pool.
+    // Andrés opts into the talent pool.
     await rpc(db, USERS.andres, 'sp_update_privacy', { open_to_opportunities: true });
     const [{ n: active }] = (await db.query<Row>("select count(*)::int as n from public.credentials where student_id = $1 and status = 'active'", [USERS.andres])).rows;
 
@@ -572,6 +578,21 @@ describe('security review regressions (docs/SECURITY.md §6)', () => {
     expect(JSON.stringify(profile.credentials)).not.toMatch(/Nova|Carlos|Reto confidencial/);
     const listed = (await rpc<Json>(db, USERS.mariana, 'sp_talent')).items.find((t: Json) => t.id === USERS.andres);
     expect(listed.credentials).toBe(active);
+    const unverified = '10000000-0000-4000-8000-000000000092';
+    await signUp(unverified, 'sin.verificar.h6@test.invalid', 'company', 'Sin Verificar');
+    await rpc(db, unverified, 'sp_complete_onboarding', { full_name: 'Sin Verificar', organization_name: 'Empresa sin verificar H6' });
+    expect(await rpc<Json>(db, unverified, 'sp_talent')).toEqual({ items: [], allowed: false });
+
+    // sp_talent names a university only once it is verified; the admin also sees pending ones.
+    await db.query("update public.organizations set verification_status = 'pending' where id = $1", [ORGS.tecDemo]);
+    const university = async (actor: string) => {
+      const item = (await rpc<Json>(db, actor, 'sp_talent')).items.find((t: Json) => t.id === USERS.camila);
+      expect(item).toBeDefined();
+      return item.university;
+    };
+    expect(await university(USERS.mariana)).toBeNull();
+    expect(await university(USERS.admin)).toBe('Instituto Tecnológico Demo');
+    await db.query("update public.organizations set verification_status = 'verified' where id = $1", [ORGS.tecDemo]);
 
     // The challenge filter no longer reveals who completed another company's confidential challenge.
     expect((await rpc<Json>(db, USERS.mariana, 'sp_talent', { challenge_id: confidentialChallenge })).items).toEqual([]);

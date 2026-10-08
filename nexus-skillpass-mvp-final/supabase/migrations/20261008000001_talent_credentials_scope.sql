@@ -16,10 +16,10 @@
 --    the caller could read before (same rules, talent pool included). sp_talent_profile uses it.
 -- 3. sp_talent becomes SECURITY DEFINER. It already admits only admin or members of a verified
 --    company and already restricts rows to the talent-pool cohort (opted-in, onboarded students),
---    which is exactly what RLS granted those callers. Its university name now requires a verified
---    university (as organizations_select did), and the challenge filter ignores confidential
---    credentials unless the caller reviews that challenge, so it no longer reveals who completed a
---    confidential challenge of another company.
+--    which is exactly what RLS granted those callers. Its university name requires a verified
+--    university unless the caller is admin (as organizations_select did), and the challenge filter
+--    ignores confidential credentials unless the caller reviews that challenge, so it no longer
+--    reveals who completed a confidential challenge of another company.
 -- CREATE OR REPLACE keeps the owner and EXECUTE grants of the existing functions.
 
 alter policy credentials_select on public.credentials
@@ -73,9 +73,9 @@ declare
   v_career text := nullif(btrim(coalesce(p->>'career', '')), ''); v_uni uuid := nullif(p->>'university_id', '')::uuid;
   v_avail text := nullif(p->>'availability', ''); v_challenge uuid := nullif(p->>'challenge_id', '')::uuid;
   v_sort text := coalesce(nullif(p->>'sort', ''), 'name');
-  v_challenge_visible boolean;
+  v_admin boolean := public.sp_is_admin(); v_challenge_visible boolean;
 begin
-  if not (public.sp_is_admin() or exists(select 1 from public.organization_members m join public.organizations o on o.id = m.organization_id
+  if not (v_admin or exists(select 1 from public.organization_members m join public.organizations o on o.id = m.organization_id
       where m.user_id = auth.uid() and o.kind = 'company' and o.verification_status = 'verified')) then
     return jsonb_build_object('items', '[]'::jsonb, 'allowed', false);
   end if;
@@ -83,7 +83,7 @@ begin
   return jsonb_build_object('allowed', true, 'items', (select coalesce(jsonb_agg(x order by
       case when v_sort = 'vath' then -x.verified_vath else 0 end, x.full_name), '[]'::jsonb) from (
     select pr.id, pr.full_name, pr.headline, pr.career, pr.semester, pr.availability, pr.hours_per_week, pr.is_demo,
-      (select name from public.organizations o where o.id = pr.university_id and o.verification_status = 'verified') as university,
+      (select name from public.organizations o where o.id = pr.university_id and (o.verification_status = 'verified' or v_admin)) as university,
       (select coalesce(sum((cr.snapshot->>'verified_hours')::numeric), 0) from public.credentials cr where cr.student_id = pr.id and cr.status = 'active') as verified_vath,
       (select count(*) from public.credentials cr where cr.student_id = pr.id and cr.status = 'active') as credentials,
       (select coalesce(jsonb_agg(z order by z.level desc, z.name_en), '[]'::jsonb) from (
