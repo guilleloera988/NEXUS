@@ -6,14 +6,18 @@
 --    could demote the owner and then remove them past the last-owner guard, (b) told the caller
 --    whether an account existed and which role it had, and (c) added existing accounts to the
 --    organization on the spot.
--- 2. sp_remove_member: only an owner (or an AINDEV admin) may remove an owner.
--- 3. sp_handle_new_user: at sign-up an invitation is honoured only when the chosen account type
---    matches the organization kind (company / university). A "student" sign-up is never turned
---    into staff of an organization by an invitation someone else created for that address.
--- 4. sp_accept_invitations (called after sign-in): accepts the most recent compatible invitation
---    only while the person belongs to no organization of that kind. The app works with one
---    organization per account, so an invitation can no longer pull an established member or owner
---    into another organization.
+-- 2. sp_remove_member: only an owner (or an AINDEV admin) may remove an owner; the organization row
+--    is locked so two owners removing each other concurrently cannot leave it without owners; the
+--    removed person's pending invitations for that organization are revoked.
+-- 3. sp_handle_new_user: at sign-up an invitation is honoured only when it comes from a VERIFIED
+--    organization and the chosen account type matches its kind (company / university). A "student"
+--    sign-up is never turned into staff, and a self-registered, unverified organization cannot
+--    capture other accounts.
+-- 4. sp_accept_invitations (called after sign-in): accepts the most recent compatible invitation of a
+--    verified organization, only while the person belongs to no organization of that kind. The app
+--    works with one organization per account, so an invitation can no longer pull an established
+--    member or owner into another organization. Invitations of an organization still pending
+--    verification stay pending and apply at the next sign-in after AINDEV verifies it.
 -- CREATE OR REPLACE keeps each function's owner and EXECUTE grants.
 
 create or replace function public.sp_invite_member(p jsonb) returns jsonb
@@ -46,6 +50,7 @@ declare v_org uuid := public.sp_uuid(p, 'organization_id'); v_user uuid := publi
 begin
   perform public.sp_actor();
   if not public.sp_is_org_manager(v_org) then perform public.sp_forbidden(); end if;
+  perform 1 from public.organizations where id = v_org for update; -- serializes the owner count below
   select member_role into v_role from public.organization_members where organization_id = v_org and user_id = v_user;
   if v_role is null then perform public.sp_raise('not_found'); end if;
   if v_role = 'owner' and not public.sp_is_admin() and not exists(select 1 from public.organization_members
@@ -59,6 +64,7 @@ begin
     perform public.sp_raise('member_supervises_challenges');
   end if;
   delete from public.organization_members where organization_id = v_org and user_id = v_user;
+  update public.invitations set status = 'revoked' where organization_id = v_org and invited_by = v_user and status = 'pending';
   perform public.sp_audit('member_removed', 'organization', v_org, v_org, null, v_user, jsonb_build_object('member_role', v_role));
   return jsonb_build_object('id', v_user);
 end $$;
@@ -74,9 +80,10 @@ begin
   if v_name = '' then v_name := left(split_part(coalesce(new.email, 'usuario'), '@', 1), 160); end if;
   if v_name = '' then v_name := 'Usuario'; end if;
 
-  -- Only an invitation from an organization of the kind the person chose is honoured.
+  -- Only an invitation from a verified organization of the kind the person chose is honoured.
   select i.* into v_inv from public.invitations i join public.organizations o on o.id = i.organization_id
     where i.status = 'pending' and i.email = lower(coalesce(new.email, '')) and o.kind = v_type
+      and o.verification_status = 'verified'
     order by i.created_at desc limit 1;
   v_role := case when v_inv.id is not null and v_inv.member_role = 'supervisor' then 'supervisor' else v_type end;
 
@@ -97,7 +104,7 @@ declare a public.profiles := public.sp_actor(); v_inv record;
 begin
   select i.id, i.organization_id, i.member_role into v_inv
     from public.invitations i join public.organizations o on o.id = i.organization_id
-    where i.status = 'pending' and i.email = public.sp_auth_email()
+    where i.status = 'pending' and i.email = public.sp_auth_email() and o.verification_status = 'verified'
       and ((o.kind = 'company' and a.role in ('company','supervisor')) or (o.kind = 'university' and a.role = 'university'))
       and not exists(select 1 from public.organization_members m join public.organizations mo on mo.id = m.organization_id
                      where m.user_id = a.id and mo.kind = o.kind)

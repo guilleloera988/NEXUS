@@ -84,10 +84,11 @@ export async function updateOrganization(_prev: ActionState, fd: FormData): Prom
 
 export async function inviteMember(_prev: ActionState, fd: FormData): Promise<ActionState> {
   return runAction(async () => {
-    const result = await write<{ status: string }>('sp_invite_member', inviteSchema.parse({
+    // Always a pending invitation: the person joins when they sign up or sign in (see SECURITY.md §6, H-1).
+    await write('sp_invite_member', inviteSchema.parse({
       organization_id: fdString(fd, 'organization_id'), email: fdString(fd, 'email'), member_role: fdString(fd, 'member_role'),
     }));
-    return { message: result.status === 'added' ? 'added' : 'invited' };
+    return { message: 'invited' };
   });
 }
 

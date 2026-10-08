@@ -61,11 +61,11 @@ export default async function TalentProfilePage({ params }: PageProps<'/talent/[
                 {data.credentials.map((c) => (
                   <li key={c.code} className="rounded-xl border border-ink-200 p-4">
                     <div className="flex flex-wrap items-start justify-between gap-2">
-                      <div><p className="font-bold">{c.confidential ? t.skillpass.confidentialProject : c.challenge_title}</p><p className="text-xs text-ink-500">{c.organization_name} · {formatDate(locale, c.issued_at)}</p></div>
+                      <div><p className="font-bold">{c.confidential ? t.skillpass.confidentialProject : c.challenge_title}</p><p className="text-xs text-ink-500">{c.confidential ? '' : `${c.organization_name} · `}{formatDate(locale, c.issued_at)}</p></div>
                       <Badge tone="success"><ShieldCheck className="size-3.5" aria-hidden />{formatHours(locale, c.verified_hours)} h</Badge>
                     </div>
                     <div className="mt-2 flex flex-wrap gap-1">{c.competencies.map((k) => <Badge key={k.slug}>{competencyName(locale, k)} · {k.level}</Badge>)}</div>
-                    <p className="mt-2 text-xs text-ink-500">{t.skillpass.validatedBy}: {c.supervisor_name} · <span className="font-mono">{c.code}</span></p>
+                    <p className="mt-2 text-xs text-ink-500">{t.skillpass.validatedBy}: {c.supervisor_name ?? t.skillpass.confidentialValidator} · <span className="font-mono">{c.code}</span></p>
                   </li>
                 ))}
               </ul>

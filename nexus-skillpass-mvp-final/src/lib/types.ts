@@ -329,13 +329,14 @@ export interface PublicCredential {
   challenge_title: string | null;
   organization_name: string | null;
   industry: string;
-  modality: string;
+  /** null for confidential credentials (as are the dates and the validator). */
+  modality: string | null;
   start_date: string | null;
   end_date: string | null;
   verified_hours: number;
   competencies: { competency_id: string; slug: string; name_es: string; name_en: string; category: CompetencyCategory; level: number }[];
-  supervisor_name: string;
-  supervisor_title: string;
+  supervisor_name: string | null;
+  supervisor_title: string | null;
   evidence_approved: number;
   issuer: string;
   public_evidence: { id: string; title: string; kind: EvidenceKind; url: string | null; has_file: boolean; file_name: string | null }[];

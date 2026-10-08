@@ -117,7 +117,7 @@ export default async function PublicSkillPassPage({ params, searchParams }: Page
                       {c.competencies.map((k) => <Badge key={k.slug} tone="neutral"><BadgeCheck className="size-3 text-success-600" aria-hidden />{competencyName(locale, k)} · {k.level}</Badge>)}
                     </div>
                     <div className="mt-3 flex flex-wrap items-center justify-between gap-2 text-xs text-ink-500">
-                      <span>{t.skillpass.validatedBy}: <span className="font-semibold text-ink-800">{c.supervisor_name}</span>{c.supervisor_title ? ` · ${c.supervisor_title}` : ''}</span>
+                      <span>{t.skillpass.validatedBy}: <span className="font-semibold text-ink-800">{c.supervisor_name ?? t.skillpass.confidentialValidator}</span>{c.supervisor_title ? ` · ${c.supervisor_title}` : ''}</span>
                       <Link href={`/verify/${c.code}${suffix}`} className="link font-mono">{c.code} →</Link>
                     </div>
                     {c.public_evidence.length > 0 && (

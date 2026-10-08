@@ -464,6 +464,32 @@ describe('security review regressions (docs/SECURITY.md §6)', () => {
     expect(await memberRole(ORGS.nova, student)).toBeNull();
   });
 
+  it('H-1 · removing a manager revokes the invitations they created', async () => {
+    const manager = '10000000-0000-4000-8000-000000000097';
+    await rpc(db, manager, 'sp_invite_member', { organization_id: ORGS.nova, email: 'alias.h1@test.invalid', member_role: 'manager' });
+    await rpc(db, USERS.laura, 'sp_remove_member', { organization_id: ORGS.nova, user_id: manager });
+    const [inv] = (await db.query<Row>("select status from public.invitations where email = 'alias.h1@test.invalid'")).rows;
+    expect(inv.status).toBe('revoked');
+  });
+
+  it('H-1 · invitations of an organization pending verification apply only after AINDEV verifies it', async () => {
+    const eve = '10000000-0000-4000-8000-000000000094';
+    await signUp(eve, 'eve.h1@test.invalid', 'company', 'Eve');
+    await rpc(db, eve, 'sp_complete_onboarding', { full_name: 'Eve', organization_name: 'Empresa sin verificar H1' });
+    const [{ organization_id: eveOrg }] = (await db.query<Row>('select organization_id from public.organization_members where user_id = $1', [eve])).rows;
+    await rpc(db, eve, 'sp_invite_member', { organization_id: eveOrg, email: 'fundadora.h1@test.invalid', member_role: 'supervisor' });
+
+    const founder = '10000000-0000-4000-8000-000000000093';
+    await signUp(founder, 'fundadora.h1@test.invalid', 'company', 'Fundadora');
+    const [profile] = (await db.query<Row>('select role from public.profiles where id = $1', [founder])).rows;
+    expect(profile.role).toBe('company');
+    expect(await rpc<Json>(db, founder, 'sp_accept_invitations')).toEqual({ accepted: 0 });
+    expect(await memberRole(eveOrg as string, founder)).toBeNull();
+
+    await rpc(db, USERS.admin, 'sp_admin_set_org_status', { organization_id: eveOrg, status: 'verified' });
+    expect(await rpc<Json>(db, founder, 'sp_accept_invitations')).toEqual({ accepted: 1 });
+  });
+
   it('H-1 · a company account without an organization joins through its invitation on sign-in', async () => {
     const person = '10000000-0000-4000-8000-000000000095';
     await signUp(person, 'sin.org.h1@test.invalid', 'company', 'Sin Organización');
@@ -483,6 +509,12 @@ describe('security review regressions (docs/SECURITY.md §6)', () => {
     expect(await score(USERS.maria, USERS.maria, CHALLENGE(1))).toMatchObject({ score: expect.any(Number) });
     expect(await score(USERS.maria, USERS.maria, draft.id)).toBeNull();
     expect(await score(USERS.admin, USERS.jorge, draft.id)).toMatchObject({ score: expect.any(Number) });
+
+    // Withdrawing the application ends the reviewer's access to the score.
+    const andresApplication = '50000000-0000-4000-8000-000000000005';
+    expect(await score(USERS.laura, USERS.andres, CHALLENGE(3))).toMatchObject({ score: expect.any(Number) });
+    await rpc(db, USERS.andres, 'sp_withdraw_application', { application_id: andresApplication });
+    expect(await score(USERS.laura, USERS.andres, CHALLENGE(3))).toBeNull();
   });
 
   it('H-3 · confidential credentials hide the validator as well as the company and the challenge', async () => {
@@ -499,8 +531,19 @@ describe('security review regressions (docs/SECURITY.md §6)', () => {
     });
     const pub = await rpc<Json>(db, null, 'sp_public_credential', { code: done.credential_code });
     expect(pub.credential.confidential).toBe(true);
-    expect(pub.credential).toMatchObject({ challenge_title: null, organization_name: null, supervisor_name: null, supervisor_title: null });
+    expect(pub.credential).toMatchObject({ challenge_title: null, organization_name: null, supervisor_name: null, supervisor_title: null,
+      start_date: null, end_date: null, modality: null });
     expect(JSON.stringify(pub)).not.toMatch(/Nova|Carlos|Mejora Continua|Reto confidencial/);
+
+    // The public summary does not count the validator of a confidential credential.
+    const [{ slug }] = (await db.query<Row>('select slug from public.profiles where id = $1', [USERS.andres])).rows;
+    await rpc(db, USERS.andres, 'sp_update_privacy', { skillpass_public: true });
+    const publicPass = await rpc<Json>(db, null, 'sp_public_skillpass', { slug });
+    const confidential = publicPass.credentials.filter((c: Json) => c.confidential).length;
+    expect(confidential).toBe(1);
+    const [{ n }] = (await db.query<Row>(`select count(distinct issued_by)::int as n from public.credentials
+      where student_id = $1 and status = 'active' and verification_enabled and snapshot->>'publication_policy' <> 'confidential'`, [USERS.andres])).rows;
+    expect(publicPass.summary.validators).toBe(n);
   });
 
   it('H-4 · the activity feed shows teammates and reviewers only what RLS lets them read', async () => {

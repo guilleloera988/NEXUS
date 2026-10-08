@@ -384,7 +384,7 @@ const en: Messages = {
   skillpass: {
     myTitle: 'My SkillPass', mySubtitle: 'Your validated experience in a public, portable credential.',
     tabs: { credentials: 'Credentials', competencies: 'Verified competencies', progress: 'In progress', privacy: 'Privacy & sharing' },
-    credentialCard: 'Verifiable digital credential', credentialId: 'Credential ID', issued: 'Issued', issuer: 'Issuer', validatedBy: 'Validated by',
+    credentialCard: 'Verifiable digital credential', credentialId: 'Credential ID', issued: 'Issued', issuer: 'Issuer', validatedBy: 'Validated by', confidentialValidator: 'Company supervisor (confidential)',
     verifiedHours: 'Verified VATH', verifiedProjects: 'Verified projects', verifiedCompetencies: 'Verified competencies', validators: 'Validators',
     viewOnline: 'View online', share: 'Share', copyLink: 'Copy link', print: 'Download / print PDF', publicUrl: 'Public URL',
     noCredentials: 'No credentials yet', noCredentialsText: 'Complete a challenge and get your supervisor’s validation to issue your first credential.',
@@ -431,7 +431,7 @@ const en: Messages = {
   },
   organization: {
     title: 'My organization', subtitle: "Your organization's public information and team.", details: 'Organization details', members: 'Team',
-    invite: 'Invite someone', inviteEmail: 'Email', inviteRole: 'Role', sendInvite: 'Send invitation', invited: 'Invitation recorded. The person joins when they create an account with that email (choosing “Company” or “University”) or when they sign in, if they do not belong to another organization yet.',
+    invite: 'Invite someone', inviteEmail: 'Email', inviteRole: 'Role', sendInvite: 'Send invitation', invited: 'Invitation recorded. The person joins when they create an account with that email (choosing “Company” or “University”) or when they sign in, if they do not belong to another organization yet. If your organization is pending verification, it applies once AINDEV verifies it.',
     added: 'Person added to the organization.', pendingInvites: 'Pending invitations', revoke: 'Revoke', removeMember: 'Remove', verification: 'Verification',
     renameWarning: 'Renaming a verified organization requires a new AINDEV verification.', none: 'You do not belong to an organization.',
   },

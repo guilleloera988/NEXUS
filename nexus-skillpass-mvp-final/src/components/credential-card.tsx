@@ -70,7 +70,7 @@ export async function CredentialCard({ credential, holder, subtitle, verifyUrl, 
         <dl className="mt-6 grid gap-3 border-t border-white/10 pt-4 text-sm sm:grid-cols-3">
           <div><dt className="text-xs text-ink-400">{t.skillpass.credentialId}</dt><dd className="font-mono font-semibold tracking-wide">{credential.code}</dd></div>
           <div><dt className="text-xs text-ink-400">{t.skillpass.issued}</dt><dd className="font-semibold"><CalendarDays className="mr-1 inline size-3.5 text-ink-400" aria-hidden />{formatDate(locale, credential.issued_at, 'long')}</dd></div>
-          <div><dt className="text-xs text-ink-400">{t.skillpass.validatedBy}</dt><dd className="font-semibold">{credential.supervisor_name}{credential.supervisor_title ? <span className="block text-xs font-normal text-ink-400">{credential.supervisor_title}</span> : null}</dd></div>
+          <div><dt className="text-xs text-ink-400">{t.skillpass.validatedBy}</dt><dd className="font-semibold">{credential.supervisor_name ?? t.skillpass.confidentialValidator}{credential.supervisor_title ? <span className="block text-xs font-normal text-ink-400">{credential.supervisor_title}</span> : null}</dd></div>
         </dl>
         <p className="mt-3 text-[11px] text-ink-500">{t.skillpass.issuer}: {credential.issuer}{credential.is_demo ? ` · ${t.demo.badge}` : ''}{revoked && credential.revoked_at ? ` · ${fmt(t.skillpass.revokedOn, { date: formatDate(locale, credential.revoked_at) })}` : ''}</p>
         {actions && <div className="no-print mt-5 flex flex-wrap gap-2">{actions}</div>}

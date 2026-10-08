@@ -3,8 +3,8 @@
 -- Before, any reviewer of ANY challenge (including a self-service, unverified company with a draft
 -- challenge) could score ANY student and read verified/declared/missing per competency plus
 -- interest, career and availability signals that RLS hides from them. Now:
---   * a reviewer may score a student only for a challenge that student applied to (the only
---     reviewer-side use: the candidates list of that challenge);
+--   * a reviewer may score a student only for a challenge that student applied to and did not
+--     withdraw from (the only reviewer-side use: the candidates list of that challenge);
 --   * a student may score themselves only against challenges they can see;
 --   * the admin keeps full access.
 -- The scoring itself is unchanged. CREATE OR REPLACE keeps the owner and the EXECUTE grant that
@@ -17,7 +17,8 @@ declare
 begin
   if not ((p_student = auth.uid() and public.sp_can_view_challenge(p_challenge)) or public.sp_is_admin()
           or (public.sp_can_review_challenge(p_challenge)
-              and exists(select 1 from public.applications ap where ap.challenge_id = p_challenge and ap.student_id = p_student))) then
+              and exists(select 1 from public.applications ap where ap.challenge_id = p_challenge and ap.student_id = p_student
+                         and ap.status <> 'withdrawn'))) then
     return null;
   end if;
   select * into s from public.profiles where id = p_student and role = 'student';

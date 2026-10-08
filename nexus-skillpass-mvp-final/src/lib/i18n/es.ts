@@ -383,7 +383,7 @@ const es = {
   skillpass: {
     myTitle: 'Mi SkillPass', mySubtitle: 'Tu experiencia validada en una credencial pública y portable.',
     tabs: { credentials: 'Credenciales', competencies: 'Competencias verificadas', progress: 'En progreso', privacy: 'Privacidad y compartir' },
-    credentialCard: 'Credencial digital verificable', credentialId: 'ID de credencial', issued: 'Emitida', issuer: 'Emisor', validatedBy: 'Validó',
+    credentialCard: 'Credencial digital verificable', credentialId: 'ID de credencial', issued: 'Emitida', issuer: 'Emisor', validatedBy: 'Validó', confidentialValidator: 'Responsable de la empresa (confidencial)',
     verifiedHours: 'VATH verificadas', verifiedProjects: 'Proyectos verificados', verifiedCompetencies: 'Competencias verificadas', validators: 'Validadores',
     viewOnline: 'Ver en línea', share: 'Compartir', copyLink: 'Copiar enlace', print: 'Descargar / imprimir PDF', publicUrl: 'URL pública',
     noCredentials: 'Aún no tienes credenciales', noCredentialsText: 'Completa un reto y obtén la validación de tu supervisor para emitir tu primera credencial.',
@@ -430,7 +430,7 @@ const es = {
   },
   organization: {
     title: 'Mi organización', subtitle: 'Información pública de la organización y su equipo.', details: 'Datos de la organización', members: 'Equipo',
-    invite: 'Invitar persona', inviteEmail: 'Correo', inviteRole: 'Rol', sendInvite: 'Enviar invitación', invited: 'Invitación registrada. La persona se unirá al crear su cuenta con ese correo (eligiendo «Empresa» o «Universidad») o al iniciar sesión, si aún no pertenece a otra organización.',
+    invite: 'Invitar persona', inviteEmail: 'Correo', inviteRole: 'Rol', sendInvite: 'Enviar invitación', invited: 'Invitación registrada. La persona se unirá al crear su cuenta con ese correo (eligiendo «Empresa» o «Universidad») o al iniciar sesión, si aún no pertenece a otra organización. Si tu organización está pendiente de verificación, se aplicará cuando AINDEV la verifique.',
     added: 'Persona agregada a la organización.', pendingInvites: 'Invitaciones pendientes', revoke: 'Revocar', removeMember: 'Quitar', verification: 'Verificación',
     renameWarning: 'Cambiar el nombre de una organización verificada requiere una nueva verificación de AINDEV.', none: 'No perteneces a una organización.',
   },
