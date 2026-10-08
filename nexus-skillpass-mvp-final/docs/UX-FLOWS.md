@@ -17,7 +17,7 @@ Público: `/` (landing), `/demo`, `/login`, `/signup`, `/verify`, `/verify/[cód
 ## Paso 1 · Inicio y registro
 
 - **Landing** (`/`): «Demuestra lo que sabes hacer.» / «SkillPass convierte proyectos reales en experiencia profesional verificada.» (en inglés: «Prove what you can do.» / «SkillPass turns real-world projects into verified professional experience.»), CTAs «Explorar SkillPass» y «Ver demo», cómo funciona (reto → evidencia → validación → verificado → oportunidad), «¿Por qué SkillPass?» (autodeclarado vs aplicado verificado), lo que no es, principios (trabajo justo, privacidad, IP), modelo de colaboración (universidades, empresas y programas; el estudiante no es quien paga).
-- **Registro** (`/signup`): tipo de cuenta Estudiante / Empresa / Universidad (supervisor sólo por invitación; admin nunca). Supabase Auth con confirmación de correo → `/auth/callback` → onboarding.
+- **Registro** (`/signup`): tipo de cuenta Estudiante / Empresa / Universidad (supervisor sólo por invitación de una organización verificada: el invitado elige «Empresa», o «Universidad» si lo invitó una institución, y usa el correo invitado; admin nunca). Supabase Auth con confirmación de correo → `/auth/callback` → onboarding.
 - **Onboarding** (`/onboarding`): estudiante (universidad opcional con explicación de qué verá, carrera, semestre, intereses ≤ 6, habilidades declaradas, disponibilidad, opt-in a Talento verificado); empresa/universidad (organización que queda «Pendiente de verificación»); personal invitado (nombre y puesto).
 
 ## Paso 2 · Perfil de talento
@@ -32,7 +32,7 @@ Público: `/` (landing), `/demo`, `/login`, `/signup`, `/verify`, `/verify/[cód
 
 ## Paso 4 · Workspace
 
-`/workspace/[id]`: pestañas Resumen (avance, hitos por entregable, actividad reciente), Tareas (crear, asignar, estados), Evidencias, VATH, Equipo y Validación. Revisores ven una vista de supervisión con acceso a la bandeja.
+`/workspace/[id]`: pestañas Resumen (avance, hitos por entregable, actividad reciente: cada estudiante ve sus propias validaciones y sólo la evidencia ya enviada de sus compañeros), Tareas (crear, asignar, estados), Evidencias, VATH, Equipo y Validación. Revisores ven una vista de supervisión con acceso a la bandeja.
 
 ## Paso 5 · Evidencias y VATH
 
@@ -53,7 +53,7 @@ Al completar: mensaje de éxito con el código de credencial y bitácora de deci
 
 - `/my-skillpass`: totales (VATH en credenciales, VATH verificadas, proyectos, competencias), pestañas Credenciales (tarjeta negra/dorada con QR, ID, emisión, validador, competencias), Competencias verificadas, En progreso y Privacidad (SkillPass público, mostrar universidad/carrera, verificación por credencial, evidencia pública).
 - Acciones: Ver en línea, Copiar enlace, Compartir (nativo), Descargar/Imprimir PDF (hoja de impresión optimizada).
-- `/verify/[código]` (público): estado (válida / revocada / no encontrada), titular, proyecto (o «Proyecto confidencial»), organización, periodo, VATH, competencias, validador, cómo se verificó, aviso de no certificación oficial, QR que apunta a la misma URL.
+- `/verify/[código]` (público): estado (válida / revocada / no encontrada), titular, proyecto, organización, periodo, VATH, competencias, validador (en credenciales confidenciales: «Proyecto confidencial», industria y «Responsable de la empresa (confidencial)», sin empresa, fechas ni modalidad), cómo se verificó, aviso de no certificación oficial, QR que apunta a la misma URL.
 - `/skillpass/[slug]` (público, opt-in): experiencia verificada, proyectos, competencias y evidencia publicada.
 
 ## Paso 8 · Panel empresa

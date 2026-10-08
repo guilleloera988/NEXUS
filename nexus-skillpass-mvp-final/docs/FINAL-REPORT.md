@@ -39,9 +39,9 @@ Fiel a las 9 pantallas de referencia y al logo real: barra lateral negra con act
 | Suite | Resultado |
 |---|---|
 | Lint / TypeScript | ✔ / ✔ |
-| Vitest (unitarias + BD + Storage) | 95/95 |
-| BD en PostgreSQL 16.14 y 17.11 | 39/39 y 39/39 |
-| E2E DEMO local (dev y build) | 15/15 y 15/15 |
+| Vitest (unitarias + BD + Storage) | 104/104 |
+| BD en PostgreSQL 16 (y 17.11 el 2 oct con 39 pruebas) | 48/48 |
+| E2E DEMO local (dev y build) | 15/15 y 15/15 (16/16 en build el 8 oct, con la prueba de descarga pública) |
 | E2E contra Supabase real (local) | 17/17 |
 
 8 defectos encontrados y corregidos durante las pruebas (incluidos 2 que sólo aparecían con Supabase real). Detalle: [QA-REPORT.md](QA-REPORT.md).

@@ -20,11 +20,11 @@ Actores: visitante anónimo, estudiante, compañero de equipo, empresa/superviso
 
 - **RLS en las 24 tablas** y grants de sólo `SELECT` a `anon`/`authenticated`; incluso con *default privileges* de Supabase no hay `INSERT/UPDATE/DELETE` directos (probado).
 - **Mutaciones sólo por RPC** `SECURITY DEFINER` con `search_path` fijo que validan: identidad (`sp_actor`), rol, pertenencia a la organización, supervisor asignado, estado del reto/asignación, límites y formato.
-- **Roles**: el alta sólo acepta `student`, `company`, `university` desde metadatos; `supervisor` sólo por invitación aceptada; `admin` jamás desde la app. Un usuario no puede cambiar su propio rol; el admin no puede degradarse ni modificar otro admin.
+- **Roles**: el alta sólo acepta `student`, `company`, `university` desde metadatos; `supervisor` sólo por invitación de una organización verificada, registrándose como «Empresa» con el correo invitado; `admin` jamás desde la app. Las invitaciones no revelan si una cuenta existe, no cambian el rol de un miembro y sólo un dueño (o el admin) quita a otro dueño. Un usuario no puede cambiar su propio rol; el admin no puede degradarse ni modificar otro admin.
 - **Integridad**: decisiones de validación, evaluaciones y bitácora de sólo inserción; VATH decididas y evidencia aprobada inmutables; snapshot y linaje de credenciales inmutables incluso para el dueño de la base (probado).
 - **Verificación humana**: una competencia sólo es «verificada» con una evaluación ≥ 3 de un supervisor autorizado; ninguna automatización puede marcarla.
 - **Funciones**: se revoca `EXECUTE` de todas las `sp_%` y se reotorga sólo la lista blanca; `anon` sólo ejecuta 4 funciones públicas (probado).
-- **Público acotado**: las RPCs anónimas sólo devuelven datos opt-in (SkillPass público, credenciales con verificación habilitada, evidencia marcada pública en retos que lo permiten) y enmascaran proyectos confidenciales.
+- **Público acotado**: las RPCs anónimas sólo devuelven datos opt-in (SkillPass público, credenciales con verificación habilitada, evidencia marcada pública en retos que lo permiten) y enmascaran proyectos confidenciales (reto, empresa, supervisor, modalidad y fechas exactas). Los archivos públicos sólo se pueden firmar por ruta exacta; el bucket no se puede listar.
 
 ### 2.2 Aplicación
 
@@ -58,7 +58,7 @@ Actores: visitante anónimo, estudiante, compañero de equipo, empresa/superviso
 - **Minimización**: no se piden atributos sensibles (edad, género, etnia, etc.). El explorador de talento no rankea con criterios opacos (orden alfabético por defecto, filtros por evidencia).
 - **Consentimiento**: SkillPass público y aparición en el talent pool son opt-in; la verificación pública puede desactivarse por credencial.
 - **Separación**: la universidad sólo ve agregados y datos básicos de sus estudiantes; nunca evidencia ni registros VATH individuales. Compañeros de reto no ven las horas de otros.
-- **Confidencialidad de empresas**: `publication_policy` (`public_allowed`, `summary_only`, `confidential`) controla qué aparece públicamente; proyectos confidenciales se muestran como «Proyecto confidencial».
+- **Confidencialidad de empresas**: `publication_policy` (`public_allowed`, `summary_only`, `confidential`) controla qué aparece públicamente; proyectos confidenciales se muestran como «Proyecto confidencial», con validador «Responsable de la empresa (confidencial)» y sin empresa, fechas ni modalidad.
 - **Propiedad intelectual**: cada reto declara `ip_policy` y detalles; nada se asume propiedad de AINDEV.
 - **Datos DEMO**: ficticios, con dominios `.invalid` y marcados en UI, base de datos (`is_demo`) y páginas públicas.
 
@@ -70,10 +70,13 @@ Actores: visitante anónimo, estudiante, compañero de equipo, empresa/superviso
 | `anon` sin lectura de tablas ni RPCs privadas | ✔ |
 | Escalamiento de rol por metadatos o por `sp_update_profile` | ✔ bloqueado |
 | Revisores de otra empresa no leen datos de Nova | ✔ |
-| Compañeros no ven horas ajenas ni validaciones ajenas (UI → «Página no encontrada») | ✔ BD + E2E |
+| Compañeros no ven horas ni solicitudes de validación ajenas (UI → «Página no encontrada»), ni borradores o resultados ajenos en la actividad del workspace | ✔ BD + E2E (actividad: H-4) |
 | Universidad no lee evidencia ni VATH; descarga de archivo → 404 | ✔ BD + E2E |
 | Credencial revocada: sólo admin, definitiva, fuera de totales públicos | ✔ |
-| Políticas de Storage (carpeta propia, reto activo, público sólo con credencial vigente) | ✔ prueba con esquema Storage simulado |
+| Políticas de Storage (carpeta propia, reto activo, público sólo con credencial vigente y sólo firma por ruta exacta, sin listado) | ✔ prueba con esquema Storage simulado (13 operaciones) + E2E de descarga pública contra Supabase (H-5) |
+| Invitaciones: sólo organizaciones verificadas, sin enumeración de cuentas, sin cambio de rol de miembros, un estudiante nunca se convierte en personal | ✔ BD (H-1) |
+| Skills Match sólo para postulantes del reto del revisor, el propio estudiante o el admin | ✔ BD (H-2) |
+| Credenciales confidenciales sin empresa, reto, supervisor, modalidad ni fechas en la verificación pública | ✔ BD (H-3) |
 | *Open redirect* en login/demo/callback | ✔ unit + E2E |
 | Inyección CSV, *sniffing* de archivos, nombres con rutas | ✔ unit |
 | Cabeceras de seguridad | ✔ E2E |
@@ -98,32 +101,41 @@ Hallazgos corregidos durante la revisión:
 | Pruebas contra Supabase en la nube sólo en el proyecto de demo | Repetir migraciones, checklist y E2E en un staging del proyecto productivo antes de abrirlo (la demo ya pasó FLOW 01–10, ver DEPLOYMENT §8). |
 | Sin DPA/aviso de privacidad legal | Requiere decisión legal de AINDEV (LFPDPPP en México): aviso de privacidad, términos y acuerdos con empresas/universidades. |
 
-## 6. Supabase Advisors y hallazgos abiertos (7 oct 2026)
+## 6. Supabase Advisors y revisión de seguridad (7–8 oct 2026)
 
 Revisión de los *advisors* del proyecto de demo, con cada aviso trazado al código y cada hallazgo **reproducido** con un script (PGlite con las migraciones y el seed reales; el de Storage, además, con peticiones anónimas de sólo lectura a la demo).
 
-**Rendimiento.** `auth_rls_initplan` (11) quedó en 0 con `20261007000001_rls_initplan.sql`; `unindexed_foreign_keys` bajó de 40 a 28 con `20261007000002_fk_indexes.sql` (las 28 restantes son columnas de auditoría que nunca se filtran). Los 13 `unused_index` son esperables mientras la demo tenga poco tráfico.
+**Rendimiento.** `auth_rls_initplan` (11) quedó en 0 con `20261007000001_rls_initplan.sql`; `unindexed_foreign_keys` bajó de 40 a 28 con `20261007000002_fk_indexes.sql` (las 28 restantes son columnas de auditoría que nunca se filtran). Los `unused_index` (INFO) son esperables mientras la demo tenga poco tráfico.
 
-**`SECURITY DEFINER` ejecutables por `anon`/`authenticated` (63 avisos).** Son el diseño: las tablas sólo se leen bajo RLS y toda escritura pasa por RPCs que autorizan al llamante. Clasificación:
+**`SECURITY DEFINER` ejecutables por `anon`/`authenticated` (63 avisos).** Son el diseño: las tablas sólo se leen bajo RLS y toda escritura pasa por RPCs que autorizan al llamante. Clasificación tras las correcciones:
 
 | Tipo | Funciones | Conclusión |
 |---|---|---|
-| RPC de mutación que se autoriza sola (`sp_actor`, rol, pertenencia, estado) | 34 | ✔ salvo `sp_invite_member` (H-1) |
+| RPC de mutación que se autoriza sola (`sp_actor`, rol, pertenencia, estado) | 34 | ✔ (`sp_invite_member` corregido, H-1) |
 | Helpers de RLS (sólo responden sobre las relaciones del propio llamante) | 15 | ✔ deben ser ejecutables porque las políticas se evalúan como el llamante |
-| Lecturas acotadas al llamante | 3 | ✔ salvo `sp_activity_feed` (H-4) |
-| Superficie pública por diseño (verificación de credenciales y SkillPass) | 6 | ✔ salvo el enmascaramiento confidencial (H-3) y el listado de Storage (H-5) |
-| Cálculo de compatibilidad | 1 | ✘ `sp_match_score` (H-2) |
+| Lecturas acotadas al llamante | 3 | ✔ (`sp_activity_feed` corregido, H-4) |
+| Superficie pública por diseño (verificación de credenciales y SkillPass) | 6 | ✔ (enmascaramiento confidencial H-3 y Storage H-5 corregidos) |
+| Cálculo de compatibilidad | 1 | ✔ `sp_match_score` acotado (H-2) |
 
 Protección de contraseñas filtradas (HaveIBeenPwned): requiere plan Pro de Supabase.
 
-**Hallazgos abiertos** (existen desde la versión inicial; ninguno lo introdujeron las migraciones de rendimiento):
+**Hallazgos corregidos.** Existían desde la versión inicial. Cada uno se reprodujo con un script antes de corregirlo; cada corrección es una migración nueva con pruebas de regresión que fallan sin ella. Una segunda revisión adversarial volvió a correr los *exploits* contra las correcciones (todos cerrados), las atacó y lo que encontró se corrigió en las mismas migraciones. Todas están aplicadas en la demo.
 
-| ID | Severidad | Hallazgo | Corrección propuesta |
+| ID | Severidad | Hallazgo | Corrección |
 |---|---|---|---|
-| H-1 | Media | `sp_invite_member`: (a) un *manager* puede «invitar» el correo del dueño con rol `supervisor`, lo que lo degrada (el *upsert* sobrescribe `member_role`), y luego quitarlo con `sp_remove_member`: la organización queda sin dueño; (b) las respuestas `added` / `user_role_incompatible` / `invited` permiten enumerar cuentas y su tipo, incluso desde una empresa sin verificar; (c) cuentas existentes se agregan a la organización sin su consentimiento; (d) una invitación previa a un correo aún sin cuenta convierte al futuro estudiante en miembro de esa organización al registrarse. | Nunca cambiar el rol de un miembro existente desde una invitación; respuesta única `invited`; invitación pendiente que el invitado acepta explícitamente (requiere botón «Aceptar»); exigir organización verificada; no forzar el rol en el alta si el tipo de cuenta elegido no coincide. |
-| H-2 | Media | `sp_match_score(estudiante, reto)` sólo exige poder revisar *algún* reto: una empresa recién registrada (sin verificar) con un reto en borrador puede consultar de cualquier estudiante qué competencias tiene verificadas o declaradas, si su carrera coincide (aunque la oculte), sus intereses y su disponibilidad. Los UUID de estudiantes se obtienen de la verificación pública de evidencia. | Permitirlo sólo al propio estudiante, al admin o a quien revisa el reto **y** el estudiante aplicó o está asignado a ese reto. |
-| H-3 | Media | Credenciales de retos confidenciales: la verificación pública oculta reto y empresa pero publica `supervisor_name` y `supervisor_title` (p. ej. «Gerente de Mejora Continua · Nova Manufacturing»), que revelan la empresa. El seed no tiene credenciales confidenciales. | En `sp_credential_public_json`, devolver `null` en ambos campos cuando la política es `confidential` (el *snapshot* es inmutable, así que se enmascara al leer). |
-| H-4 | Baja | `sp_activity_feed`: compañeros y revisores ven los títulos de evidencia **en borrador** de un compañero (la bitácora registra `evidence_added` al crearla) y pueden inferir el resultado de la validación de un compañero. Contradice la fila «Compañeros no ven… validaciones ajenas» de §4 para el *feed*. | Filtrar eventos: `evidence_added` sólo si la evidencia ya no es borrador; eventos de validación sólo para el estudiante involucrado y los revisores. |
-| H-5 | Baja | La política `evidence_select_public` de Storage también aplica al **listado** del bucket: con la llave pública cualquiera puede enumerar los archivos de evidencia pública (y descargarlos) sin tener el código de la credencial, incluso si el estudiante desactivó su SkillPass público. No expone evidencia no pública. | Limitar la política a la operación de firma de URL (`storage.operation` = `storage.object.sign`), que es el único uso público de la app. |
+| H-1 | Media | `sp_invite_member`: un *manager* podía degradar al dueño «invitándolo» con otro rol y luego quitarlo (organización sin dueño); las respuestas permitían enumerar cuentas y su tipo; cuentas existentes se agregaban sin consentimiento; una invitación previa convertía a un futuro estudiante en personal de la organización al registrarse. | `20261007000003_invitation_hardening.sql`: invitar exige organización verificada y sólo registra una invitación pendiente (respuesta única `invited`; `already_member` para miembros actuales; nunca cambia roles). Sólo un dueño o el admin quita a un dueño (con bloqueo de la organización) y al quitar a alguien se revocan las invitaciones que creó. Al registrarse, la invitación sólo aplica si la organización está verificada y el tipo de cuenta coincide; al iniciar sesión se acepta la más reciente sólo si la persona no pertenece a otra organización de ese tipo. |
+| H-2 | Media | `sp_match_score`: cualquier revisor de cualquier reto (incluso una empresa sin verificar con un borrador) podía consultar de cualquier estudiante competencias verificadas/declaradas, carrera oculta, intereses y disponibilidad. | `20261007000004_match_score_scope.sql`: sólo el propio estudiante (en retos que puede ver), el admin o los revisores del reto respecto de estudiantes que aplicaron y no se retiraron. |
+| H-3 | Media | Credenciales confidenciales: la verificación pública publicaba nombre y cargo del supervisor (que nombran la empresa), y fechas exactas y modalidad que, con la industria, identificaban el reto en la lista pública. | `20261007000005_confidential_credential_mask.sql`: esos campos son `null` en credenciales confidenciales (se enmascara al leer; el *snapshot* es inmutable) y el resumen del SkillPass público no cuenta sus validadores. La UI muestra «Responsable de la empresa (confidencial)». |
+| H-4 | Baja | `sp_activity_feed`: compañeros y revisores veían títulos de evidencia en borrador de un compañero y podían inferir el resultado de su validación. | `20261007000006_activity_feed_visibility.sql`: cada evento se filtra con la misma regla que la fila que describe; el contexto del llamante se evalúa una vez por consulta. |
+| H-5 | Baja | La política pública de Storage también aplicaba al listado del bucket: con la llave pública se podían enumerar y descargar archivos de evidencia pública sin el código de la credencial. | `20261007000007_storage_public_sign_only.sql`: la política sólo aplica a la firma de URL (`storage.object.sign` / `sign_many`). Comprobado en vivo: el listado anónimo devuelve `[]` y la descarga pública por la app sigue funcionando. Requiere un storage-api que fije `storage.operation` (Supabase alojado lo hace). |
 
-Cada corrección irá en una migración nueva (las existentes ya están aplicadas en la demo).
+**Riesgos residuales** (documentados, no corregidos en esta entrega):
+
+| ID | Severidad | Riesgo | Recomendación |
+|---|---|---|---|
+| H-6 | Media | La rama «talent pool» de la política `credentials_select` permite a cualquier miembro de una empresa verificada leer la fila completa de credenciales de un estudiante del talent pool, incluido el *snapshot* con empresa, reto y supervisor de credenciales confidenciales. `sp_talent` y `sp_talent_profile` son `SECURITY INVOKER` y dependen de esa rama. | Pasar `sp_talent`/`sp_talent_profile` a `SECURITY DEFINER` con su propia verificación de `sp_in_talent_pool`, leer credenciales sólo vía `sp_credential_public_json` y quitar la rama de la política. |
+| R-1 | Baja | No hay botón «Aceptar»: una invitación de una organización verificada se aplica sola al registrarse o al iniciar sesión, si la cuenta es del tipo correcto y no pertenece a otra organización de ese tipo. Las invitaciones a correos que nunca podrán unirse quedan «pendientes». | Aceptación explícita con aviso; permitir que un miembro salga por sí mismo. |
+| R-2 | Baja | Dueños y managers ya no pueden cambiar el rol de un miembro (antes se hacía, de forma insegura, re-invitándolo); sólo el admin (`sp_admin_set_member`). | RPC `sp_set_member_role` con reglas de dueño. |
+| R-3 | Baja | Un revisor puede editar las competencias de un reto con postulantes y recalcular la compatibilidad, como oráculo sobre las competencias verificadas del postulante. | Congelar competencias cuando hay postulaciones o mostrar el desglose guardado al aplicar. |
+| R-4 | Baja | Compañeros de reto ven el estado de revisión y los comentarios de la evidencia ya enviada de un compañero (`sp_workspace`), de lo que pueden inferir su resultado (la actividad ya no lo expone). | Decidir la política; si no deben verlo, ocultar estado y comentario a quien no es dueño ni revisor. |
+| R-5 | Baja | La política de publicación se lee del *snapshot*: si la empresa cambia un reto abierto a confidencial después de emitir credenciales, éstas siguen públicas. | Aplicar la más estricta entre *snapshot* y reto, o bloquear el cambio cuando ya hay credenciales. |

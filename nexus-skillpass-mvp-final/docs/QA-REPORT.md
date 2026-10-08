@@ -10,14 +10,15 @@ Todas las cifras de este documento provienen de ejecuciones reales en esta entre
 |---|---|---|
 | Lint | `npm run lint` | ✔ 0 errores · 0 warnings |
 | Tipos | `npm run typecheck` | ✔ sin errores (TypeScript estricto + tipos de rutas generados) |
-| Unitarias + base de datos (PGlite) | `npm test` | ✔ **95/95** |
-| Base de datos en PostgreSQL 16.14 real | `npm run test:pg` | ✔ **39/39** |
-| Base de datos en PostgreSQL 17.11 (imagen de Supabase) | `TEST_DATABASE_URL=… npm run test:pg` | ✔ **39/39** |
+| Unitarias + base de datos (PGlite) | `npm test` | ✔ **104/104** (8 oct 2026, con las regresiones de seguridad H-1…H-5) |
+| Base de datos en PostgreSQL 16 real | `npm run test:pg` | ✔ **48/48** |
+| Base de datos en PostgreSQL 17.11 (imagen de Supabase) | `TEST_DATABASE_URL=… npm run test:pg` | ✔ **39/39** (corrida del 2 oct; las 12 migraciones se aplicaron después en el Supabase de la demo, PG 17) |
 | Build de producción | `npm run build` | ✔ compila sin errores ni warnings de tipos; 33 rutas dinámicas + 5 recursos estáticos (íconos, OG, robots, sitemap) |
 | E2E · DEMO local (dev) | `npm run test:e2e` | ✔ **15/15** (+3 omitidas: requieren Supabase) |
-| E2E · DEMO local (build de producción, modo CI) | `CI=1 npm run test:e2e` | ✔ **15/15** (+3 omitidas) |
+| E2E · DEMO local (build de producción, modo CI) | `CI=1 npm run test:e2e` | ✔ **15/15** (+3 omitidas); 8 oct, con la prueba de descarga pública: ✔ **16/16** (+3 omitidas) |
 | E2E · Supabase real (stack local: Auth, PostgREST, Storage, Kong) | `E2E_BASE_URL=… E2E_SUPABASE=1 npx playwright test` | ✔ **17/17** (+1 omitida: sólo DEMO local) |
 | E2E · despliegue Vercel + Supabase en la nube (7 oct 2026) | `E2E_BASE_URL=https://skillpass-demo.vercel.app E2E_SUPABASE=1 npx playwright test` (sin `auth-supabase`) | ✔ **14/14**: FLOW 01–10 + seguridad, demo guiada, incidentes y móvil (+1 omitida: sólo DEMO local). Ver [DEPLOYMENT §8](DEPLOYMENT.md#8-despliegue-actual--demo-pública) |
+| E2E · demo en la nube tras las correcciones de seguridad (8 oct 2026) | ídem, sólo especificaciones de lectura: `security guided-demo mobile` | ✔ **13/13** (+1 omitida: sólo DEMO local), incluida la descarga anónima de evidencia publicada con la política de Storage H-5 activa. FLOW 01–10 se verificó en la DEMO local con las 12 migraciones (no se repitió en la nube para no dejar datos de prueba). |
 | Migraciones en Supabase | `supabase start` (CLI 2.119, PG 17) | ✔ las 5 migraciones aplican sin errores |
 | Seed en Supabase | `npm run seed -- --supabase --confirm-demo-project` | ✔ 16 cuentas vía Admin API, seed SQL, 3 archivos a Storage |
 | Sondeo directo de la API (PostgREST) | `curl` con llave anónima y JWT de estudiante | ✔ ver §5 |
@@ -27,8 +28,8 @@ Todas las cifras de este documento provienen de ejecuciones reales en esta entre
 
 | Archivo | Pruebas | Cobertura |
 |---|---|---|
-| `tests/database.test.ts` | 33 | RLS en 24 tablas; sin escrituras directas aun con *default privileges*; funciones expuestas a `anon`; roles por registro/invitación; FLOW 01–08 y 10 a nivel SQL; revocación; aislamiento entre organizaciones, compañeros, universidad; talent pool; admin; inmutabilidad. |
-| `tests/storage.test.ts` | 6 | Bucket privado, lectura anónima sólo de evidencia publicada en credencial vigente, dueño/compañero/supervisor, subida sólo a carpeta propia y reto activo, borrado sólo de archivos no revisados. |
+| `tests/database.test.ts` | 40 | RLS en 24 tablas; sin escrituras directas aun con *default privileges*; funciones expuestas a `anon`; roles por registro/invitación; FLOW 01–08 y 10 a nivel SQL; revocación; aislamiento entre organizaciones, compañeros, universidad; talent pool; admin; inmutabilidad; regresiones H-1…H-5 de la revisión de seguridad (fallan sin las migraciones de corrección). |
+| `tests/storage.test.ts` | 8 | Bucket privado, lectura anónima sólo de evidencia publicada en credencial vigente y sólo al firmar la URL (13 operaciones de Storage negadas, sin listado), dueño/compañero/supervisor, subida sólo a carpeta propia y reto activo, borrado sólo de archivos no revisados. |
 | `tests/unit/safety.test.ts` | 26 | *Open redirect*, CSV injection, *magic numbers*, nombres de archivo. |
 | `tests/unit/schemas.test.ts` | 13 | Trabajo justo, fechas, enums, URLs https, VATH, rúbrica, rol admin, contraseñas, onboarding con campos vacíos. |
 | `tests/unit/i18n.test.ts` | 8 | Paridad es/en, placeholders, mensajes vacíos, cada error SQL y notificación con traducción, 9 pasos de la guía, ningún texto «AI Match». |

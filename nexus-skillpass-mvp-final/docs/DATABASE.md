@@ -13,6 +13,11 @@ PostgreSQL (Supabase en producción; PGlite en la DEMO local y en pruebas; Postg
 | `20261002000005_storage.sql` | Bucket privado `evidence` y sus políticas (se omite automáticamente si no existe el esquema `storage`). |
 | `20261007000001_rls_initplan.sql` | Reescribe 13 políticas `SELECT` para evaluar `auth.uid()`, `sp_is_admin()`, `sp_my_university_id()` y `sp_auth_email()` una vez por consulta (`(select …)` → *InitPlan*) en lugar de por fila. Mismas reglas de acceso. |
 | `20261007000002_fk_indexes.sql` | 12 índices para llaves foráneas que sí se consultan o se recorren al borrar (evidencia, VATH, tareas, validaciones, credenciales, incidentes). Las otras 28 que señala el *advisor* son columnas de auditoría que nunca se filtran. |
+| `20261007000003_invitation_hardening.sql` | Invitaciones (H-1): invitar exige organización verificada y sólo registra una invitación pendiente (respuesta única, `already_member`, nunca cambia roles); sólo un dueño o el admin quita a un dueño; al registrarse o iniciar sesión sólo aplican invitaciones de organizaciones verificadas y del tipo de cuenta elegido. |
+| `20261007000004_match_score_scope.sql` | `sp_match_score` sólo para el propio estudiante, el admin o revisores del reto respecto de postulantes no retirados (H-2). |
+| `20261007000005_confidential_credential_mask.sql` | Credenciales confidenciales: sin supervisor, fechas ni modalidad en la vista pública; el resumen público no cuenta sus validadores (H-3). |
+| `20261007000006_activity_feed_visibility.sql` | `sp_activity_feed` filtra cada evento con la regla de la fila que describe (H-4). |
+| `20261007000007_storage_public_sign_only.sql` | La lectura pública de Storage sólo aplica a la firma de URL; el bucket no se puede listar (H-5). |
 
 `supabase/demo-bootstrap.sql` emula lo mínimo de Supabase Auth (roles `anon`/`authenticated`, `auth.users`, `auth.uid()`) **sólo** para PGlite/pruebas. Nunca se ejecuta en Supabase.
 
@@ -57,7 +62,7 @@ notifications · audit_logs (append-only) · incidents
 | `sp_guard_vath` | Registros enviados no cambian horas/fecha/actividad; decididos no cambian estado ni horas verificadas. |
 | `sp_guard_evidence` | Evidencia aprobada no se modifica ni se borra. |
 | `sp_guard_credential` | Snapshot, linaje y código inmutables; sólo se permite revocar o alternar la verificación pública. |
-| `sp_on_auth_user_created` | Crea el perfil desde `auth.users`. Sólo `student`/`company`/`university` por metadatos; supervisor sólo por invitación; admin nunca. |
+| `sp_on_auth_user_created` | Crea el perfil desde `auth.users`. Sólo `student`/`company`/`university` por metadatos; supervisor sólo por invitación de una organización verificada cuyo tipo coincide con la cuenta elegida (una cuenta de estudiante nunca se convierte en personal); admin nunca. |
 
 ## Row Level Security
 
@@ -83,7 +88,7 @@ Todas reciben un único `p jsonb` y devuelven `jsonb`.
 
 **Escritura** (`SECURITY DEFINER`, autorización explícita + auditoría): `sp_accept_invitations`, `sp_complete_onboarding`, `sp_update_profile`, `sp_update_privacy`, `sp_update_organization`, `sp_invite_member`, `sp_revoke_invitation`, `sp_remove_member`, `sp_save_challenge`, `sp_set_challenge_status`, `sp_apply`, `sp_withdraw_application`, `sp_decide_application`, `sp_end_assignment`, `sp_invite_to_challenge`, `sp_save_task`, `sp_set_task_status`, `sp_delete_task`, `sp_add_evidence`, `sp_update_evidence`, `sp_delete_evidence`, `sp_set_evidence_visibility`, `sp_save_vath`, `sp_delete_vath`, `sp_submit_for_validation`, `sp_complete_validation`, `sp_set_credential_verification`, `sp_revoke_credential`, `sp_admin_set_org_status`, `sp_admin_set_user_role`, `sp_admin_set_member`, `sp_admin_save_competency`, `sp_report_incident`, `sp_admin_update_incident`, `sp_mark_notifications_read`.
 
-**Públicas** (`anon`): `sp_public_skillpass`, `sp_public_credential`, `sp_public_evidence_file`, `sp_is_public_evidence_object` (usada por la política de Storage). Devuelven sólo datos opt-in y acotados; nombres de proyectos confidenciales se enmascaran.
+**Públicas** (`anon`): `sp_public_skillpass`, `sp_public_credential`, `sp_public_evidence_file`, `sp_is_public_evidence_object` (usada por la política de Storage). Devuelven sólo datos opt-in y acotados; en credenciales confidenciales se ocultan reto, organización, supervisor (nombre y cargo), modalidad y fechas exactas, y el resumen del SkillPass público no cuenta sus validadores.
 
 Al final de la migración 4 se revoca `EXECUTE` de **todas** las funciones `sp_%` y se vuelve a otorgar sólo la lista anterior (prueba: `anon` sólo puede ejecutar las 4 públicas).
 
@@ -93,7 +98,7 @@ Las RPCs lanzan `sp:<clave>` con el campo en `DETAIL` (p. ej. `sp:fair_work_unpa
 
 ## Skills Match (reglas, sin IA)
 
-`sp_match_score(student, challenge)` → 0–100 con desglose:
+`sp_match_score(student, challenge)` → 0–100 con desglose. Sólo responde al propio estudiante (en retos que puede ver), al admin y a los revisores del reto respecto de estudiantes que aplicaron y no se retiraron; en otro caso devuelve `null`:
 
 - Competencias (60): por cada competencia requerida, 100 % si está verificada, 60 % si sólo está declarada.
 - Intereses (15): intersección entre intereses del estudiante y áreas del reto.
@@ -106,4 +111,4 @@ Las RPCs lanzan `sp:<clave>` con el campo en `DETAIL` (p. ej. `sp:fair_work_unpa
 
 ## Pruebas de base de datos
 
-`tests/database.test.ts` (33) y `tests/storage.test.ts` (6) cubren: RLS/grants, roles e invitaciones, FLOW 01–08 y 10, revocación, aislamiento entre organizaciones/compañeros/universidad, Talent pool, admin, inmutabilidad y políticas de Storage. Corren en PGlite (`npm test`) y en PostgreSQL 16 real (`npm run test:pg`).
+`tests/database.test.ts` (40) y `tests/storage.test.ts` (8) cubren: RLS/grants, roles e invitaciones, regresiones H-1…H-5 de la revisión de seguridad, FLOW 01–08 y 10, revocación, aislamiento entre organizaciones/compañeros/universidad, Talent pool, admin, inmutabilidad y políticas de Storage. Corren en PGlite (`npm test`) y en PostgreSQL 16 real (`npm run test:pg`).

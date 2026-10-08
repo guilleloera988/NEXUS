@@ -66,7 +66,7 @@ Navegador ──► Next.js 16 (App Router, Server Components, Server Actions)
 |---|---|
 | **Estudiante** | Perfil (declarado vs verificado), explorar retos con Skills Match transparente, aplicar, workspace (tareas, evidencias, VATH), enviar a validación, SkillPass y privacidad. |
 | **Empresa** | Organización, crear/publicar retos (requiere verificación AINDEV), candidatos y decisiones con historial, equipo, talento verificado, invitaciones. |
-| **Supervisor** | Bandeja de validación: verificar/ajustar/rechazar VATH, aprobar evidencia, evaluar competencias 1–5 y emitir credenciales. Sólo se obtiene por invitación de la organización. |
+| **Supervisor** | Bandeja de validación: verificar/ajustar/rechazar VATH, aprobar evidencia, evaluar competencias 1–5 y emitir credenciales. Sólo se obtiene por invitación de una organización verificada, registrándose como «Empresa» con el correo invitado. |
 | **Universidad** | Analítica agregada de sus estudiantes (VATH por carrera, competencias, empresas, participación) y exportación CSV. Nunca lee evidencia ni horas individuales. |
 | **Admin AINDEV** | Talent OS: verificación de organizaciones, usuarios y roles, retos, aplicaciones, evidencias, VATH, validaciones, competencias, credenciales (revocación), incidentes y bitácora de auditoría. Nunca se obtiene por registro. |
 
@@ -120,7 +120,7 @@ Ver [`.env.example`](.env.example). Resumen:
 
 ## Base de datos y Supabase
 
-- Migraciones en [`supabase/migrations`](supabase/migrations): esquema (24 tablas, triggers de integridad), seguridad (helpers + políticas RLS + grants), RPCs de flujo, RPCs de lectura y Storage.
+- Migraciones en [`supabase/migrations`](supabase/migrations): esquema (24 tablas, triggers de integridad), seguridad (helpers + políticas RLS + grants), RPCs de flujo, RPCs de lectura y Storage; después, rendimiento (RLS con *InitPlan*, índices de llaves foráneas) y las correcciones de la revisión de seguridad H-1…H-5 ([SECURITY §6](docs/SECURITY.md)).
 - Aplicar en Supabase: `supabase link --project-ref <ref>` y `supabase db push` (o `npm run seed -- --supabase --confirm-demo-project --apply-migrations` en un proyecto de demo vacío).
 - En Supabase Auth: habilitar email/password, configurar *Site URL* = `NEXT_PUBLIC_APP_URL` y *Redirect URL* `…/auth/callback`.
 - Detalle de tablas, RLS y RPCs: [docs/DATABASE.md](docs/DATABASE.md).
@@ -148,9 +148,9 @@ El modo Supabase crea las 16 cuentas ficticias con la Admin API, ejecuta `supaba
 |---|---|---|
 | `npm run lint` | ESLint (Next + React hooks) | 0 errores, 0 warnings |
 | `npm run typecheck` | `next typegen` + `tsc --noEmit` estricto | OK |
-| `npm test` | 56 unitarias + 39 de base de datos (RLS, grants, FLOW 01–10, aislamiento, integridad, Storage) en PGlite | 95/95 |
-| `npm run test:pg` | Las 39 pruebas de base de datos sobre **PostgreSQL real** (levanta un cluster temporal o usa `TEST_DATABASE_URL`) | 39/39 en PG 16.14 y en PG 17.11 (imagen de Supabase) |
-| `npm run test:e2e` | Playwright: FLOW 01–10 por la UI real (incl. decodificación del QR), seguridad, incidentes, demo guiada de 9 pasos y móvil; con `E2E_SUPABASE=1` además registro/login reales | 15/15 en DEMO local · 17/17 contra Supabase (ver [QA-REPORT](docs/QA-REPORT.md)) |
+| `npm test` | 56 unitarias + 48 de base de datos (RLS, grants, FLOW 01–10, aislamiento, integridad, Storage y regresiones de la revisión de seguridad) en PGlite | 104/104 |
+| `npm run test:pg` | Las 48 pruebas de base de datos sobre **PostgreSQL real** (levanta un cluster temporal o usa `TEST_DATABASE_URL`) | 48/48 en PG 16 (la corrida previa en PG 17.11, imagen de Supabase, fue con 39 pruebas) |
+| `npm run test:e2e` | Playwright: FLOW 01–10 por la UI real (incl. decodificación del QR), seguridad, incidentes, demo guiada de 9 pasos y móvil; con `E2E_SUPABASE=1` además registro/login reales | 16/16 en DEMO local (+3 que requieren Supabase) · 17/17 contra Supabase local (2 oct) · contra la demo en la nube ver [QA-REPORT](docs/QA-REPORT.md) |
 
 CI: [`.github/workflows/skillpass-quality.yml`](../.github/workflows/skillpass-quality.yml) (raíz del repositorio) corre todo lo anterior con un servicio PostgreSQL 16.
 
@@ -173,7 +173,7 @@ Objetivo: `https://skillpass.aindev.com.mx` en Vercel + Supabase. Guía completa
 ## Seguridad
 
 - RLS obligatorio en todas las tablas; los roles `anon`/`authenticated` sólo tienen `SELECT` y escriben únicamente por RPCs con autorización explícita.
-- Ningún rol privilegiado se obtiene por metadatos de registro; supervisor sólo por invitación, admin nunca.
+- Ningún rol privilegiado se obtiene por metadatos de registro; supervisor sólo por invitación de una organización verificada, admin nunca. Las invitaciones no revelan si una cuenta existe ni cambian el rol de un miembro.
 - Credenciales con snapshot inmutable; decisiones, evaluaciones y bitácora de sólo inserción.
 - Subidas con lista blanca MIME, verificación por *magic numbers*, límite de tamaño y descargas por URL firmada tras una consulta con RLS.
 - CSP estricta, HSTS, `nosniff`, `frame-ancestors 'none'`, CSV sin inyección de fórmulas, redirecciones sin *open redirect*.

@@ -32,7 +32,7 @@ Credencial precargada para verificación: **`SKP-2026-4A7C-91D2`**.
 |---|---|---|---|
 | 1 | Conoce a la estudiante | María · Tablero | Progreso del reto, VATH verificadas vs en validación, competencias verificadas. «Nada aquí es autodeclarado sin marcarlo como tal.» |
 | 2 | Explora el reto | María · *Commercial Process Automation* | Problema real, competencias, entregables, compensación, **propiedad intelectual** y confidencialidad. Abre «¿Por qué esta compatibilidad?»: reglas transparentes, **no IA**. |
-| 3 | Revisa el trabajo | María · Workspace | Hitos por entregable, tareas, equipo y actividad. |
+| 3 | Revisa el trabajo | María · Workspace | Hitos por entregable, tareas, equipo y actividad (María ve sus validaciones y la evidencia ya enviada de Diego, no sus borradores). |
 | 4 | Inspecciona la evidencia | María · Evidencias | Archivos verificados por contenido y enlaces. Agrega una evidencia con un enlace `https://…`. |
 | 5 | Verifica VATH | María · Validación | Horas declaradas separadas de verificadas, vinculadas a evidencia. Pulsa **Enviar a validación**. |
 | 6 | Valida competencias | Carlos · Validaciones | Abre la solicitud de María: verifica/ajusta horas (ajustar exige comentario), aprueba evidencia, evalúa con la rúbrica 1–5 (nivel 3+ = verificada), marca **emitir credencial** y completa. |
