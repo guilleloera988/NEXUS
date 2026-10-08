@@ -55,7 +55,15 @@ export async function signup(_prev: ActionState, fd: FormData): Promise<ActionSt
         emailRedirectTo: new URL('/auth/callback?next=/onboarding', await origin()).toString(),
       },
     });
-    if (error) throw new AppError(/password/i.test(error.message) ? 'weak_password' : 'signup_failed', 400);
+    if (error) {
+      // Supabase rolls the sign-up back when the confirmation e-mail can't be sent (SMTP down or
+      // misconfigured); say so instead of blaming the visitor's data.
+      console.error('[skillpass] sign-up rejected by Supabase Auth', error.status ?? '', error.code ?? '');
+      if (/password/i.test(error.message)) throw new AppError('weak_password', 400);
+      if (error.code === 'over_email_send_rate_limit' || /rate limit/i.test(error.message)) throw new AppError('email_rate_limited', 429);
+      if (/sending .*email|smtp/i.test(error.message) || (error.status ?? 0) >= 500) throw new AppError('email_send_failed', 503);
+      throw new AppError('signup_failed', 400);
+    }
     (await cookies()).delete(DEMO_COOKIE);
     if (data.session) redirect('/onboarding');
     return { message: 'checkEmail' };

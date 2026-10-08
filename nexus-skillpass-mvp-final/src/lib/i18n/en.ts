@@ -512,6 +512,8 @@ const en: Messages = {
     student_not_in_talent_pool: 'The student is not available in Verified talent.', admin_role_protected: 'That role is protected.', rate_limited: 'Too many requests. Please wait a moment.',
     supabase_not_configured: 'Real accounts are not configured in this environment.', demo_disabled: 'The demo is not enabled in this environment.', demo_expired: 'The DEMO scenario expired. Start a new one.',
     invalid_credentials: 'Wrong email or password, or the account is pending confirmation.', signup_failed: 'We could not create the account. Check your data.',
+    email_send_failed: 'We could not send the confirmation e-mail, so the account was not created. Try again later or contact AINDEV.',
+    email_rate_limited: 'Too many e-mails were sent in a short time. Try again in a few minutes.',
     weak_password: 'The password must have at least 10 characters.', password_mismatch: 'Passwords do not match.', append_only: 'This record is read-only.',
   },
   fields: {

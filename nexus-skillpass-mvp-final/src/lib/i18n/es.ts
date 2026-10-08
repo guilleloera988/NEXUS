@@ -511,6 +511,8 @@ const es = {
     student_not_in_talent_pool: 'El estudiante no está disponible en Talento verificado.', admin_role_protected: 'Ese rol está protegido.', rate_limited: 'Demasiadas solicitudes. Espera un momento.',
     supabase_not_configured: 'Las cuentas reales no están configuradas en este entorno.', demo_disabled: 'La demo no está habilitada en este entorno.', demo_expired: 'El escenario DEMO expiró. Inicia uno nuevo.',
     invalid_credentials: 'Correo o contraseña incorrectos, o cuenta pendiente de confirmación.', signup_failed: 'No pudimos crear la cuenta. Revisa los datos.',
+    email_send_failed: 'No pudimos enviar el correo de confirmación, así que la cuenta no se creó. Intenta más tarde o avisa a AINDEV.',
+    email_rate_limited: 'Se enviaron demasiados correos en poco tiempo. Intenta de nuevo en unos minutos.',
     weak_password: 'La contraseña debe tener al menos 10 caracteres.', password_mismatch: 'Las contraseñas no coinciden.', append_only: 'Este registro es de sólo lectura.',
   },
   fields: {
