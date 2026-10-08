@@ -53,7 +53,7 @@ export default async function OrganizationPage() {
                   <Avatar name={m.full_name} size="sm" />
                   <div className="min-w-0 flex-1"><p className="truncate text-sm font-semibold">{m.full_name}</p><p className="truncate text-xs text-ink-500">{m.headline || t.roles[m.role as keyof typeof t.roles]}</p></div>
                   <Badge tone="neutral">{t.enums.memberRole[m.member_role as keyof typeof t.enums.memberRole]}</Badge>
-                  {data.can_manage && m.user_id !== me.profile.id && (
+                  {data.can_manage && m.user_id !== me.profile.id && (m.member_role !== 'owner' || data.my_role === 'owner' || me.profile.role === 'admin') && (
                     <form action={removeMember}>
                       <input type="hidden" name="organization_id" value={org.id} /><input type="hidden" name="user_id" value={m.user_id} />
                       <button type="submit" className="btn-ghost btn-sm text-danger-700" aria-label={`${O.removeMember}: ${m.full_name}`}><X className="size-4" aria-hidden /></button>

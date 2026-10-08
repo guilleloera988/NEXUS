@@ -58,6 +58,20 @@ describe('evidence storage bucket and policies', () => {
     expect(await visible(USERS.jorge)).toEqual([]);
   });
 
+  it('only the signing operations reach public files; every other Storage operation is denied', async () => {
+    const operations = ['storage.object.list', 'storage.object.list_v2', 'storage.object.get_authenticated', 'storage.object.info_authenticated',
+      'object.get_authenticated_info', 'object.head_authenticated_info', 'storage.object.copy', 'storage.object.move', 'storage.s3.object.list',
+      'storage.render.image_authenticated', 'storage.object.sign_upload', 'storage.object.%', ''];
+    for (const operation of operations) {
+      expect(await visible(null, operation)).toEqual([]);
+      expect(await visible(USERS.jorge, operation)).toEqual([]);
+    }
+    for (const operation of ['storage.object.sign', 'storage.object.sign_many']) {
+      expect(await visible(null, operation)).toEqual([MARIA_C2_PNG]);
+      expect(await visible(USERS.jorge, operation)).toEqual([MARIA_C2_PNG]);
+    }
+  });
+
   it('owners see their files; unrelated students only reach public files by exact path', async () => {
     const maria = await visible(USERS.maria);
     expect(maria).toEqual(expect.arrayContaining([MARIA_C1_PDF, MARIA_C2_PNG]));

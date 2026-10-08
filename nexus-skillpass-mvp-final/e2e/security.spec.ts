@@ -103,3 +103,19 @@ test('demo verification links work for anyone holding them', async ({ page, brow
   await expect(pub.getByText('DEMO · Datos ficticios').first()).toBeVisible();
   await anon.close();
 });
+
+test('evidence published on a credential downloads for anyone holding the link', async ({ page, browser }) => {
+  await enterDemo(page, 'student');
+  await page.goto('/my-skillpass');
+  const card = page.locator('article, section').filter({ hasText: SEEDED_CODE }).first();
+  const link = await card.getByRole('link', { name: 'Ver en línea' }).getAttribute('href');
+  const anon = await browser.newContext({ locale: 'es-MX' });
+  const pub = await anon.newPage();
+  await pub.goto(link!);
+  const href = await pub.locator('a[href*="/api/public/evidence/"]').first().getAttribute('href');
+  expect(href).toBeTruthy();
+  const file = await pub.request.get(href!);
+  expect(file.status()).toBe(200);
+  expect((await file.body()).length).toBeGreaterThan(1000);
+  await anon.close();
+});

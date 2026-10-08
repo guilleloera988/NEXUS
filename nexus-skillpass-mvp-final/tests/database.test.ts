@@ -472,13 +472,15 @@ describe('security review regressions (docs/SECURITY.md §6)', () => {
     expect(inv.status).toBe('revoked');
   });
 
-  it('H-1 · invitations of an organization pending verification apply only after AINDEV verifies it', async () => {
+  it('H-1 · only verified organizations invite, and only their invitations attach accounts', async () => {
     const eve = '10000000-0000-4000-8000-000000000094';
     await signUp(eve, 'eve.h1@test.invalid', 'company', 'Eve');
     await rpc(db, eve, 'sp_complete_onboarding', { full_name: 'Eve', organization_name: 'Empresa sin verificar H1' });
     const [{ organization_id: eveOrg }] = (await db.query<Row>('select organization_id from public.organization_members where user_id = $1', [eve])).rows;
-    await rpc(db, eve, 'sp_invite_member', { organization_id: eveOrg, email: 'fundadora.h1@test.invalid', member_role: 'supervisor' });
+    await expectError(rpc(db, eve, 'sp_invite_member', { organization_id: eveOrg, email: 'fundadora.h1@test.invalid', member_role: 'supervisor' }), /organization_not_verified/);
 
+    // Defence in depth: a pending invitation of an organization that is not verified attaches nobody.
+    await db.query("insert into public.invitations(organization_id, email, member_role, invited_by) values ($1, 'fundadora.h1@test.invalid', 'supervisor', $2)", [eveOrg, eve]);
     const founder = '10000000-0000-4000-8000-000000000093';
     await signUp(founder, 'fundadora.h1@test.invalid', 'company', 'Fundadora');
     const [profile] = (await db.query<Row>('select role from public.profiles where id = $1', [founder])).rows;

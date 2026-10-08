@@ -58,7 +58,7 @@ const es = {
     publicationPolicy: {
       public_allowed: 'El estudiante puede publicar evidencia aprobada',
       summary_only: 'Sólo resumen público (sin evidencia)',
-      confidential: 'Proyecto confidencial (nombre y empresa ocultos)',
+      confidential: 'Proyecto confidencial (nombre, empresa, supervisor y fechas ocultos)',
     },
     availability: { full_time: 'Tiempo completo', part_time: 'Medio tiempo', weekends: 'Fines de semana', flexible: 'Flexible', not_available: 'No disponible por ahora' },
     industries: {
@@ -161,7 +161,7 @@ const es = {
       company: { title: 'Empresa', text: 'Publica retos y conoce talento verificado.' },
       university: { title: 'Universidad', text: 'Mide la participación de tus estudiantes.' },
     },
-    supervisorNote: '¿Te invitaron como supervisor o al equipo de una organización? Elige «Empresa» (o «Universidad») y regístrate con el correo de la invitación: tu acceso se configura automáticamente.',
+    supervisorNote: '¿Te invitaron como supervisor o al equipo de una organización? Elige «Empresa» (o «Universidad» si te invitó una institución) y regístrate con el correo de la invitación: tu acceso se configura automáticamente.',
     terms: 'Al crear una cuenta aceptas que tus datos se usen para operar la plataforma. Lo público siempre es opcional.',
     createAccount: 'Crear cuenta', signIn: 'Iniciar sesión', signingIn: 'Entrando…', creating: 'Creando…',
     checkEmail: 'Revisa tu correo para confirmar la cuenta y después inicia sesión.',
@@ -387,7 +387,7 @@ const es = {
     verifiedHours: 'VATH verificadas', verifiedProjects: 'Proyectos verificados', verifiedCompetencies: 'Competencias verificadas', validators: 'Validadores',
     viewOnline: 'Ver en línea', share: 'Compartir', copyLink: 'Copiar enlace', print: 'Descargar / imprimir PDF', publicUrl: 'URL pública',
     noCredentials: 'Aún no tienes credenciales', noCredentialsText: 'Completa un reto y obtén la validación de tu supervisor para emitir tu primera credencial.',
-    confidentialProject: 'Proyecto confidencial', confidentialHelp: 'La empresa solicitó no publicar el nombre del reto.',
+    confidentialProject: 'Proyecto confidencial', confidentialHelp: 'La empresa solicitó confidencialidad: no se publican el nombre del reto, la empresa, el supervisor ni las fechas exactas.',
     competencyFrom: '{n} proyecto(s)', developing: 'En desarrollo (retroalimentación privada)', developingHelp: 'Evaluaciones por debajo del nivel 3. No se publican.',
     declared: 'Habilidades declaradas (autodeclaradas)', declaredHelp: 'No son verificadas; sirven para calcular compatibilidad.',
     inProgress: 'Retos en curso', inProgressHelp: 'Horas ya verificadas que se incluirán en una credencial al cerrar el reto.', pendingHours: '{hours} h en validación',
@@ -430,8 +430,8 @@ const es = {
   },
   organization: {
     title: 'Mi organización', subtitle: 'Información pública de la organización y su equipo.', details: 'Datos de la organización', members: 'Equipo',
-    invite: 'Invitar persona', inviteEmail: 'Correo', inviteRole: 'Rol', sendInvite: 'Enviar invitación', invited: 'Invitación registrada. La persona se unirá al crear su cuenta con ese correo (eligiendo «Empresa» o «Universidad») o al iniciar sesión, si aún no pertenece a otra organización. Si tu organización está pendiente de verificación, se aplicará cuando AINDEV la verifique.',
-    added: 'Persona agregada a la organización.', pendingInvites: 'Invitaciones pendientes', revoke: 'Revocar', removeMember: 'Quitar', verification: 'Verificación',
+    invite: 'Invitar persona', inviteEmail: 'Correo', inviteRole: 'Rol', sendInvite: 'Enviar invitación', invited: 'Invitación registrada. La persona se unirá al crear su cuenta con ese correo eligiendo «Empresa» o «Universidad» según tu organización, o al iniciar sesión con una cuenta de ese tipo que aún no pertenezca a otra organización. Las cuentas de estudiante no pueden unirse.',
+    pendingInvites: 'Invitaciones pendientes', revoke: 'Revocar', removeMember: 'Quitar', verification: 'Verificación',
     renameWarning: 'Cambiar el nombre de una organización verificada requiere una nueva verificación de AINDEV.', none: 'No perteneces a una organización.',
   },
   incidents: {
@@ -495,7 +495,7 @@ const es = {
     challenge_closed: 'El reto ya no admite participantes.', challenge_full: 'El reto alcanzó el máximo de participantes.', already_assigned: 'El estudiante ya está asignado.',
     challenge_locked: 'El reto está cerrado y no admite cambios.', invalid_dates: 'La fecha de fin debe ser posterior a la de inicio.',
     fair_work_unpaid_limit: 'Los retos sin compensación están limitados a 60 VATH estimadas.', challenge_incomplete: 'Para publicar, el reto necesita competencias, entregables, supervisor y fechas.',
-    organization_not_verified: 'Tu organización debe estar verificada por AINDEV para publicar retos.', invalid_transition: 'Ese cambio de estado no está permitido.',
+    organization_not_verified: 'Tu organización debe estar verificada por AINDEV para publicar retos e invitar a su equipo.', invalid_transition: 'Ese cambio de estado no está permitido.',
     challenge_has_applications: 'No se puede regresar a borrador: ya hay aplicaciones.', challenge_has_active_assignments: 'No se puede archivar con participantes activos.',
     pending_validations: 'Hay validaciones pendientes por resolver.', not_assigned: 'No estás asignado a este reto.', evidence_source_required: 'Sube un archivo o escribe un enlace.',
     invalid_file_type: 'Tipo de archivo no permitido.', file_too_large: 'El archivo supera el tamaño máximo.', file_mismatch: 'El contenido del archivo no coincide con su tipo.',

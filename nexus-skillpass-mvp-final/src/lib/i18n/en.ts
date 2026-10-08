@@ -59,7 +59,7 @@ const en: Messages = {
     publicationPolicy: {
       public_allowed: 'Student may publish approved evidence',
       summary_only: 'Public summary only (no evidence)',
-      confidential: 'Confidential project (title and company hidden)',
+      confidential: 'Confidential project (title, company, supervisor and dates hidden)',
     },
     availability: { full_time: 'Full time', part_time: 'Part time', weekends: 'Weekends', flexible: 'Flexible', not_available: 'Not available for now' },
     industries: {
@@ -162,7 +162,7 @@ const en: Messages = {
       company: { title: 'Company', text: 'Publish challenges and meet verified talent.' },
       university: { title: 'University', text: "Measure your students' participation." },
     },
-    supervisorNote: 'Invited as a supervisor or to an organization team? Choose “Company” (or “University”) and sign up with the invited email: your access is configured automatically.',
+    supervisorNote: 'Invited as a supervisor or to an organization team? Choose “Company” (or “University” if an institution invited you) and sign up with the invited email: your access is configured automatically.',
     terms: 'By creating an account you agree that your data is used to operate the platform. Anything public is always optional.',
     createAccount: 'Create account', signIn: 'Sign in', signingIn: 'Signing in…', creating: 'Creating…',
     checkEmail: 'Check your email to confirm the account, then sign in.',
@@ -388,7 +388,7 @@ const en: Messages = {
     verifiedHours: 'Verified VATH', verifiedProjects: 'Verified projects', verifiedCompetencies: 'Verified competencies', validators: 'Validators',
     viewOnline: 'View online', share: 'Share', copyLink: 'Copy link', print: 'Download / print PDF', publicUrl: 'Public URL',
     noCredentials: 'No credentials yet', noCredentialsText: 'Complete a challenge and get your supervisor’s validation to issue your first credential.',
-    confidentialProject: 'Confidential project', confidentialHelp: 'The company asked not to publish the challenge name.',
+    confidentialProject: 'Confidential project', confidentialHelp: 'The company requested confidentiality: the challenge name, company, supervisor and exact dates are not published.',
     competencyFrom: '{n} project(s)', developing: 'Developing (private feedback)', developingHelp: 'Assessments below level 3. Never published.',
     declared: 'Declared skills (self-reported)', declaredHelp: 'Not verified; used to compute compatibility.',
     inProgress: 'Challenges in progress', inProgressHelp: 'Hours already verified that will be included in a credential when the challenge closes.', pendingHours: '{hours} h in validation',
@@ -431,8 +431,8 @@ const en: Messages = {
   },
   organization: {
     title: 'My organization', subtitle: "Your organization's public information and team.", details: 'Organization details', members: 'Team',
-    invite: 'Invite someone', inviteEmail: 'Email', inviteRole: 'Role', sendInvite: 'Send invitation', invited: 'Invitation recorded. The person joins when they create an account with that email (choosing “Company” or “University”) or when they sign in, if they do not belong to another organization yet. If your organization is pending verification, it applies once AINDEV verifies it.',
-    added: 'Person added to the organization.', pendingInvites: 'Pending invitations', revoke: 'Revoke', removeMember: 'Remove', verification: 'Verification',
+    invite: 'Invite someone', inviteEmail: 'Email', inviteRole: 'Role', sendInvite: 'Send invitation', invited: 'Invitation recorded. The person joins when they create an account with that email choosing “Company” or “University” to match your organization, or when they sign in with an account of that type that does not belong to another organization yet. Student accounts cannot join.',
+    pendingInvites: 'Pending invitations', revoke: 'Revoke', removeMember: 'Remove', verification: 'Verification',
     renameWarning: 'Renaming a verified organization requires a new AINDEV verification.', none: 'You do not belong to an organization.',
   },
   incidents: {
@@ -496,7 +496,7 @@ const en: Messages = {
     challenge_closed: 'The challenge no longer accepts participants.', challenge_full: 'The challenge reached its maximum participants.', already_assigned: 'The student is already assigned.',
     challenge_locked: 'The challenge is closed and cannot be changed.', invalid_dates: 'The end date must be after the start date.',
     fair_work_unpaid_limit: 'Unpaid challenges are limited to 60 estimated VATH.', challenge_incomplete: 'To publish, the challenge needs competencies, deliverables, a supervisor and dates.',
-    organization_not_verified: 'Your organization must be verified by AINDEV to publish challenges.', invalid_transition: 'That status change is not allowed.',
+    organization_not_verified: 'Your organization must be verified by AINDEV to publish challenges and invite its team.', invalid_transition: 'That status change is not allowed.',
     challenge_has_applications: 'Cannot go back to draft: there are applications.', challenge_has_active_assignments: 'Cannot archive with active participants.',
     pending_validations: 'There are pending validations to resolve.', not_assigned: 'You are not assigned to this challenge.', evidence_source_required: 'Upload a file or type a link.',
     invalid_file_type: 'File type not allowed.', file_too_large: 'The file exceeds the maximum size.', file_mismatch: 'The file content does not match its type.',

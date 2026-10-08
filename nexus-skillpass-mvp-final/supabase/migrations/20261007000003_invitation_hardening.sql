@@ -1,8 +1,8 @@
 -- SkillPass — organization invitations (security review H-1, docs/SECURITY.md §6).
 --
--- 1. sp_invite_member only records a pending invitation. It no longer looks the address up in
---    auth.users, never inserts or updates organization_members and answers {"status":"invited"}
---    for every new address. Before, it (a) overwrote the role of an existing member, so a manager
+-- 1. sp_invite_member requires a verified organization (like publishing challenges) and only
+--    records a pending invitation. It no longer looks the address up in auth.users, never inserts
+--    or updates organization_members and answers {"status":"invited"} for every new address. Before, it (a) overwrote the role of an existing member, so a manager
 --    could demote the owner and then remove them past the last-owner guard, (b) told the caller
 --    whether an account existed and which role it had, and (c) added existing accounts to the
 --    organization on the spot.
@@ -16,8 +16,8 @@
 -- 4. sp_accept_invitations (called after sign-in): accepts the most recent compatible invitation of a
 --    verified organization, only while the person belongs to no organization of that kind. The app
 --    works with one organization per account, so an invitation can no longer pull an established
---    member or owner into another organization. Invitations of an organization still pending
---    verification stay pending and apply at the next sign-in after AINDEV verifies it.
+--    member or owner into another organization. (Checking verification again here also covers an
+--    organization that AINDEV rejects after it sent invitations.)
 -- CREATE OR REPLACE keeps each function's owner and EXECUTE grants.
 
 create or replace function public.sp_invite_member(p jsonb) returns jsonb
@@ -28,6 +28,7 @@ declare
 begin
   select * into o from public.organizations where id = public.sp_uuid(p, 'organization_id');
   if not found or not public.sp_is_org_manager(o.id) or o.kind = 'aindev' then perform public.sp_forbidden(); end if;
+  if o.verification_status <> 'verified' then perform public.sp_raise('organization_not_verified'); end if;
   if v_email !~ '^[^[:space:]@]+@[^[:space:]@]+\.[^[:space:]@]+$' then perform public.sp_raise('invalid_field', 'email'); end if;
   v_role := public.sp_choice(p, 'member_role', case when o.kind = 'company' then array['manager','supervisor'] else array['manager','staff'] end);
 
