@@ -7,19 +7,23 @@
 -- talent RPCs already mask those fields; only the raw table leaked them.
 --
 -- 1. The talent-pool branch is removed from credentials_select: the raw row stays readable by its
---    holder, the managers of its challenge (and admin) and the holder's university staff.
+--    holder, the reviewers of its challenge (owner, managers and the supervisor who validates, plus
+--    admin) and the holder's university staff. Reviewers replace the narrower "managers" branch:
+--    the supervisor who issued a credential reads it in sp_validation / sp_validation_queue /
+--    sp_company_dashboard, which only worked before through the talent-pool branch (that is, only
+--    when the student happened to be in the talent pool).
 -- 2. sp_visible_credentials_json(student) returns the masked public JSON of the active credentials
---    the caller could read before (same four rules, talent pool included). sp_talent_profile uses it.
+--    the caller could read before (same rules, talent pool included). sp_talent_profile uses it.
 -- 3. sp_talent becomes SECURITY DEFINER. It already admits only admin or members of a verified
 --    company and already restricts rows to the talent-pool cohort (opted-in, onboarded students),
 --    which is exactly what RLS granted those callers. Its university name now requires a verified
 --    university (as organizations_select did), and the challenge filter ignores confidential
---    credentials unless the caller manages that challenge, so it no longer reveals who completed a
+--    credentials unless the caller reviews that challenge, so it no longer reveals who completed a
 --    confidential challenge of another company.
 -- CREATE OR REPLACE keeps the owner and EXECUTE grants of the existing functions.
 
 alter policy credentials_select on public.credentials
-  using (student_id = (select auth.uid()) or public.sp_can_manage_challenge(challenge_id)
+  using (student_id = (select auth.uid()) or public.sp_can_review_challenge(challenge_id)
          or public.sp_is_university_staff_for(student_id));
 
 create function public.sp_visible_credentials_json(p_student uuid) returns jsonb
@@ -28,7 +32,7 @@ language sql stable security definer set search_path = public, pg_temp as $$
     select cr.issued_at, public.sp_credential_public_json(cr.id) as j
     from public.credentials cr
     where cr.student_id = p_student and cr.status = 'active'
-      and (cr.student_id = auth.uid() or public.sp_can_manage_challenge(cr.challenge_id)
+      and (cr.student_id = auth.uid() or public.sp_can_review_challenge(cr.challenge_id)
            or public.sp_is_university_staff_for(cr.student_id) or public.sp_in_talent_pool(cr.student_id))) x
   where x.j is not null
 $$;
@@ -75,7 +79,7 @@ begin
       where m.user_id = auth.uid() and o.kind = 'company' and o.verification_status = 'verified')) then
     return jsonb_build_object('items', '[]'::jsonb, 'allowed', false);
   end if;
-  v_challenge_visible := v_challenge is not null and public.sp_can_manage_challenge(v_challenge);
+  v_challenge_visible := v_challenge is not null and public.sp_can_review_challenge(v_challenge);
   return jsonb_build_object('allowed', true, 'items', (select coalesce(jsonb_agg(x order by
       case when v_sort = 'vath' then -x.verified_vath else 0 end, x.full_name), '[]'::jsonb) from (
     select pr.id, pr.full_name, pr.headline, pr.career, pr.semester, pr.availability, pr.hours_per_week, pr.is_demo,

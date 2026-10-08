@@ -113,13 +113,13 @@ Revisión de los *advisors* del proyecto de demo, con cada aviso trazado al cód
 |---|---|---|
 | RPC de mutación que se autoriza sola (`sp_actor`, rol, pertenencia, estado) | 34 | ✔ (`sp_invite_member` corregido, H-1) |
 | Helpers de RLS (sólo responden sobre las relaciones del propio llamante) | 15 | ✔ deben ser ejecutables porque las políticas se evalúan como el llamante |
-| Lecturas acotadas al llamante | 3 | ✔ (`sp_activity_feed` corregido, H-4) |
+| Lecturas acotadas al llamante | 3 (+2 con H-6) | ✔ (`sp_activity_feed` corregido, H-4; `sp_talent` y `sp_visible_credentials_json` nuevas, H-6) |
 | Superficie pública por diseño (verificación de credenciales y SkillPass) | 6 | ✔ (enmascaramiento confidencial H-3 y Storage H-5 corregidos) |
 | Cálculo de compatibilidad | 1 | ✔ `sp_match_score` acotado (H-2) |
 
 Protección de contraseñas filtradas (HaveIBeenPwned): requiere plan Pro de Supabase.
 
-**Hallazgos corregidos.** Existían desde la versión inicial. Cada uno se reprodujo con un script antes de corregirlo; cada corrección es una migración nueva con pruebas de regresión que fallan sin ella. Una segunda revisión adversarial volvió a correr los *exploits* contra las correcciones (todos cerrados), las atacó y lo que encontró se corrigió en las mismas migraciones. Todas están aplicadas en la demo.
+**Hallazgos corregidos.** Existían desde la versión inicial. Cada uno se reprodujo con un script antes de corregirlo; cada corrección es una migración nueva con pruebas de regresión que fallan sin ella. Una segunda revisión adversarial volvió a correr los *exploits* contra las correcciones (todos cerrados), las atacó y lo que encontró se corrigió en las mismas migraciones. H-1…H-5 están aplicadas en la demo y en producción; H-6 está en el repositorio y falta aplicarla (STATUS, OI-11).
 
 | ID | Severidad | Hallazgo | Corrección |
 |---|---|---|---|
@@ -128,12 +128,12 @@ Protección de contraseñas filtradas (HaveIBeenPwned): requiere plan Pro de Sup
 | H-3 | Media | Credenciales confidenciales: la verificación pública publicaba nombre y cargo del supervisor (que nombran la empresa), y fechas exactas y modalidad que, con la industria, identificaban el reto en la lista pública. | `20261007000005_confidential_credential_mask.sql`: esos campos son `null` en credenciales confidenciales (se enmascara al leer; el *snapshot* es inmutable) y el resumen del SkillPass público no cuenta sus validadores. La UI muestra «Responsable de la empresa (confidencial)». |
 | H-4 | Baja | `sp_activity_feed`: compañeros y revisores veían títulos de evidencia en borrador de un compañero y podían inferir el resultado de su validación. | `20261007000006_activity_feed_visibility.sql`: cada evento se filtra con la misma regla que la fila que describe; el contexto del llamante se evalúa una vez por consulta. |
 | H-5 | Baja | La política pública de Storage también aplicaba al listado del bucket: con la llave pública se podían enumerar y descargar archivos de evidencia pública sin el código de la credencial. | `20261007000007_storage_public_sign_only.sql`: la política sólo aplica a la firma de URL (`storage.object.sign` / `sign_many`). Comprobado en vivo: el listado anónimo devuelve `[]` y la descarga pública por la app sigue funcionando. Requiere un storage-api que fije `storage.operation` (Supabase alojado lo hace). |
+| H-6 | Media | La rama «talent pool» de la política `credentials_select` permitía a cualquier miembro de una empresa verificada leer la fila completa de credenciales de un estudiante del talent pool, incluido el *snapshot* con empresa, reto y supervisor de credenciales confidenciales; el filtro por reto de `sp_talent` revelaba quién completó un reto confidencial de otra empresa. | `20261008000001_talent_credentials_scope.sql`: la política ya no tiene rama de talent pool (leen la fila su titular, los revisores del reto —dueño, managers y supervisor—, el admin y la universidad del estudiante); `sp_talent_profile` recibe las credenciales ya enmascaradas de `sp_visible_credentials_json`; `sp_talent` pasa a `SECURITY DEFINER` (ya sólo atendía al admin y a empresas verificadas, y sólo lista estudiantes del talent pool), muestra sólo universidades verificadas y su filtro por reto ignora credenciales confidenciales salvo para los revisores de ese reto. |
 
 **Riesgos residuales** (documentados, no corregidos en esta entrega):
 
 | ID | Severidad | Riesgo | Recomendación |
 |---|---|---|---|
-| H-6 | Media | La rama «talent pool» de la política `credentials_select` permite a cualquier miembro de una empresa verificada leer la fila completa de credenciales de un estudiante del talent pool, incluido el *snapshot* con empresa, reto y supervisor de credenciales confidenciales. `sp_talent` y `sp_talent_profile` son `SECURITY INVOKER` y dependen de esa rama. | Pasar `sp_talent`/`sp_talent_profile` a `SECURITY DEFINER` con su propia verificación de `sp_in_talent_pool`, leer credenciales sólo vía `sp_credential_public_json` y quitar la rama de la política. |
 | R-1 | Baja | No hay botón «Aceptar»: una invitación de una organización verificada se aplica sola al registrarse o al iniciar sesión, si la cuenta es del tipo correcto y no pertenece a otra organización de ese tipo. Las invitaciones a correos que nunca podrán unirse quedan «pendientes». | Aceptación explícita con aviso; permitir que un miembro salga por sí mismo. |
 | R-2 | Baja | Dueños y managers ya no pueden cambiar el rol de un miembro (antes se hacía, de forma insegura, re-invitándolo); sólo el admin (`sp_admin_set_member`). | RPC `sp_set_member_role` con reglas de dueño. |
 | R-3 | Baja | Un revisor puede editar las competencias de un reto con postulantes y recalcular la compatibilidad, como oráculo sobre las competencias verificadas del postulante. | Congelar competencias cuando hay postulaciones o mostrar el desglose guardado al aplicar. |

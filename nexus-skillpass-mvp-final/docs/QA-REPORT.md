@@ -10,8 +10,8 @@ Todas las cifras de este documento provienen de ejecuciones reales en esta entre
 |---|---|---|
 | Lint | `npm run lint` | ✔ 0 errores · 0 warnings |
 | Tipos | `npm run typecheck` | ✔ sin errores (TypeScript estricto + tipos de rutas generados) |
-| Unitarias + base de datos (PGlite) | `npm test` | ✔ **104/104** (8 oct 2026, con las regresiones de seguridad H-1…H-5) |
-| Base de datos en PostgreSQL 16 real | `npm run test:pg` | ✔ **48/48** |
+| Unitarias + base de datos (PGlite) | `npm test` | ✔ **105/105** (8 oct 2026, con las regresiones de seguridad H-1…H-6) |
+| Base de datos en PostgreSQL 16 real | `npm run test:pg` | ✔ **49/49** |
 | Base de datos en PostgreSQL 17.11 (imagen de Supabase) | `TEST_DATABASE_URL=… npm run test:pg` | ✔ **39/39** (corrida del 2 oct; las 12 migraciones se aplicaron después en el Supabase de la demo, PG 17) |
 | Build de producción | `npm run build` | ✔ compila sin errores ni warnings de tipos; 33 rutas dinámicas + 5 recursos estáticos (íconos, OG, robots, sitemap) |
 | E2E · DEMO local (dev) | `npm run test:e2e` | ✔ **15/15** (+3 omitidas: requieren Supabase) |
@@ -28,7 +28,7 @@ Todas las cifras de este documento provienen de ejecuciones reales en esta entre
 
 | Archivo | Pruebas | Cobertura |
 |---|---|---|
-| `tests/database.test.ts` | 40 | RLS en 24 tablas; sin escrituras directas aun con *default privileges*; funciones expuestas a `anon`; roles por registro/invitación; FLOW 01–08 y 10 a nivel SQL; revocación; aislamiento entre organizaciones, compañeros, universidad; talent pool; admin; inmutabilidad; regresiones H-1…H-5 de la revisión de seguridad (fallan sin las migraciones de corrección). |
+| `tests/database.test.ts` | 41 | RLS en 24 tablas; sin escrituras directas aun con *default privileges*; funciones expuestas a `anon`; roles por registro/invitación; FLOW 01–08 y 10 a nivel SQL; revocación; aislamiento entre organizaciones, compañeros, universidad; talent pool; admin; inmutabilidad; regresiones H-1…H-6 de la revisión de seguridad (fallan sin las migraciones de corrección). |
 | `tests/storage.test.ts` | 8 | Bucket privado, lectura anónima sólo de evidencia publicada en credencial vigente y sólo al firmar la URL (13 operaciones de Storage negadas, sin listado), dueño/compañero/supervisor, subida sólo a carpeta propia y reto activo, borrado sólo de archivos no revisados. |
 | `tests/unit/safety.test.ts` | 26 | *Open redirect*, CSV injection, *magic numbers*, nombres de archivo. |
 | `tests/unit/schemas.test.ts` | 13 | Trabajo justo, fechas, enums, URLs https, VATH, rúbrica, rol admin, contraseñas, onboarding con campos vacíos. |

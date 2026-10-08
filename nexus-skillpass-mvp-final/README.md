@@ -120,7 +120,7 @@ Ver [`.env.example`](.env.example). Resumen:
 
 ## Base de datos y Supabase
 
-- Migraciones en [`supabase/migrations`](supabase/migrations): esquema (24 tablas, triggers de integridad), seguridad (helpers + políticas RLS + grants), RPCs de flujo, RPCs de lectura y Storage; después, rendimiento (RLS con *InitPlan*, índices de llaves foráneas) y las correcciones de la revisión de seguridad H-1…H-5 ([SECURITY §6](docs/SECURITY.md)).
+- Migraciones en [`supabase/migrations`](supabase/migrations): esquema (24 tablas, triggers de integridad), seguridad (helpers + políticas RLS + grants), RPCs de flujo, RPCs de lectura y Storage; después, rendimiento (RLS con *InitPlan*, índices de llaves foráneas) y las correcciones de la revisión de seguridad H-1…H-6 ([SECURITY §6](docs/SECURITY.md)).
 - Aplicar en Supabase: `supabase link --project-ref <ref>` y `supabase db push` (o `npm run seed -- --supabase --confirm-demo-project --apply-migrations` en un proyecto de demo vacío).
 - En Supabase Auth: habilitar email/password, configurar *Site URL* = `NEXT_PUBLIC_APP_URL` y *Redirect URL* `…/auth/callback`.
 - Detalle de tablas, RLS y RPCs: [docs/DATABASE.md](docs/DATABASE.md).
