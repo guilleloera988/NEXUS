@@ -30,7 +30,7 @@ Leyenda: **COMPLETE** (funcional, persistente, probado) · **PARTIAL** (funciona
 | — | Incidentes (reporte y gestión) | **PARTIAL** | Reporte desde la app y gestión en admin; sin notificaciones por correo ni SLA. |
 | — | Seed (`npm run seed`) local y Supabase | **COMPLETE** | Supabase probado contra el stack local oficial. |
 | — | Pruebas (lint, tipos, unitarias, BD, E2E) y CI | **COMPLETE** | CI en `.github/workflows/skillpass-quality.yml`. |
-| — | Deployment Vercel + Supabase | **COMPLETE** | Producción en https://skillpass.aindev.com.mx (Vercel `skillpass-prod` + Supabase `aapwypujznnkxkjdbmsu`, `NEXUS_DEMO_MODE=off`, 12 migraciones, sin datos demo). Demo en https://skillpass-demo.vercel.app. Ver DEPLOYMENT §8–9. Ambos en planes gratuitos: pasar a Pro antes de abrir a usuarios reales. |
+| — | Deployment Vercel + Supabase | **COMPLETE** | Producción en https://skillpass.aindev.com.mx (Vercel `skillpass-prod` + Supabase `aapwypujznnkxkjdbmsu`, `NEXUS_DEMO_MODE=off`, 13 migraciones, sin datos demo). Demo en https://skillpass-demo.vercel.app. Ver DEPLOYMENT §8–9. Ambos en planes gratuitos: pasar a Pro antes de abrir a usuarios reales. |
 | — | Dominio `skillpass.aindev.com.mx` + SSL | **COMPLETE** | CNAME a Vercel (HostGator); certificado de Vercel con renovación automática; asignado al proyecto de producción el 8 oct; Auth de producción con *Site URL* y *Redirect URL* del dominio. |
 | — | Correo transaccional propio (SMTP) | **COMPLETE** | Resend con dominio `aindev.com.mx` verificado (DKIM/SPF en HostGator), remitente `noreply@aindev.com.mx`; envío real probado el 8 oct. Plan gratuito: 100 correos/día. |
 | — | Aviso de privacidad, términos, acuerdos de IP | **BLOCKED** | Decisión legal de AINDEV. |
@@ -76,4 +76,4 @@ Leyenda: **COMPLETE** (funcional, persistente, probado) · **PARTIAL** (funciona
 | OI-08 | Baja | `Dockerfile` no construido en este entorno. | Construir en CI o en la máquina del operador. |
 | OI-09 | Baja | Recuperación de contraseña sin prueba de punta a punta. | Probar en staging con SMTP. |
 | OI-10 | Resuelto | Hallazgos de seguridad H-1…H-5 corregidos (`20261007000003`…`07`) con pruebas de regresión y aplicados en la demo. | — |
-| OI-11 | Media | H-6 (la rama «talent pool» de `credentials_select` exponía a empresas verificadas el *snapshot* de credenciales confidenciales) corregido en `20261008000001` con prueba de regresión; **falta aplicarlo en producción** (la demo ya no acepta cambios desde este entorno). Quedan los riesgos bajos R-1…R-6. | Aplicar `20261008000001` en `skillpass-prod`; ver SECURITY §6. |
+| OI-11 | Baja | H-6 corregido (`20261008000001`, con prueba de regresión) y aplicado en producción el 8 oct. Falta en la demo, que ya no acepta cambios desde el entorno de despliegue: no tiene datos reales, pero conviene aplicarla desde el panel de Supabase. Quedan los riesgos bajos R-1…R-6. | Aplicar `20261008000001` en el proyecto de demo; ver SECURITY §6. |

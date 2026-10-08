@@ -119,7 +119,7 @@ Revisión de los *advisors* del proyecto de demo, con cada aviso trazado al cód
 
 Protección de contraseñas filtradas (HaveIBeenPwned): requiere plan Pro de Supabase.
 
-**Hallazgos corregidos.** Existían desde la versión inicial. Cada uno se reprodujo con un script antes de corregirlo; cada corrección es una migración nueva con pruebas de regresión que fallan sin ella. Una segunda revisión adversarial volvió a correr los *exploits* contra las correcciones (todos cerrados), las atacó y lo que encontró se corrigió en las mismas migraciones. H-1…H-5 están aplicadas en la demo y en producción; H-6 está en el repositorio y falta aplicarla (STATUS, OI-11).
+**Hallazgos corregidos.** Existían desde la versión inicial. Cada uno se reprodujo con un script antes de corregirlo; cada corrección es una migración nueva con pruebas de regresión que fallan sin ella. Una segunda revisión adversarial volvió a correr los *exploits* contra las correcciones (todos cerrados), las atacó y lo que encontró se corrigió en las mismas migraciones. Las seis están aplicadas en producción (H-6 el 8 oct, en una transacción con verificación previa y posterior: 14 comprobaciones de política, dueños y permisos, todas correctas; *Security Advisor* sin errores). En la demo están H-1…H-5; H-6 no se pudo aplicar ahí porque el proyecto de demo ya no acepta cambios desde el entorno de despliegue.
 
 | ID | Severidad | Hallazgo | Corrección |
 |---|---|---|---|
