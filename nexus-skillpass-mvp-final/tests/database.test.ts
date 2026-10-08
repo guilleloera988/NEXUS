@@ -548,6 +548,35 @@ describe('security review regressions (docs/SECURITY.md §6)', () => {
     expect(publicPass.summary.validators).toBe(n);
   });
 
+  it('H-6 · verified companies read talent-pool credentials only through masked output', async () => {
+    // Andrés holds the confidential Nova credential issued in H-3 and opts into the talent pool.
+    await rpc(db, USERS.andres, 'sp_update_privacy', { open_to_opportunities: true });
+    const [{ challenge_id: confidentialChallenge }] = (await db.query<Row>(
+      "select challenge_id from public.credentials where student_id = $1 and snapshot->>'publication_policy' = 'confidential'", [USERS.andres])).rows;
+    const [{ n: active }] = (await db.query<Row>("select count(*)::int as n from public.credentials where student_id = $1 and status = 'active'", [USERS.andres])).rows;
+
+    // Mariana (verified Bajío) can no longer read the raw confidential row (snapshot names Nova and its supervisor).
+    const raw = await sql<Row>(db, USERS.mariana,
+      "select snapshot from public.credentials where student_id = $1 and snapshot->>'publication_policy' = 'confidential'", [USERS.andres]);
+    expect(raw).toEqual([]);
+
+    // She still gets the masked credentials and the talent aggregates.
+    const profile = await rpc<Json>(db, USERS.mariana, 'sp_talent_profile', { student_id: USERS.andres });
+    expect(profile.credentials).toHaveLength(active as number);
+    expect(profile.credentials.find((c: Json) => c.confidential)).toMatchObject({ organization_name: null, challenge_title: null, supervisor_name: null });
+    expect(JSON.stringify(profile.credentials)).not.toMatch(/Nova|Carlos|Reto confidencial/);
+    const listed = (await rpc<Json>(db, USERS.mariana, 'sp_talent')).items.find((t: Json) => t.id === USERS.andres);
+    expect(listed.credentials).toBe(active);
+
+    // The challenge filter no longer reveals who completed another company's confidential challenge.
+    expect((await rpc<Json>(db, USERS.mariana, 'sp_talent', { challenge_id: confidentialChallenge })).items).toEqual([]);
+    expect((await rpc<Json>(db, USERS.laura, 'sp_talent', { challenge_id: confidentialChallenge })).items.map((t: Json) => t.id)).toContain(USERS.andres);
+
+    // The holder, the challenge's managers and the university keep reading the raw rows.
+    expect(await sql<Row>(db, USERS.laura, 'select id from public.credentials where challenge_id = $1', [confidentialChallenge])).toHaveLength(1);
+    expect(await sql<Row>(db, USERS.andres, "select id from public.credentials where snapshot->>'publication_policy' = 'confidential'")).toHaveLength(1);
+  });
+
   it('H-4 · the activity feed shows teammates and reviewers only what RLS lets them read', async () => {
     await rpc(db, USERS.diego, 'sp_add_evidence', { challenge_id: CHALLENGE(1), title: 'Borrador privado de Diego', kind: 'link', url: 'https://example.com/borrador' });
     const titles = async (actor: string) => (await feed(actor, CHALLENGE(1))).map((x) => x.details?.title);
