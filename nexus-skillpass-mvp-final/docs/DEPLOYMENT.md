@@ -2,7 +2,7 @@
 
 Objetivo: **`https://skillpass.aindev.com.mx`** en Vercel + Supabase.
 
-> Estado (7 oct 2026): la **demo pública** está desplegada en **https://skillpass-demo.vercel.app** (opción A de §5, ver §8). Producción (`skillpass.aindev.com.mx`, `NEXUS_DEMO_MODE=off`) sigue pendiente: falta un proyecto Supabase productivo y la autorización para el registro DNS, que no se ha tocado. Ningún secreto está en el repositorio.
+> Estado (8 oct 2026): la **demo pública** (opción A de §5, ver §8) se sirve en **https://skillpass.aindev.com.mx** (dominio agregado y DNS configurado por el dueño del proyecto, CNAME a `cname.vercel-dns.com`) y en **https://skillpass-demo.vercel.app**. Ese dominio hoy muestra la DEMO (`NEXUS_DEMO_MODE=supabase`, datos ficticios); la topología de §1 reserva `skillpass.aindev.com.mx` para producción con `NEXUS_DEMO_MODE=off` y un proyecto Supabase productivo, que sigue pendiente. Ningún secreto está en el repositorio.
 
 ## 1. Topología recomendada
 
@@ -113,11 +113,11 @@ Cada escenario ocupa ~42 MB de disco; `NEXUS_DEMO_MAX_SESSIONS × 42 MB` debe ca
 
 | | |
 |---|---|
-| URL | **https://skillpass-demo.vercel.app** |
+| URL | **https://skillpass.aindev.com.mx** (desde el 8 oct, `NEXT_PUBLIC_APP_URL` apunta aquí: QR y enlaces usan este dominio) y **https://skillpass-demo.vercel.app** |
 | Vercel | Proyecto `skillpass-demo` (equipo `aindev-tech`), *Root Directory* `nexus-skillpass-mvp-final`, Node.js 22.x, *Install* `npm ci`. Rama de producción: `claude/aindev-nexus-skillpass-mvp-khihxn` (`main` aún no contiene la app). *Deployment Protection*: Standard (la URL de producción `.vercel.app` es pública; los *previews* piden sesión de Vercel). |
 | Variables | `NEXT_PUBLIC_APP_URL=https://skillpass-demo.vercel.app` (sólo Production; en Preview se usa el host), `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `NEXUS_DEMO_MODE=supabase`, `NEXUS_DEMO_PASSWORD` (tipo *sensitive*), `MAX_UPLOAD_MB=4`. Sin `service_role` ni URL de base de datos. |
 | Supabase | Proyecto `pezqzunbvtfvwwnfybxy` (us-east-1, PostgreSQL 17), **exclusivo de la demo**. |
-| Auth | *Site URL* `https://skillpass-demo.vercel.app`; *Redirect URLs* `https://skillpass-demo.vercel.app/auth/callback` y `https://skillpass-demo-*-aindev-tech.vercel.app/**` (previews). Confirmación de correo activada; contraseña mínima 10. Protección de contraseñas filtradas: requiere plan Pro (no activada). SMTP: el integrado de Supabase (límite bajo de correos/hora). |
+| Auth | *Site URL* `https://skillpass-demo.vercel.app`; *Redirect URLs* `https://skillpass-demo.vercel.app/auth/callback` y `https://skillpass-demo-*-aindev-tech.vercel.app/**` (previews). **Pendiente** desde el cambio de dominio: *Site URL* `https://skillpass.aindev.com.mx` y agregar `https://skillpass.aindev.com.mx/auth/callback` a *Redirect URLs*; hasta entonces los correos de confirmación y recuperación no regresan a `/auth/callback` del dominio nuevo. Confirmación de correo activada; contraseña mínima 10. Protección de contraseñas filtradas: requiere plan Pro (no activada). SMTP: el integrado de Supabase (límite bajo de correos/hora). |
 
 Cómo se cargó (equivalente a `npm run seed -- --supabase --confirm-demo-project --apply-migrations`, pero por la Management API, sin conexión directa a Postgres ni `service_role` en la máquina del operador):
 
