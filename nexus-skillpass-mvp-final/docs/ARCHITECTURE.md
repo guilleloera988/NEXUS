@@ -27,7 +27,7 @@ src/
     skillpass/[slug]/     SkillPass público (opt-in)
     verify/ verify/[code] Verificación pública de credenciales con QR
     api/                  health · evidence/[id]/file · public/evidence/[id] · university/students.csv
-    auth/callback/        Intercambio de código de Supabase Auth
+    auth/callback/        Enlaces de correo de Supabase Auth (token_hash o código PKCE)
   actions/                Server Actions (auth, demo, perfil, retos, workspace, validación, admin, idioma)
   components/             UI (primitives, formularios, shell, dashboards, gráficas, credencial, QR…)
   lib/

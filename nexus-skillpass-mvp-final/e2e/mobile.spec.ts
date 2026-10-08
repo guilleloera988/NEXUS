@@ -8,7 +8,7 @@ async function expectNoHorizontalScroll(page: Page) {
 
 test('public pages are usable on a phone', async ({ page }) => {
   const errors = watchConsole(page);
-  for (const path of ['/', '/demo', '/login', '/signup', '/verify']) {
+  for (const path of ['/', '/demo', '/login', '/signup', '/signup/check-email?pending=1', '/verify']) {
     await page.goto(path);
     await expect(page.locator('main')).toBeVisible();
     await expectNoHorizontalScroll(page);

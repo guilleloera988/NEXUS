@@ -6,7 +6,7 @@ Leyenda: **COMPLETE** (funcional, persistente, probado) · **PARTIAL** (funciona
 
 | # | Módulo | Estado | Notas |
 |---|---|---|---|
-| 1 | Autenticación (registro, login, recuperación, callback) | **COMPLETE** | Supabase Auth; registro/onboarding/logout/login probados E2E contra Supabase real. Recuperación por correo implementada, no probada de punta a punta (sin SMTP). |
+| 1 | Autenticación (registro, login, recuperación, callback) | **COMPLETE** | Supabase Auth; registro/onboarding/logout/login probados E2E contra Supabase real. Tras el registro, pantalla «Revisa tu correo» con reenvío; enlaces de correo con `token_hash` válidos en cualquier dispositivo (probado el 8 oct contra el Supabase de producción). Recuperación por correo: envío real probado; el cambio de contraseña desde el enlace no se ha recorrido de punta a punta. |
 | 2 | Onboarding por tipo de cuenta | **COMPLETE** | Estudiante, empresa, universidad y personal invitado. |
 | 3 | Dashboard estudiante | **COMPLETE** | Progreso, VATH, competencias, siguiente paso. |
 | 4 | Perfil de talento (declarado vs verificado) | **COMPLETE** | |
@@ -74,6 +74,6 @@ Leyenda: **COMPLETE** (funcional, persistente, probado) · **PARTIAL** (funciona
 | OI-06 | Media | Textos legales (privacidad, términos, IP) pendientes. | Decisión legal de AINDEV. |
 | OI-07 | Baja | La DEMO local usa ~42 MB de disco por escenario. | Ajustar límites o implementar snapshot comprimido. |
 | OI-08 | Baja | `Dockerfile` no construido en este entorno. | Construir en CI o en la máquina del operador. |
-| OI-09 | Baja | Recuperación de contraseña sin prueba de punta a punta. | Probar en staging con SMTP. |
+| OI-09 | Baja | Cambio de contraseña desde el enlace de recuperación sin prueba de punta a punta (el envío del correo sí se probó). | Recorrerlo en producción con una cuenta de prueba. |
 | OI-10 | Resuelto | Hallazgos de seguridad H-1…H-5 corregidos (`20261007000003`…`07`) con pruebas de regresión y aplicados en la demo. | — |
 | OI-11 | Baja | H-6 corregido (`20261008000001`, con prueba de regresión) y aplicado en producción el 8 oct. Falta en la demo, que ya no acepta cambios desde el entorno de despliegue: no tiene datos reales, pero conviene aplicarla desde el panel de Supabase. Quedan los riesgos bajos R-1…R-6. | Aplicar `20261008000001` en el proyecto de demo; ver SECURITY §6. |

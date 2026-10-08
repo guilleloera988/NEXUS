@@ -1,12 +1,13 @@
 'use client';
 
 import Link from 'next/link';
-import { useActionState, useState } from 'react';
-import { Building2, GraduationCap, UserRound } from 'lucide-react';
-import { forgotPassword, login, resetPassword, signup } from '@/actions/auth';
+import { useActionState, useState, useSyncExternalStore } from 'react';
+import { Building2, GraduationCap, Inbox, MailCheck, RotateCw, UserRound } from 'lucide-react';
+import { forgotPassword, login, resendConfirmation, resetPassword, signup } from '@/actions/auth';
 import { Field, FormFeedback, SubmitButton } from '@/components/ui/form';
 import { Alert } from '@/components/ui/primitives';
 import { IDLE } from '@/lib/action-state';
+import { fmt } from '@/lib/i18n';
 import { useI18n } from '@/lib/i18n/client';
 
 function NotConfigured() {
@@ -19,7 +20,7 @@ function NotConfigured() {
   );
 }
 
-export function LoginForm({ next, configured }: { next: string; configured: boolean }) {
+export function LoginForm({ next, configured, linkInvalid = false }: { next: string; configured: boolean; linkInvalid?: boolean }) {
   const { t } = useI18n();
   const [state, action] = useActionState(login, IDLE);
   return (
@@ -28,6 +29,7 @@ export function LoginForm({ next, configured }: { next: string; configured: bool
       <p className="mt-1 text-ink-500">{t.auth.loginSubtitle}</p>
       <div className="mt-6">
         {!configured && <NotConfigured />}
+        {linkInvalid && <Alert tone="gold" title={t.auth.linkInvalid.title} className="mb-5">{t.auth.linkInvalid.text}</Alert>}
         <form action={action} className="space-y-4">
           <input type="hidden" name="next" value={next} />
           <Field label={t.auth.email} name="email" type="email" autoComplete="email" required />
@@ -52,15 +54,6 @@ export function SignupForm({ configured, initialType }: { configured: boolean; i
     { value: 'company' as const, icon: Building2, ...t.auth.accountTypes.company },
     { value: 'university' as const, icon: GraduationCap, ...t.auth.accountTypes.university },
   ];
-  if (state.ok && state.message === 'checkEmail') {
-    return (
-      <div>
-        <h1 className="text-2xl font-extrabold">{t.auth.signupTitle}</h1>
-        <Alert tone="success" className="mt-6">{t.auth.checkEmail}</Alert>
-        <Link href="/login" className="btn-primary mt-6 w-full">{t.auth.signIn}</Link>
-      </div>
-    );
-  }
   return (
     <>
       <h1 className="text-2xl font-extrabold">{t.auth.signupTitle}</h1>
@@ -92,6 +85,61 @@ export function SignupForm({ configured, initialType }: { configured: boolean; i
         <p className="mt-6 text-center text-sm text-ink-500">{t.auth.haveAccount} <Link href="/login" className="link">{t.auth.signIn}</Link></p>
       </div>
     </>
+  );
+}
+
+// Supabase refuses a second confirmation e-mail to the same address within 60 s.
+const RESEND_COOLDOWN_MS = 60_000;
+const subscribeClock = (tick: () => void) => {
+  const id = setInterval(tick, 1000);
+  return () => clearInterval(id);
+};
+const clockNow = () => Math.floor(Date.now() / 1000) * 1000;
+const noClock = () => null;
+
+/** Shown right after sign-up (and to unconfirmed accounts that try to sign in). */
+export function CheckEmailPanel({ email, pending }: { email: string | null; pending: boolean }) {
+  const { t } = useI18n();
+  const c = t.auth.checkEmail;
+  const [state, action] = useActionState(resendConfirmation, IDLE);
+  const [openedAt] = useState(() => Date.now());
+  const now = useSyncExternalStore(subscribeClock, clockNow, noClock);
+  const lastSent = state.at ?? (pending ? null : openedAt);
+  const wait = now !== null && lastSent !== null ? Math.max(0, Math.ceil((lastSent + RESEND_COOLDOWN_MS - now) / 1000)) : 0;
+  return (
+    <div>
+      <div className="flex size-14 items-center justify-center rounded-2xl bg-gold-50 ring-1 ring-gold-300">
+        <MailCheck className="size-7 text-gold-700" aria-hidden />
+      </div>
+      <h1 className="mt-5 text-2xl font-extrabold">{c.title}</h1>
+      {pending && <Alert tone="gold" className="mt-4">{c.pending}</Alert>}
+      <p className="mt-3 text-ink-600" role="status">
+        {email ? <>{c.sentTo} <strong className="break-all font-semibold text-ink-950">{email}</strong></> : c.sentGeneric}
+      </p>
+      <div className="mt-6 rounded-2xl border border-ink-200 p-5">
+        <h2 className="text-sm font-bold">{c.stepsTitle}</h2>
+        <ol className="mt-3 space-y-3">
+          {c.steps.map((step, i) => (
+            <li key={step} className="flex gap-3 text-sm text-ink-700">
+              <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-ink-950 text-xs font-bold text-gold-300" aria-hidden>{i + 1}</span>
+              <span className="pt-0.5">{step}</span>
+            </li>
+          ))}
+        </ol>
+      </div>
+      <p className="mt-4 flex gap-2 rounded-xl bg-ink-50 p-3 text-xs text-ink-600"><Inbox className="size-4 shrink-0" aria-hidden />{c.spam}</p>
+      {email ? (
+        <form action={action} className="mt-6">
+          <p className="text-sm font-semibold text-ink-700">{c.resendPrompt}</p>
+          <SubmitButton className="btn-outline mt-2 w-full" pendingLabel={c.resending} disabled={wait > 0}>
+            <RotateCw className="size-4" aria-hidden />{wait > 0 ? fmt(c.resendIn, { seconds: wait }) : c.resend}
+          </SubmitButton>
+          <FormFeedback state={state} t={t} success={c.resent} />
+        </form>
+      ) : <p className="mt-6 text-sm text-ink-600">{c.noEmailHint}</p>}
+      <Link href="/login" className="btn-primary mt-6 w-full">{c.goToLogin}</Link>
+      <p className="mt-4 text-center text-sm text-ink-500">{c.wrongEmail} <Link href="/signup" className="link">{c.signupAgain}</Link></p>
+    </div>
   );
 }
 

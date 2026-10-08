@@ -248,6 +248,16 @@ otp_expiry = 3600
 # admin_email = "admin@email.com"
 # sender_name = "Admin"
 
+# SkillPass templates: links go to /auth/callback with a token hash, so they work on any device.
+# Apply the same files to hosted projects (Dashboard → Authentication → Email Templates).
+[auth.email.template.confirmation]
+subject = "Confirma tu cuenta de SkillPass"
+content_path = "./supabase/templates/confirmation.html"
+
+[auth.email.template.recovery]
+subject = "Restablece tu contraseña de SkillPass"
+content_path = "./supabase/templates/recovery.html"
+
 # Uncomment to customize email template
 # [auth.email.template.invite]
 # subject = "You have been invited"

@@ -12,5 +12,5 @@ export async function generateMetadata(): Promise<Metadata> {
 export default async function LoginPage({ searchParams }: PageProps<'/login'>) {
   const params = await searchParams;
   const next = safeNextPath(typeof params.next === 'string' ? params.next : null);
-  return <LoginForm next={next} configured={Boolean(supabaseConfig())} />;
+  return <LoginForm next={next} configured={Boolean(supabaseConfig())} linkInvalid={params.notice === 'link_invalid'} />;
 }

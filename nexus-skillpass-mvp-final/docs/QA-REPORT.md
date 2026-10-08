@@ -16,6 +16,8 @@ Todas las cifras de este documento provienen de ejecuciones reales en esta entre
 | Build de producción | `npm run build` | ✔ compila sin errores ni warnings de tipos; 33 rutas dinámicas + 5 recursos estáticos (íconos, OG, robots, sitemap) |
 | E2E · DEMO local (dev) | `npm run test:e2e` | ✔ **15/15** (+3 omitidas: requieren Supabase) |
 | E2E · DEMO local (build de producción, modo CI) | `CI=1 npm run test:e2e` | ✔ **15/15** (+3 omitidas); 8 oct, con la prueba de descarga pública: ✔ **16/16** (+3 omitidas) |
+| E2E · DEMO local (build de producción) con las pantallas de confirmación (8 oct 2026) | `CI=1 npm run test:e2e` | ✔ **18/18** (+3 omitidas: requieren Supabase) |
+| Registro contra el Supabase **de producción** (app local, 8 oct 2026) | Playwright con direcciones de prueba `delivered+…@resend.dev` | ✔ registro → `/signup/check-email` con el correo (sobrevive a recargas); reenvío con cuenta regresiva de 60 s; login sin confirmar → misma pantalla con aviso; enlace `token_hash` (generado con la Admin API) abierto en un navegador limpio → sesión y `/onboarding`; segundo uso del enlace → `/login` con explicación; contraseña incorrecta → error genérico. Cuentas de prueba borradas al terminar. |
 | E2E · Supabase real (stack local: Auth, PostgREST, Storage, Kong) | `E2E_BASE_URL=… E2E_SUPABASE=1 npx playwright test` | ✔ **17/17** (+1 omitida: sólo DEMO local) |
 | E2E · despliegue Vercel + Supabase en la nube (7 oct 2026) | `E2E_BASE_URL=https://skillpass-demo.vercel.app E2E_SUPABASE=1 npx playwright test` (sin `auth-supabase`) | ✔ **14/14**: FLOW 01–10 + seguridad, demo guiada, incidentes y móvil (+1 omitida: sólo DEMO local). Ver [DEPLOYMENT §8](DEPLOYMENT.md#8-despliegue-actual--demo-pública) |
 | E2E · demo en la nube tras las correcciones de seguridad (8 oct 2026) | ídem, sólo especificaciones de lectura: `security guided-demo mobile` | ✔ **13/13** (+1 omitida: sólo DEMO local), incluida la descarga anónima de evidencia publicada con la política de Storage H-5 activa. FLOW 01–10 se verificó en la DEMO local con las 12 migraciones (no se repitió en la nube para no dejar datos de prueba). |
@@ -45,6 +47,7 @@ Todas las cifras de este documento provienen de ejecuciones reales en esta entre
 | `guided-demo.spec.ts` | 1 | Los 9 pasos de la demo guiada con cambio de persona y rutas esperadas. |
 | `incidents.spec.ts` | 1 | El estudiante reporta un problema desde su SkillPass y el admin lo resuelve en Talent OS. |
 | `mobile.spec.ts` | 2 | Pixel 7: páginas públicas y pantallas principales sin scroll horizontal; menú móvil. |
+| `auth-screens.spec.ts` | 2 | Pantalla «Revisa tu correo» (pasos, sin reenvío si no se conoce el correo, aviso de cuenta sin confirmar) y enlace de correo inválido → `/login` con explicación, sin seguir un `next` externo. |
 | `auth-supabase.spec.ts` | 3 | (Sólo Supabase) registro de estudiante → onboarding → cerrar sesión → iniciar sesión; empresa nueva queda pendiente y no puede publicar; error genérico con credenciales incorrectas. |
 
 ## 4. Defectos encontrados y corregidos en esta fase
