@@ -30,9 +30,9 @@ Leyenda: **COMPLETE** (funcional, persistente, probado) · **PARTIAL** (funciona
 | — | Incidentes (reporte y gestión) | **PARTIAL** | Reporte desde la app y gestión en admin; sin notificaciones por correo ni SLA. |
 | — | Seed (`npm run seed`) local y Supabase | **COMPLETE** | Supabase probado contra el stack local oficial. |
 | — | Pruebas (lint, tipos, unitarias, BD, E2E) y CI | **COMPLETE** | CI en `.github/workflows/skillpass-quality.yml`. |
-| — | Deployment Vercel + Supabase | **PARTIAL** | Demo pública en https://skillpass.aindev.com.mx y https://skillpass-demo.vercel.app (Supabase de demo, FLOW 01–10 verificado E2E). Producción (`NEXUS_DEMO_MODE=off`, Supabase productivo) pendiente. Ver DEPLOYMENT §8. |
-| — | Dominio `skillpass.aindev.com.mx` + SSL | **COMPLETE** | CNAME a Vercel configurado por el dueño (8 oct); certificado emitido por Vercel. Falta actualizar las URLs de Auth en Supabase (OI-02). |
-| — | Correo transaccional propio (SMTP) | **BLOCKED** | Requiere proveedor/credenciales. |
+| — | Deployment Vercel + Supabase | **COMPLETE** | Producción en https://skillpass.aindev.com.mx (Vercel `skillpass-prod` + Supabase `aapwypujznnkxkjdbmsu`, `NEXUS_DEMO_MODE=off`, 12 migraciones, sin datos demo). Demo en https://skillpass-demo.vercel.app. Ver DEPLOYMENT §8–9. Ambos en planes gratuitos: pasar a Pro antes de abrir a usuarios reales. |
+| — | Dominio `skillpass.aindev.com.mx` + SSL | **COMPLETE** | CNAME a Vercel (HostGator); certificado de Vercel con renovación automática; asignado al proyecto de producción el 8 oct; Auth de producción con *Site URL* y *Redirect URL* del dominio. |
+| — | Correo transaccional propio (SMTP) | **COMPLETE** | Titan (`noreply@aindev.com.mx`) configurado en el Supabase de producción, plantillas en español. Envío real pendiente de confirmar con el primer registro. |
 | — | Aviso de privacidad, términos, acuerdos de IP | **BLOCKED** | Decisión legal de AINDEV. |
 | — | Docker para la demo aislada | **PARTIAL** | `Dockerfile` incluido; no construido en este entorno (proxy TLS). |
 | — | IA (extracción de skills, matching, resúmenes) | **ROADMAP** | Ver ROADMAP.md; nunca convertirá una habilidad en verificada. |
@@ -66,8 +66,8 @@ Leyenda: **COMPLETE** (funcional, persistente, probado) · **PARTIAL** (funciona
 
 | ID | Severidad | Descripción | Próximo paso |
 |---|---|---|---|
-| OI-01 | Alta (bloqueante para producción) | Sólo la demo está desplegada (https://skillpass-demo.vercel.app); falta el proyecto Supabase productivo (`NEXUS_DEMO_MODE=off`). | Crear el proyecto productivo y seguir DEPLOYMENT.md §2–3. |
-| OI-02 | Alta | DNS listo; Supabase Auth aún tiene *Site URL* y *Redirect URLs* sólo de `skillpass-demo.vercel.app`, así que confirmación de correo y recuperación de contraseña no vuelven a `/auth/callback` en el dominio nuevo. | *Site URL* `https://skillpass.aindev.com.mx` y agregar `https://skillpass.aindev.com.mx/auth/callback` (DEPLOYMENT §8). |
+| OI-01 | Media | Producción desplegada (8 oct) pero en planes gratuitos: Supabase Free se pausa tras 7 días sin uso y no tiene respaldos diarios; Vercel Hobby no admite uso comercial. | Pasar Supabase `skillpass-prod` y el equipo de Vercel a Pro antes de abrir a usuarios reales. |
+| OI-02 | Resuelto (8 oct) | URLs de Auth de producción apuntan a `https://skillpass.aindev.com.mx` (y la demo conserva las suyas). | — |
 | OI-03 | Media | CSP con `'unsafe-inline'` en scripts. | Nonces vía `proxy.ts`. |
 | OI-04 | Media | *Rate limiting* en memoria por instancia. | Limitador compartido + CAPTCHA de Supabase Auth. |
 | OI-05 | Media | Sin escaneo antivirus de archivos subidos. | Integrar escaneo antes de exponer archivos a revisores. |

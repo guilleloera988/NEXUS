@@ -2,7 +2,7 @@
 
 Objetivo: **`https://skillpass.aindev.com.mx`** en Vercel + Supabase.
 
-> Estado (8 oct 2026): la **demo pública** (opción A de §5, ver §8) se sirve en **https://skillpass.aindev.com.mx** (dominio agregado y DNS configurado por el dueño del proyecto, CNAME a `cname.vercel-dns.com`) y en **https://skillpass-demo.vercel.app**. Ese dominio hoy muestra la DEMO (`NEXUS_DEMO_MODE=supabase`, datos ficticios); la topología de §1 reserva `skillpass.aindev.com.mx` para producción con `NEXUS_DEMO_MODE=off` y un proyecto Supabase productivo, que sigue pendiente. Ningún secreto está en el repositorio.
+> Estado (8 oct 2026): **producción** en **https://skillpass.aindev.com.mx** (Vercel `skillpass-prod` + Supabase `aapwypujznnkxkjdbmsu`, `NEXUS_DEMO_MODE=off`, sin datos demo; ver §9). La **demo pública** sigue en **https://skillpass-demo.vercel.app** (Vercel `skillpass-demo` + Supabase `pezqzunbvtfvwwnfybxy`, datos ficticios; ver §8). Ningún secreto está en el repositorio.
 
 ## 1. Topología recomendada
 
@@ -113,11 +113,11 @@ Cada escenario ocupa ~42 MB de disco; `NEXUS_DEMO_MAX_SESSIONS × 42 MB` debe ca
 
 | | |
 |---|---|
-| URL | **https://skillpass.aindev.com.mx** (desde el 8 oct, `NEXT_PUBLIC_APP_URL` apunta aquí: QR y enlaces usan este dominio) y **https://skillpass-demo.vercel.app** |
+| URL | **https://skillpass-demo.vercel.app**. Del 7 al 8 oct también respondió en `skillpass.aindev.com.mx`; ese dominio pasó a producción (§9) y `NEXT_PUBLIC_APP_URL` volvió a `https://skillpass-demo.vercel.app` (QR y enlaces de la demo usan este host). |
 | Vercel | Proyecto `skillpass-demo` (equipo `aindev-tech`), *Root Directory* `nexus-skillpass-mvp-final`, Node.js 22.x, *Install* `npm ci`. Rama de producción: `claude/aindev-nexus-skillpass-mvp-khihxn` (`main` aún no contiene la app). *Deployment Protection*: Standard (la URL de producción `.vercel.app` es pública; los *previews* piden sesión de Vercel). |
 | Variables | `NEXT_PUBLIC_APP_URL=https://skillpass-demo.vercel.app` (sólo Production; en Preview se usa el host), `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `NEXUS_DEMO_MODE=supabase`, `NEXUS_DEMO_PASSWORD` (tipo *sensitive*), `MAX_UPLOAD_MB=4`. Sin `service_role` ni URL de base de datos. |
 | Supabase | Proyecto `pezqzunbvtfvwwnfybxy` (us-east-1, PostgreSQL 17), **exclusivo de la demo**. |
-| Auth | *Site URL* `https://skillpass-demo.vercel.app`; *Redirect URLs* `https://skillpass-demo.vercel.app/auth/callback` y `https://skillpass-demo-*-aindev-tech.vercel.app/**` (previews). **Pendiente** desde el cambio de dominio: *Site URL* `https://skillpass.aindev.com.mx` y agregar `https://skillpass.aindev.com.mx/auth/callback` a *Redirect URLs*; hasta entonces los correos de confirmación y recuperación no regresan a `/auth/callback` del dominio nuevo. Confirmación de correo activada; contraseña mínima 10. Protección de contraseñas filtradas: requiere plan Pro (no activada). SMTP: el integrado de Supabase (límite bajo de correos/hora). |
+| Auth | *Site URL* `https://skillpass-demo.vercel.app`; *Redirect URLs* `https://skillpass-demo.vercel.app/auth/callback` y `https://skillpass-demo-*-aindev-tech.vercel.app/**` (previews). Debe conservar *Site URL* `https://skillpass-demo.vercel.app` (el dominio propio ahora es de producción). Confirmación de correo activada; contraseña mínima 10. Protección de contraseñas filtradas: requiere plan Pro (no activada). SMTP: el integrado de Supabase (límite bajo de correos/hora). |
 
 Cómo se cargó (equivalente a `npm run seed -- --supabase --confirm-demo-project --apply-migrations`, pero por la Management API, sin conexión directa a Postgres ni `service_role` en la máquina del operador):
 
@@ -138,3 +138,30 @@ Verificación (7 oct 2026) contra `https://skillpass-demo.vercel.app`, con `E2E_
 - `e2e/critical-flow.spec.ts` (**FLOW 01–10**): ✔ 1/1, los 10 pasos, sin errores de consola ni HTTP ≥ 400.
 - `security`, `guided-demo`, `incidents`, `mobile` (con `E2E_SUPABASE=1`): ✔ 13/13 (+1 omitida: enlaces `?demo=` sólo existen en la DEMO local).
 - `auth-supabase.spec.ts` no se ejecutó: exige la confirmación de correo desactivada y enviaría correos reales.
+
+## 9. Despliegue actual — producción
+
+| | |
+|---|---|
+| URL | **https://skillpass.aindev.com.mx** (CNAME `skillpass → cname.vercel-dns.com` en el DNS de HostGator; certificado TLS de Vercel con renovación automática) y `https://skillpass-prod.vercel.app` |
+| Vercel | Proyecto `skillpass-prod` (equipo `aindev-tech`), *Root Directory* `nexus-skillpass-mvp-final`, Node.js 22.x, *Install* `npm ci`, región de funciones `iad1`, rama de producción `claude/aindev-nexus-skillpass-mvp-khihxn`, *Deployment Protection* Standard. |
+| Variables | `NEXT_PUBLIC_APP_URL=https://skillpass.aindev.com.mx` (Production), `NEXT_PUBLIC_SUPABASE_URL=https://aapwypujznnkxkjdbmsu.supabase.co`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `NEXUS_DEMO_MODE=off`, `MAX_UPLOAD_MB=4`. Sin `service_role`, sin URL de base de datos, sin contraseña demo. |
+| Supabase | Proyecto `aapwypujznnkxkjdbmsu` «skillpass-prod» (us-east-1, PostgreSQL 17.11), plan Free al 8 oct (se pausa tras 7 días sin actividad y no tiene respaldos diarios: pasar a Pro antes de abrir a usuarios reales). |
+| Base de datos | Las 12 migraciones (`20261002000001`…`20261007000007`) aplicadas en una sola transacción por la Management API y registradas en `supabase_migrations.schema_migrations`. Sólo el catálogo de 23 competencias de `seed.sql` (dato de referencia); **ningún** usuario, organización, reto ni credencial demo. Comprobado: 24 tablas con RLS, 0 permisos de escritura para `anon`/`authenticated`, bucket `evidence` **privado** (10 MB, 4 políticas), trigger de alta presente. *Security Advisor*: sin errores; avisos `*_security_definer_function_executable` esperados por diseño (SECURITY §6). |
+| Auth | *Site URL* `https://skillpass.aindev.com.mx`; *Redirect URLs* `https://skillpass.aindev.com.mx/auth/callback`; confirmación de correo activada; contraseña mínima 10; SMTP propio Titan (`smtp.titan.email:465`, remitente `noreply@aindev.com.mx`, «SkillPass»), 30 correos/hora; plantillas en español para confirmación, recuperación y cambio de correo. |
+
+Verificación (8 oct 2026): `/api/health` → `{"status":"ok","supabase":true,"demoMode":"off"}`; `/`, `/login`, `/signup`, `/verify` → 200; `/dashboard` sin sesión → 307 a `/login?next=%2Fdashboard`; `/demo` indica que la demo no está habilitada; `/verify/SKP-2026-4A7C-91D2` → «Credencial no encontrada» (no hay datos demo); cabeceras CSP, HSTS, `nosniff` y `X-Frame-Options: DENY` presentes; el alias `skillpass.aindev.com.mx` apunta al despliegue de producción.
+
+### Primer administrador
+
+No existe cuenta admin por registro (por diseño). Para crear la primera:
+
+1. Registrarse en `https://skillpass.aindev.com.mx/signup` como **Estudiante** con el correo institucional y confirmar el correo.
+2. En Supabase → **SQL Editor** del proyecto `aapwypujznnkxkjdbmsu`:
+   ```sql
+   update public.profiles
+      set role = 'admin', onboarding_completed = true
+    where id = (select id from auth.users where email = '<correo>');
+   ```
+3. Cerrar sesión y volver a entrar: el menú muestra **Talent OS**. Desde ahí se verifican organizaciones y se gestionan roles; los demás admins se crean igual (paso 2), nunca desde la app.
+
