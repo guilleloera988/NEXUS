@@ -576,6 +576,15 @@ describe('security review regressions (docs/SECURITY.md §6)', () => {
     expect(profile.credentials).toHaveLength(active as number);
     expect(profile.credentials.find((c: Json) => c.confidential)).toMatchObject({ organization_name: null, challenge_title: null, supervisor_name: null });
     expect(JSON.stringify(profile.credentials)).not.toMatch(/Nova|Carlos|Reto confidencial/);
+
+    // A credential the student hid from public verification is left out, not returned as a null entry
+    // (the talent profile page cannot render null).
+    const [{ id: confidentialId }] = (await db.query<Row>('select id from public.credentials where code = $1', [confidentialCode])).rows;
+    await rpc(db, USERS.andres, 'sp_set_credential_verification', { credential_id: confidentialId, enabled: false });
+    const hidden = (await rpc<Json>(db, USERS.mariana, 'sp_talent_profile', { student_id: USERS.andres })).credentials;
+    expect(hidden).toHaveLength((active as number) - 1);
+    expect(hidden).not.toContain(null);
+    await rpc(db, USERS.andres, 'sp_set_credential_verification', { credential_id: confidentialId, enabled: true });
     const listed = (await rpc<Json>(db, USERS.mariana, 'sp_talent')).items.find((t: Json) => t.id === USERS.andres);
     expect(listed.credentials).toBe(active);
     const unverified = '10000000-0000-4000-8000-000000000092';
