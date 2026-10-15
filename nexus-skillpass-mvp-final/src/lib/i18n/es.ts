@@ -215,6 +215,7 @@ const es = {
     company: {
       intro: 'Tu empresa quedará pendiente de verificación por AINDEV antes de publicar retos.',
       orgName: 'Nombre de la empresa', industry: 'Industria', size: 'Tamaño', location: 'Ubicación', website: 'Sitio web (https)',
+      websiteHelp: 'Dirección completa que empiece con https:// (sin @).',
       description: 'Descripción breve', needs: '¿Qué necesidades quieres resolver con retos?', contactTitle: 'Tu puesto',
     },
     university: {
@@ -325,6 +326,10 @@ const es = {
     publishNow: 'Publicar y abrir convocatoria',
     saveDraft: 'Guardar borrador', saveChanges: 'Guardar cambios', created: 'Reto guardado.',
     lifecycle: 'Ciclo de vida', changeStatus: 'Cambiar estado', transitionTo: 'Mover a: {status}',
+    publishMissing: 'Para publicar, completa:', openMissing: 'Para abrir la convocatoria, completa:', keepMissing: 'Al reto le falta:',
+    publishMissingCount: 'Faltan {n} datos para publicar', publishForPublishing: 'necesario para publicar', requiredNote: 'obligatorio',
+    publishRefused: 'El reto se guardó como borrador, pero no se pudo publicar:',
+    publishHint: 'Puedes guardar el borrador incompleto. Para publicarlo necesita resumen, descripción, industria, ubicación (salvo en remoto), condiciones de participación, competencias, entregables, supervisor y fechas.',
     statusHelp: {
       draft: 'Sólo tu organización lo ve.', published: 'Visible para estudiantes; la convocatoria aún no abre.', recruiting: 'Visible y acepta aplicaciones.',
       active: 'El trabajo está en curso.', under_review: 'Entregables finales en evaluación.', completed: 'Reto cerrado.', archived: 'Oculto del catálogo.',
@@ -369,6 +374,7 @@ const es = {
       publicNotAllowed: 'Este reto no permite publicar evidencia.', version: 'v{n}', newVersion: 'Subir nueva versión', mine: 'Mías', team: 'Del equipo',
       reviewComment: 'Comentario del revisor', openFile: 'Abrir archivo', openLink: 'Abrir enlace', added: 'Evidencia agregada.', deleteConfirm: 'Eliminar borrador',
       filterAll: 'Todas', public: 'Pública', private: 'Privada', by: 'por {name}',
+      taskFirst: 'Antes de agregar evidencia, crea en la pestaña Tareas la tarea a la que corresponde.', goToTasks: 'Ir a Tareas',
     },
     vath: {
       title: 'Registros VATH', add: 'Registrar VATH', empty: 'Sin horas registradas', emptyText: 'Registra el tiempo dedicado a actividades reales del reto.',
@@ -499,7 +505,7 @@ const es = {
         { title: 'Conoce a la estudiante', text: 'María Torres estudia Sistemas en Demo University. Observa su progreso, sus VATH y sus competencias verificadas.', action: 'Revisa el tablero y abre «Continuar reto».' },
         { title: 'Explora el reto', text: '«Commercial Process Automation» de Nova Manufacturing: problema, competencias, entregables, compensación y propiedad intelectual.', action: 'Lee las condiciones y la compatibilidad calculada.' },
         { title: 'Revisa el trabajo', text: 'El workspace concentra tareas, hitos, equipo y actividad del reto.', action: 'Mira el avance y las tareas.' },
-        { title: 'Inspecciona la evidencia', text: 'Cada avance se respalda con archivos o enlaces. Agrega una evidencia (por ejemplo un enlace https).', action: 'Ve a Evidencias y agrega una.' },
+        { title: 'Inspecciona la evidencia', text: 'Cada avance se respalda con archivos o enlaces. Agrega una evidencia (por ejemplo un enlace https) y elige su tarea y su entregable.', action: 'Ve a Evidencias y agrega una.' },
         { title: 'Registra y envía VATH', text: 'María tiene horas en borrador vinculadas a evidencia. Regístralas y envíalas al supervisor.', action: 'En la pestaña Validación pulsa «Enviar a validación».' },
         { title: 'Valida competencias', text: 'Ahora eres Carlos Méndez, supervisor. Verifica o ajusta horas, aprueba evidencia y evalúa competencias con la rúbrica.', action: 'Abre la solicitud de María, marca «emitir credencial» y completa.' },
         { title: 'Abre el SkillPass', text: 'De vuelta como María: la nueva credencial, sus VATH y competencias ya aparecen.', action: 'Revisa la credencial y la sección de privacidad.' },
@@ -519,7 +525,8 @@ const es = {
     challenge_not_recruiting: 'El reto no está recibiendo aplicaciones.', already_applied: 'Ya aplicaste a este reto.', application_closed: 'Esta aplicación ya fue resuelta.',
     challenge_closed: 'El reto ya no admite participantes.', challenge_full: 'El reto alcanzó el máximo de participantes.', already_assigned: 'El estudiante ya está asignado.',
     challenge_locked: 'El reto está cerrado y no admite cambios.', invalid_dates: 'La fecha de fin debe ser posterior a la de inicio.',
-    fair_work_unpaid_limit: 'Los retos sin compensación están limitados a 60 VATH estimadas.', challenge_incomplete: 'Para publicar, el reto necesita competencias, entregables, supervisor y fechas.',
+    fair_work_unpaid_limit: 'Los retos sin compensación están limitados a 60 VATH estimadas.', challenge_incomplete: 'Al reto le falta: {field} (necesario para publicarlo o mantenerlo publicado).',
+    challenge_incomplete_any: 'Para publicarlo o mantenerlo publicado, el reto necesita resumen, descripción, industria, ubicación, condiciones de participación, competencias, entregables, supervisor y fechas.', field_required: 'Completa el campo obligatorio: {field}.',
     organization_not_verified: 'Tu organización debe estar verificada por AINDEV para publicar retos e invitar a su equipo.', invalid_transition: 'Ese cambio de estado no está permitido.',
     challenge_has_applications: 'No se puede regresar a borrador: ya hay aplicaciones.', challenge_has_active_assignments: 'No se puede archivar con participantes activos.',
     pending_validations: 'Hay validaciones pendientes por resolver.', not_assigned: 'No estás asignado a este reto.', evidence_source_required: 'Sube un archivo o escribe un enlace.',
@@ -547,6 +554,8 @@ const es = {
     description: 'descripción', activity_date: 'fecha', email: 'correo', estimated_vath: 'VATH estimadas', storage_path: 'archivo', competencies: 'competencias',
     deliverables: 'entregables', supervisor_id: 'supervisor', start_date: 'fechas', end_date: 'fecha de fin', organization_name: 'nombre de la organización', website: 'sitio web',
     comment: 'comentario', reason: 'motivo', verified_hours: 'horas verificadas', kind: 'tipo de evidencia', duration_weeks: 'duración', max_participants: 'participantes',
+    summary: 'resumen', industry: 'industria', location: 'ubicación', conditions: 'condiciones de participación', task_id: 'tarea relacionada',
+    deliverable_id: 'entregable relacionado',
   },
 } as const;
 

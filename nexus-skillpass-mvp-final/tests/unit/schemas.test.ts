@@ -1,10 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import {
-  challengeSchema, linkEvidenceSchema, organizationOnboardingSchema, resetSchema, revokeSchema, signupSchema, userRoleSchema, validationSchema, vathSchema,
+  challengeSchema, fileEvidenceSchema, linkEvidenceSchema, organizationOnboardingSchema, resetSchema, revokeSchema, signupSchema, userRoleSchema, validationSchema, vathSchema,
 } from '@/lib/schemas';
 
 const ID = '40000000-0000-4000-8000-000000000001';
 const COMP = '30000000-0000-4000-8000-000000000005';
+const TASK = '52000000-0000-4000-8000-000000000001';
 const issues = (result: { success: boolean; error?: { issues: { message: string; path: PropertyKey[] }[] } }) =>
   result.success ? [] : result.error!.issues.map((i) => `${i.path.join('.')}:${i.message}`);
 
@@ -37,7 +38,7 @@ describe('challengeSchema', () => {
 });
 
 describe('evidence and VATH inputs', () => {
-  const link = (url: string) => linkEvidenceSchema.safeParse({ challenge_id: ID, title: 'Repositorio', kind: 'repository', url });
+  const link = (url: string) => linkEvidenceSchema.safeParse({ challenge_id: ID, title: 'Repositorio', kind: 'repository', url, task_id: TASK });
   it('only accepts https links without embedded credentials', () => {
     expect(link('https://github.com/demo/repo').success).toBe(true);
     expect(link('http://example.com').success).toBe(false);
@@ -50,6 +51,19 @@ describe('evidence and VATH inputs', () => {
     expect(link('not a url').success).toBe(false);
     expect(link('').success).toBe(false);
   });
+  it('requires the related task of link and file evidence; the deliverable is checked by sp_add_evidence', () => {
+    const base = { challenge_id: ID, title: 'Repositorio', kind: 'repository', url: 'https://github.com/demo/repo' };
+    expect(issues(linkEvidenceSchema.safeParse({ ...base, task_id: '' }))).toEqual(['task_id:field_required']);
+    expect(issues(linkEvidenceSchema.safeParse({ ...base, task_id: '   ' }))).toEqual(['task_id:field_required']);
+    expect(issues(linkEvidenceSchema.safeParse(base)).map((i) => i.split(':')[0])).toEqual(['task_id']);
+    expect(linkEvidenceSchema.safeParse({ ...base, task_id: 'not-a-uuid' }).success).toBe(false);
+    const parsed = linkEvidenceSchema.parse({ ...base, task_id: TASK, deliverable_id: '' });
+    expect([parsed.task_id, parsed.deliverable_id]).toEqual([TASK, null]);
+    const file = { challenge_id: ID, title: 'Informe de avance' };
+    expect(issues(fileEvidenceSchema.safeParse({ ...file, task_id: '' }))).toEqual(['task_id:field_required']);
+    expect(fileEvidenceSchema.safeParse({ ...file, task_id: TASK }).success).toBe(true);
+  });
+  // The website stays optional in the shared schema: completeOnboarding and sp_complete_onboarding require it for companies only.
   it('accepts organization onboarding with optional fields left empty', () => {
     const base = { full_name: 'Ana Ruiz', headline: '', organization_name: 'Empresa de prueba', industry: '', size: '', location: '', description: '', needs: '', campus: '', programs: [] };
     expect(organizationOnboardingSchema.safeParse({ ...base, website: '' }).success).toBe(true);

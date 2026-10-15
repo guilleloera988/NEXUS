@@ -28,11 +28,14 @@ export async function completeOnboarding(_prev: ActionState, fd: FormData): Prom
     if (role === 'student') {
       await write('sp_complete_onboarding', studentInput(fd));
     } else if ((role === 'company' || role === 'university') && me.memberships.length === 0) {
-      await write('sp_complete_onboarding', organizationOnboardingSchema.parse({
+      const input = organizationOnboardingSchema.parse({
         full_name: fdString(fd, 'full_name'), headline: fdString(fd, 'headline'), organization_name: fdString(fd, 'organization_name'),
         industry: fdString(fd, 'industry'), size: fdString(fd, 'size'), location: fdString(fd, 'location'), website: fdString(fd, 'website'),
         description: fdString(fd, 'description'), needs: fdString(fd, 'needs'), campus: fdString(fd, 'campus'), programs: lines(fdString(fd, 'programs')),
-      }));
+      });
+      // Companies must give their website (sp_complete_onboarding checks it as well); universities may leave it empty.
+      if (role === 'company' && !input.website) throw new AppError('field_required', 400, 'website');
+      await write('sp_complete_onboarding', input);
     } else {
       await write('sp_complete_onboarding', staffProfileSchema.parse({ full_name: fdString(fd, 'full_name'), headline: fdString(fd, 'headline') }));
     }
@@ -73,11 +76,16 @@ export async function setCredentialVerification(fd: FormData) {
 
 export async function updateOrganization(_prev: ActionState, fd: FormData): Promise<ActionState> {
   return runAction(async () => {
-    await write('sp_update_organization', organizationSchema.parse({
+    const input = organizationSchema.parse({
       organization_id: fdString(fd, 'organization_id'), name: fdString(fd, 'name'), industry: fdString(fd, 'industry'), size: fdString(fd, 'size'),
       location: fdString(fd, 'location'), website: fdString(fd, 'website'), description: fdString(fd, 'description'), needs: fdString(fd, 'needs'),
       campus: fdString(fd, 'campus'), programs: lines(fdString(fd, 'programs')),
-    }));
+    });
+    // Companies keep their website (sp_update_organization checks it as well).
+    const me = await getMe();
+    const kind = me?.memberships.find((m) => m.organization_id === input.organization_id)?.organization.kind;
+    if (kind === 'company' && !input.website) throw new AppError('field_required', 400, 'website');
+    await write('sp_update_organization', input);
     return { message: 'saved' };
   });
 }

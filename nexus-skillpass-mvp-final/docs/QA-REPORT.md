@@ -10,12 +10,12 @@ Todas las cifras de este documento provienen de ejecuciones reales en esta entre
 |---|---|---|
 | Lint | `npm run lint` | ✔ 0 errores · 0 warnings |
 | Tipos | `npm run typecheck` | ✔ sin errores (TypeScript estricto + tipos de rutas generados) |
-| Unitarias + base de datos (PGlite) | `npm test` | ✔ **105/105** (8 oct 2026, con las regresiones de seguridad H-1…H-6) |
-| Base de datos en PostgreSQL 16 real | `npm run test:pg` | ✔ **49/49** |
+| Unitarias + base de datos (PGlite) | `npm test` | ✔ **128/128** (15 oct 2026, con las regresiones de seguridad H-1…H-6 y las reglas de la retroalimentación del 15 oct) |
+| Base de datos en PostgreSQL 16 real | `npm run test:pg` | ✔ **60/60** |
 | Base de datos en PostgreSQL 17.11 (imagen de Supabase) | `TEST_DATABASE_URL=… npm run test:pg` | ✔ **39/39** (corrida del 2 oct; las 12 migraciones se aplicaron después en el Supabase de la demo, PG 17) |
 | Build de producción | `npm run build` | ✔ compila sin errores ni warnings de tipos; 33 rutas dinámicas + 5 recursos estáticos (íconos, OG, robots, sitemap) |
 | E2E · DEMO local (dev) | `npm run test:e2e` | ✔ **15/15** (+3 omitidas: requieren Supabase) |
-| E2E · DEMO local (build de producción, modo CI) | `CI=1 npm run test:e2e` | ✔ **15/15** (+3 omitidas); 8 oct, con la prueba de descarga pública: ✔ **16/16** (+3 omitidas) |
+| E2E · DEMO local (build de producción, modo CI) | `CI=1 npm run test:e2e` | ✔ **15/15** (+3 omitidas); 8 oct, con la prueba de descarga pública: ✔ **16/16** (+3 omitidas); 15 oct, con la retroalimentación (`feedback.spec.ts`) y las pantallas de registro: ✔ **22/22** (+3 omitidas) |
 | E2E · DEMO local (build de producción) con las pantallas de confirmación (8 oct 2026) | `CI=1 npm run test:e2e` | ✔ **18/18** (+3 omitidas: requieren Supabase) |
 | Registro contra el Supabase **de producción** (app local, 8 oct 2026) | Playwright con direcciones de prueba `delivered+…@resend.dev` | ✔ registro → `/signup/check-email` con el correo (sobrevive a recargas); reenvío con cuenta regresiva de 60 s; login sin confirmar → misma pantalla con aviso; enlace `token_hash` (generado con la Admin API) abierto en un navegador limpio → sesión y `/onboarding`; segundo uso del enlace → `/login` con explicación; contraseña incorrecta → error genérico. Cuentas de prueba borradas al terminar. |
 | E2E · Supabase real (stack local: Auth, PostgREST, Storage, Kong) | `E2E_BASE_URL=… E2E_SUPABASE=1 npx playwright test` | ✔ **17/17** (+1 omitida: sólo DEMO local) |
@@ -30,10 +30,12 @@ Todas las cifras de este documento provienen de ejecuciones reales en esta entre
 
 | Archivo | Pruebas | Cobertura |
 |---|---|---|
-| `tests/database.test.ts` | 41 | RLS en 24 tablas; sin escrituras directas aun con *default privileges*; funciones expuestas a `anon`; roles por registro/invitación; FLOW 01–08 y 10 a nivel SQL; revocación; aislamiento entre organizaciones, compañeros, universidad; talent pool; admin; inmutabilidad; regresiones H-1…H-6 de la revisión de seguridad (fallan sin las migraciones de corrección). |
+| `tests/database.test.ts` | 52 | RLS en 24 tablas; sin escrituras directas aun con *default privileges*; funciones expuestas a `anon`; roles por registro/invitación; FLOW 01–08 y 10 a nivel SQL; revocación; aislamiento entre organizaciones, compañeros, universidad; talent pool; admin; inmutabilidad; regresiones H-1…H-6 de la revisión de seguridad (fallan sin las migraciones de corrección); retroalimentación del 15 oct: evidencia con tarea y entregable, sitio web de empresa, cada requisito para abrir un reto (incl. blancos Unicode y retos guardados antes de la regla) y el espejo TS = SQL (fallan sin `20261015000001`). |
 | `tests/storage.test.ts` | 8 | Bucket privado, lectura anónima sólo de evidencia publicada en credencial vigente y sólo al firmar la URL (13 operaciones de Storage negadas, sin listado), dueño/compañero/supervisor, subida sólo a carpeta propia y reto activo, borrado sólo de archivos no revisados. |
 | `tests/unit/safety.test.ts` | 26 | *Open redirect*, CSV injection, *magic numbers*, nombres de archivo. |
-| `tests/unit/schemas.test.ts` | 13 | Trabajo justo, fechas, enums, URLs https, VATH, rúbrica, rol admin, contraseñas, onboarding con campos vacíos. |
+| `tests/unit/schemas.test.ts` | 14 | Trabajo justo, fechas, enums, URLs https, VATH, rúbrica, rol admin, contraseñas, onboarding con campos vacíos, tarea obligatoria en la evidencia. |
+| `tests/unit/challenge-readiness.test.ts` | 9 | Requisitos para abrir un reto: orden fijo igual al de la migración, ubicación salvo remoto, blancos (incl. Unicode), qué transiciones abren el reto, etiquetas es/en. |
+| `tests/unit/error-text.test.ts` | 2 | Mensajes con el campo que reporta la base y texto general cuando la base no lo dice. |
 | `tests/unit/i18n.test.ts` | 8 | Paridad es/en, placeholders, mensajes vacíos, cada error SQL y notificación con traducción, 9 pasos de la guía, ningún texto «AI Match». |
 | `tests/unit/server-guards.test.ts` | 4 | Firma/expiración/manipulación de la cookie DEMO; mapeo de errores sin filtrar mensajes de PostgreSQL. |
 | `tests/unit/format.test.ts` | 5 | Fechas sin desfase de zona, horas fraccionarias, tiempos relativos, iniciales, tamaños. |
@@ -42,11 +44,12 @@ Todas las cifras de este documento provienen de ejecuciones reales en esta entre
 
 | Spec | Pruebas | Qué valida |
 |---|---|---|
-| `critical-flow.spec.ts` | 1 (10 pasos) | **FLOW 01–10 por la UI real**: la empresa crea y publica un reto (persiste tras recargar) → el estudiante aplica y la empresa asigna → workspace → subida de PDF → VATH y envío → el supervisor revisa horas, evidencia y descarga el archivo → valida con rúbrica y emite credencial → SkillPass actualizado → verificación pública sin sesión → **QR decodificado con jsQR** abre la URL correcta → la analítica universitaria (CSV) refleja exactamente las horas nuevas. Sin errores de consola ni respuestas HTTP ≥ 400. |
+| `critical-flow.spec.ts` | 1 (10 pasos) | **FLOW 01–10 por la UI real**: la empresa crea y publica un reto con todos los datos que exige la publicación (persiste tras recargar) → el estudiante aplica y la empresa asigna → workspace → subida de PDF → VATH y envío → el supervisor revisa horas, evidencia y descarga el archivo → valida con rúbrica y emite credencial → SkillPass actualizado → verificación pública sin sesión → **QR decodificado con jsQR** abre la URL correcta → la analítica universitaria (CSV) refleja exactamente las horas nuevas. Sin errores de consola ni respuestas HTTP ≥ 400. |
 | `security.spec.ts` | 10 | Rutas privadas → login con `next` seguro; `next` externo ignorado; descargas/exportaciones anónimas bloqueadas; estudiante sin acceso a admin/CSV; universidad sin archivos; compañero sin validación ajena; verificación pública y búsqueda por código; cabeceras de seguridad; `/api/health` sin secretos; enlaces DEMO verificables por terceros. |
 | `guided-demo.spec.ts` | 1 | Los 9 pasos de la demo guiada con cambio de persona y rutas esperadas. |
 | `incidents.spec.ts` | 1 | El estudiante reporta un problema desde su SkillPass y el admin lo resuelve en Talent OS. |
 | `mobile.spec.ts` | 2 | Pixel 7: páginas públicas y pantallas principales sin scroll horizontal; menú móvil. |
+| `feedback.spec.ts` | 4 | Retroalimentación del 15 oct: evidencia sin tarea/entregable no se guarda (navegador, servidor y base; la tarea llena el entregable), una sola barra de desplazamiento en «Subir nueva versión», borrador incompleto que no se puede publicar (lista y botones deshabilitados) y sitio web obligatorio para empresas. Sólo DEMO local. |
 | `auth-screens.spec.ts` | 2 | Pantalla «Revisa tu correo» (pasos, sin reenvío si no se conoce el correo, aviso de cuenta sin confirmar) y enlace de correo inválido → `/login` con explicación, sin seguir un `next` externo. |
 | `auth-supabase.spec.ts` | 3 | (Sólo Supabase) registro de estudiante → onboarding → cerrar sesión → iniciar sesión; empresa nueva queda pendiente y no puede publicar; error genérico con credenciales incorrectas. |
 

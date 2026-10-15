@@ -6,6 +6,8 @@ import { saveChallenge } from '@/actions/challenges';
 import { COMPENSATION_TYPES, CONFIDENTIALITY, INDUSTRIES, INTERESTS, IP_POLICIES, MODALITIES, PUBLICATION_POLICIES, UNPAID_VATH_LIMIT } from '@/lib/constants';
 import { competencyName } from '@/lib/format';
 import { IDLE } from '@/lib/action-state';
+import { missingForPublish } from '@/lib/challenge-readiness';
+import { fmt } from '@/lib/i18n';
 import { useI18n } from '@/lib/i18n/client';
 import type { Challenge, Competency, Deliverable } from '@/lib/types';
 import { FormFeedback, SubmitButton } from './ui/form';
@@ -18,45 +20,50 @@ type Values = {
   compensation_details: string; ip_policy: string; ip_details: string; confidentiality: string; publication_policy: string;
 };
 
-function Section({ title, children }: { title: string; children: ReactNode }) {
+/** "Needed to publish" marker for fields a draft may leave empty (see src/lib/challenge-readiness.ts). */
+function Note({ text }: { text?: string }) {
+  return text ? <span className="ml-1 text-xs font-normal text-ink-500">{' '}({text})</span> : null;
+}
+
+function Section({ title, children, note }: { title: string; children: ReactNode; note?: string }) {
   return (
     <fieldset className="card card-pad">
-      <legend className="sr-only">{title}</legend>
-      <h2 className="mb-4 text-base font-bold" aria-hidden>{title}</h2>
+      <legend className="sr-only">{note ? `${title} (${note})` : title}</legend>
+      <h2 className="mb-4 text-base font-bold" aria-hidden>{title}<Note text={note} /></h2>
       <div className="space-y-4">{children}</div>
     </fieldset>
   );
 }
 
-function Input({ label, value, onChange, required, help, type = 'text', ...rest }: {
-  label: string; value: string; onChange: (v: string) => void; required?: boolean; help?: string; type?: string; min?: number; max?: number; step?: number; maxLength?: number; placeholder?: string;
+function Input({ label, value, onChange, required, help, note, type = 'text', ...rest }: {
+  label: string; value: string; onChange: (v: string) => void; required?: boolean; help?: string; note?: string; type?: string; min?: number; max?: number; step?: number; maxLength?: number; placeholder?: string;
 }) {
   const id = useId();
   return (
     <div>
-      <label htmlFor={id} className="label">{label}{required && <span className="text-danger-600" aria-hidden> *</span>}</label>
+      <label htmlFor={id} className="label">{label}{required ? <span className="text-danger-600" aria-hidden> *</span> : <Note text={note} />}</label>
       <input id={id} className="input" type={type} value={value} onChange={(e) => onChange(e.target.value)} required={required} aria-describedby={help ? `${id}-h` : undefined} {...rest} />
       {help && <p id={`${id}-h`} className="help">{help}</p>}
     </div>
   );
 }
 
-function Area({ label, value, onChange, required, rows = 3, maxLength, help }: { label: string; value: string; onChange: (v: string) => void; required?: boolean; rows?: number; maxLength?: number; help?: string }) {
+function Area({ label, value, onChange, required, rows = 3, maxLength, help, note }: { label: string; value: string; onChange: (v: string) => void; required?: boolean; rows?: number; maxLength?: number; help?: string; note?: string }) {
   const id = useId();
   return (
     <div>
-      <label htmlFor={id} className="label">{label}{required && <span className="text-danger-600" aria-hidden> *</span>}</label>
+      <label htmlFor={id} className="label">{label}{required ? <span className="text-danger-600" aria-hidden> *</span> : <Note text={note} />}</label>
       <textarea id={id} className="textarea" value={value} onChange={(e) => onChange(e.target.value)} required={required} rows={rows} maxLength={maxLength} aria-describedby={help ? `${id}-h` : undefined} />
       {help && <p id={`${id}-h`} className="help">{help}</p>}
     </div>
   );
 }
 
-function Select({ label, value, onChange, options, required, help, placeholder }: { label: string; value: string; onChange: (v: string) => void; options: { value: string; label: string }[]; required?: boolean; help?: string; placeholder?: string }) {
+function Select({ label, value, onChange, options, required, help, placeholder, note }: { label: string; value: string; onChange: (v: string) => void; options: { value: string; label: string }[]; required?: boolean; help?: string; placeholder?: string; note?: string }) {
   const id = useId();
   return (
     <div>
-      <label htmlFor={id} className="label">{label}{required && <span className="text-danger-600" aria-hidden> *</span>}</label>
+      <label htmlFor={id} className="label">{label}{required ? <span className="text-danger-600" aria-hidden> *</span> : <Note text={note} />}</label>
       <select id={id} className="select" value={value} onChange={(e) => onChange(e.target.value)} required={required} aria-describedby={help ? `${id}-h` : undefined}>
         {placeholder !== undefined && <option value="">{placeholder}</option>}
         {options.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
@@ -97,17 +104,26 @@ export function ChallengeForm({ organizationId, organizationVerified, challenge,
     competencies: comps.filter((c) => c.competency_id), deliverables: dels.filter((d) => d.title.trim()),
   }), [v, comps, dels, challenge?.id, organizationId]);
   const unpaidOver = v.compensation_type === 'none' && Number(v.estimated_vath) > UNPAID_VATH_LIMIT;
+  // Drafts may be incomplete; publishing (and editing a challenge that is no longer a draft) needs every
+  // item of src/lib/challenge-readiness.ts, which the database checks too.
+  const strict = !!challenge && challenge.status !== 'draft';
+  const missing = missingForPublish(v, { competencies: comps.filter((c) => c.competency_id).length, deliverables: dels.filter((d) => d.title.trim()).length });
+  const pub = strict ? undefined : t.challenges.publishForPublishing;
+  const missingId = useId();
+  const needsLocation = v.modality !== 'remote';
   const available = (current: string) => catalog.filter((c) => c.id === current || !comps.some((x) => x.competency_id === c.id));
 
   return (
     <form action={action} className="space-y-6">
       <input type="hidden" name="payload" value={payload} />
+      {!strict && <Alert tone="info">{t.challenges.publishHint}</Alert>}
       <Section title={S.basics}>
         <Input label={F.title} value={v.title} onChange={set('title')} required maxLength={160} />
-        <Input label={F.summary} value={v.summary} onChange={set('summary')} maxLength={400} />
-        <Area label={F.description} value={v.description} onChange={set('description')} rows={4} maxLength={4000} />
+        <Input label={F.summary} value={v.summary} onChange={set('summary')} maxLength={400} required={strict} note={pub} />
+        <Area label={F.description} value={v.description} onChange={set('description')} rows={4} maxLength={4000} required={strict} note={pub} />
         <div className="grid gap-4 sm:grid-cols-2">
-          <Select label={F.industry} value={v.industry} onChange={set('industry')} placeholder={t.common.select} options={INDUSTRIES.map((i) => ({ value: i, label: t.enums.industries[i] }))} />
+          <Select label={F.industry} value={v.industry} onChange={set('industry')} placeholder={t.common.select} options={INDUSTRIES.map((i) => ({ value: i, label: t.enums.industries[i] }))}
+            required={strict} note={pub} />
           <Input label={F.targetCareers} value={v.target_careers} onChange={set('target_careers')} help={F.targetCareersHelp} />
         </div>
         <fieldset>
@@ -134,20 +150,20 @@ export function ChallengeForm({ organizationId, organizationVerified, challenge,
       <Section title={S.logistics}>
         <div className="grid gap-4 sm:grid-cols-3">
           <Select label={F.modality} value={v.modality} onChange={set('modality')} options={MODALITIES.map((m) => ({ value: m, label: t.enums.modality[m] }))} required />
-          <Input label={F.location} value={v.location} onChange={set('location')} maxLength={120} />
+          <Input label={F.location} value={v.location} onChange={set('location')} maxLength={120} required={strict && needsLocation} note={needsLocation ? pub : undefined} />
           <Input label={F.durationWeeks} value={v.duration_weeks} onChange={set('duration_weeks')} type="number" min={1} max={52} required />
-          <Input label={F.startDate} value={v.start_date} onChange={set('start_date')} type="date" />
-          <Input label={F.endDate} value={v.end_date} onChange={set('end_date')} type="date" />
+          <Input label={F.startDate} value={v.start_date} onChange={set('start_date')} type="date" required={strict} note={pub} />
+          <Input label={F.endDate} value={v.end_date} onChange={set('end_date')} type="date" required={strict} note={pub} />
           <Input label={F.maxParticipants} value={v.max_participants} onChange={set('max_participants')} type="number" min={1} max={50} required />
           <Input label={F.estimatedVath} value={v.estimated_vath} onChange={set('estimated_vath')} type="number" min={1} max={1000} step={1} required />
           <div className="sm:col-span-2">
-            <Select label={F.supervisor} value={v.supervisor_id} onChange={set('supervisor_id')} placeholder={t.common.select} help={F.supervisorHelp}
+            <Select label={F.supervisor} value={v.supervisor_id} onChange={set('supervisor_id')} placeholder={t.common.select} help={F.supervisorHelp} required={strict} note={pub}
               options={supervisors.map((s) => ({ value: s.user_id, label: `${s.full_name} · ${t.enums.memberRole[s.member_role as keyof typeof t.enums.memberRole] ?? s.member_role}` }))} />
           </div>
         </div>
       </Section>
 
-      <Section title={S.competencies}>
+      <Section title={S.competencies} note={strict ? t.challenges.requiredNote : pub}>
         <ul className="space-y-2">
           {comps.map((c, i) => (
             <li key={i} className="grid gap-2 sm:grid-cols-[1fr_14rem_auto]">
@@ -169,7 +185,7 @@ export function ChallengeForm({ organizationId, organizationVerified, challenge,
         )}
       </Section>
 
-      <Section title={S.deliverables}>
+      <Section title={S.deliverables} note={strict ? t.challenges.requiredNote : pub}>
         <ul className="space-y-3">
           {dels.map((d, i) => (
             <li key={i} className="grid gap-2 rounded-xl border border-ink-200 p-3 sm:grid-cols-[1fr_10rem_auto]">
@@ -204,14 +220,25 @@ export function ChallengeForm({ organizationId, organizationVerified, challenge,
           <Select label={F.confidentiality} value={v.confidentiality} onChange={set('confidentiality')} options={CONFIDENTIALITY.map((c) => ({ value: c, label: t.enums.confidentiality[c] }))} required />
           <Select label={F.publicationPolicy} value={v.publication_policy} onChange={set('publication_policy')} options={PUBLICATION_POLICIES.map((c) => ({ value: c, label: t.enums.publicationPolicy[c] }))} required />
         </div>
-        <Area label={F.conditions} value={v.conditions} onChange={set('conditions')} rows={3} maxLength={2000} />
+        <Area label={F.conditions} value={v.conditions} onChange={set('conditions')} rows={3} maxLength={2000} required={strict} note={pub} />
       </Section>
 
       <div className="sticky bottom-0 z-10 -mx-4 flex flex-wrap items-center justify-end gap-2 border-t border-ink-200 bg-white/95 px-4 py-3 backdrop-blur sm:mx-0 sm:rounded-2xl sm:border">
+        {missing.length > 0 && (
+          // A short count on phones keeps the sticky bar low; the full list from sm up. A challenge that is no
+          // longer a draft cannot be saved incomplete (sp_save_challenge refuses it).
+          <p id={missingId} className={`min-w-0 basis-full text-xs sm:mr-auto sm:basis-0 sm:flex-1 ${strict ? 'font-semibold text-danger-700' : 'text-ink-500'}`}>
+            <span className="sm:hidden">{strict ? t.challenges.keepMissing : fmt(t.challenges.publishMissingCount, { n: missing.length })}</span>
+            <span className={strict ? 'sm:hidden' : 'hidden'}> {missing.map((key) => t.fields[key]).join(', ')}.</span>
+            <span className="hidden sm:inline">{strict ? t.challenges.keepMissing : t.challenges.publishMissing} {missing.map((key) => t.fields[key]).join(', ')}.</span>
+          </p>
+        )}
         <FormFeedback state={state} t={t} />
-        <SubmitButton className={challenge ? 'btn-primary' : 'btn-outline'} name="publish" value="draft" disabled={unpaidOver}>{challenge ? t.challenges.saveChanges : t.challenges.saveDraft}</SubmitButton>
+        <SubmitButton className={challenge ? 'btn-primary' : 'btn-outline'} name="publish" value="draft" disabled={unpaidOver || (strict && missing.length > 0)}
+          describedBy={strict && missing.length > 0 ? missingId : undefined}>{challenge ? t.challenges.saveChanges : t.challenges.saveDraft}</SubmitButton>
         {!challenge && organizationVerified && (
-          <SubmitButton className="btn-primary" name="publish" value="recruiting" disabled={unpaidOver}>{t.challenges.publishNow}</SubmitButton>
+          <SubmitButton className="btn-primary" name="publish" value="recruiting" disabled={unpaidOver || missing.length > 0}
+            describedBy={missing.length > 0 ? missingId : undefined}>{t.challenges.publishNow}</SubmitButton>
         )}
       </div>
     </form>

@@ -34,7 +34,7 @@ export default async function OrganizationPage() {
       <PageHeader kicker={t.roles[me.profile.role]} title={org.name} subtitle={O.subtitle}
         actions={<StatusBadge status={org.verification_status === 'verified' ? 'verified' : org.verification_status === 'rejected' ? 'rejected' : 'pending'} label={t.status.organization[org.verification_status]} />} />
       {org.verification_status !== 'verified' && <Alert tone="warning" className="mb-5">{org.kind === 'company' ? t.dashboard.company.pendingVerification : t.dashboard.university.pending}</Alert>}
-      <div className="grid gap-6 lg:grid-cols-3">
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
         <Card title={O.details} className="lg:col-span-2">
           {data.can_manage ? <OrganizationForm org={org} /> : (
             <DefinitionList items={[

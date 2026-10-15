@@ -11,7 +11,9 @@ type Action = (prev: ActionState, fd: FormData) => Promise<ActionState>;
 
 export function errorText(t: Messages, state: ActionState) {
   if (!state.error) return '';
-  const template = (t.errors as Record<string, string>)[state.error] ?? t.errors.generic;
+  const errors = t.errors as Record<string, string>;
+  // "<key>_any" words the error without its field, for when the server did not report one.
+  const template = (!state.field && errors[`${state.error}_any`]) || errors[state.error] || t.errors.generic;
   const fieldKey = state.field?.split('.')[0] ?? '';
   const field = (t.fields as Record<string, string>)[fieldKey] ?? state.field ?? '';
   return fmt(template, { field });
@@ -52,14 +54,14 @@ export function FormFeedback({ state, success, t }: { state: ActionState; succes
   return <p role="alert" className="mt-3 rounded-lg bg-danger-50 px-3 py-2 text-sm font-medium text-danger-700">{errorText(t, state)}</p>;
 }
 
-export function SubmitButton({ children, className = 'btn-primary', pendingLabel, name, value, disabled, form }: {
-  children: ReactNode; className?: string; pendingLabel?: string; name?: string; value?: string; disabled?: boolean; form?: string;
+export function SubmitButton({ children, className = 'btn-primary', pendingLabel, name, value, disabled, form, describedBy }: {
+  children: ReactNode; className?: string; pendingLabel?: string; name?: string; value?: string; disabled?: boolean; form?: string; describedBy?: string;
 }) {
   const { pending, data } = useFormStatus();
   const mine = !name || !data || data.get(name) === value;
   const busy = pending && mine;
   return (
-    <button type="submit" className={className} disabled={pending || disabled} aria-busy={busy} name={name} value={value} form={form}>
+    <button type="submit" className={className} disabled={pending || disabled} aria-busy={busy} name={name} value={value} form={form} aria-describedby={describedBy}>
       {busy && <Loader2 className="size-4 animate-spin" aria-hidden />}
       {busy && pendingLabel ? pendingLabel : children}
     </button>
@@ -68,7 +70,7 @@ export function SubmitButton({ children, className = 'btn-primary', pendingLabel
 
 type FieldProps = {
   label: string; name: string; help?: string; required?: boolean; className?: string;
-} & ({ as?: 'input'; type?: string; defaultValue?: string | number | null; placeholder?: string; min?: number; max?: number; step?: number | string; autoComplete?: string; maxLength?: number; inputMode?: 'numeric' | 'decimal' | 'email' | 'url' | 'text' }
+} & ({ as?: 'input'; type?: string; defaultValue?: string | number | null; placeholder?: string; min?: number; max?: number; step?: number | string; autoComplete?: string; maxLength?: number; inputMode?: 'numeric' | 'decimal' | 'email' | 'url' | 'text'; pattern?: string }
   | { as: 'textarea'; defaultValue?: string | null; placeholder?: string; rows?: number; maxLength?: number }
   | { as: 'select'; defaultValue?: string | null; options: { value: string; label: string }[]; placeholder?: string });
 
@@ -92,7 +94,7 @@ export function Field(props: FieldProps) {
       ) : (
         <input id={id} name={name} className="input" type={props.type ?? 'text'} defaultValue={props.defaultValue ?? ''} placeholder={props.placeholder}
           min={props.min} max={props.max} step={props.step} autoComplete={props.autoComplete} maxLength={props.maxLength} inputMode={props.inputMode}
-          required={required} aria-describedby={helpId} />
+          pattern={props.pattern} title={props.pattern ? help : undefined} required={required} aria-describedby={helpId} />
       )}
       {help && <p id={helpId} className="help">{help}</p>}
     </div>

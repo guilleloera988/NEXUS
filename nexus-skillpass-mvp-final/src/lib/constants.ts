@@ -40,3 +40,6 @@ export const UPLOAD_TYPES: Record<string, { kind: (typeof FILE_KINDS)[number]; e
   'application/vnd.ms-powerpoint': { kind: 'presentation', ext: ['ppt'] },
   'application/vnd.ms-excel': { kind: 'document', ext: ['xls'] },
 };
+
+/** Organization websites: https, no whitespace and no "@" (same rule as the organizations.website check). */
+export const WEBSITE_PATTERN = 'https://[^\\s@]+';

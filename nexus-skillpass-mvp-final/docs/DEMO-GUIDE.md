@@ -33,7 +33,7 @@ Credencial precargada para verificación: **`SKP-2026-4A7C-91D2`**.
 | 1 | Conoce a la estudiante | María · Tablero | Progreso del reto, VATH verificadas vs en validación, competencias verificadas. «Nada aquí es autodeclarado sin marcarlo como tal.» |
 | 2 | Explora el reto | María · *Commercial Process Automation* | Problema real, competencias, entregables, compensación, **propiedad intelectual** y confidencialidad. Abre «¿Por qué esta compatibilidad?»: reglas transparentes, **no IA**. |
 | 3 | Revisa el trabajo | María · Workspace | Hitos por entregable, tareas, equipo y actividad (María ve sus validaciones y la evidencia ya enviada de Diego, no sus borradores). |
-| 4 | Inspecciona la evidencia | María · Evidencias | Archivos verificados por contenido y enlaces. Agrega una evidencia con un enlace `https://…`. |
+| 4 | Inspecciona la evidencia | María · Evidencias | Archivos verificados por contenido y enlaces. Agrega una evidencia con un enlace `https://…` y elige su **Tarea relacionada** y su **Entregable relacionado**: sin ellos no se guarda, así cada avance queda ligado a lo que respalda. |
 | 5 | Verifica VATH | María · Validación | Horas declaradas separadas de verificadas, vinculadas a evidencia. Pulsa **Enviar a validación**. |
 | 6 | Valida competencias | Carlos · Validaciones | Abre la solicitud de María: verifica/ajusta horas (ajustar exige comentario), aprueba evidencia, evalúa con la rúbrica 1–5 (nivel 3+ = verificada), marca **emitir credencial** y completa. |
 | 7 | Abre el SkillPass | María · Mi SkillPass | La credencial nueva aparece con VATH y competencias; muestra **Privacidad** (todo lo público es opt-in, verificación por credencial). |
@@ -43,7 +43,7 @@ Credencial precargada para verificación: **`SKP-2026-4A7C-91D2`**.
 ## Variantes según audiencia
 
 - **Universidad (5 min):** pasos 1, 7, 8, 9 + privacidad (la universidad no ve evidencia privada ni horas individuales).
-- **Empresa (5 min):** como Laura, crea un reto (alerta de trabajo justo si eliges «Sin compensación» y > 60 VATH), revisa candidatos con historial de decisiones, explora Talento verificado; como Carlos, valida.
+- **Empresa (5 min):** como Laura, abre el borrador *Lean Kaizen Documentation Sprint*: el panel «Ciclo de vida» lista lo que falta para publicarlo (condiciones de participación, supervisor y fechas) y deshabilita la publicación. Después crea un reto: el borrador se guarda incompleto, pero «Publicar y abrir convocatoria» sólo se habilita con resumen, descripción, industria, ubicación, condiciones de participación, competencias, entregables, supervisor y fechas (alerta de trabajo justo si eliges «Sin compensación» y > 60 VATH). Revisa candidatos con historial de decisiones, explora Talento verificado; como Carlos, valida.
 - **Inversionistas (3 min):** problema (habilidades autodeclaradas) → pasos 2, 6, 8 (verificación pública con QR) → 9 (datos institucionales) → modelo de colaboración en la landing (el estudiante no paga).
 - **Evaluación técnica:** Admin → `/admin/audit` (bitácora inmutable), `/admin/credentials` (revocar con motivo y ver el efecto en `/verify/<código>`), y mostrar que una cuenta de otra organización no puede abrir validaciones ajenas.
 
@@ -64,3 +64,5 @@ Credencial precargada para verificación: **`SKP-2026-4A7C-91D2`**.
 | La primera entrada tarda | Es la construcción de la plantilla; `npm run seed` la precalienta. |
 | Quiero empezar de cero | «Salir de la demo» y «Iniciar demo guiada» (crea escenario nuevo) o `npm run demo:reset`. |
 | La guía se ocultó | Botón flotante «Mostrar guía» (abajo a la derecha). |
+| La evidencia no se guarda | Elige «Tarea relacionada» y «Entregable relacionado» (obligatorios). Si el reto aún no tiene tareas, créala primero en la pestaña Tareas. |
+| «Publicar y abrir convocatoria» está deshabilitado | Faltan datos para publicar: la barra inferior del formulario y el panel «Ciclo de vida» del reto dicen cuáles. El borrador sí se guarda incompleto. |

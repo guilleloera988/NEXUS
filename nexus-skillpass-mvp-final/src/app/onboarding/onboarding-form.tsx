@@ -4,7 +4,7 @@ import { completeOnboarding } from '@/actions/profile';
 import { StudentProfileFields } from '@/components/profile-fields';
 import { ActionForm, Checkbox, Field, SubmitButton } from '@/components/ui/form';
 import { Alert } from '@/components/ui/primitives';
-import { INDUSTRIES, ORG_SIZES } from '@/lib/constants';
+import { INDUSTRIES, ORG_SIZES, WEBSITE_PATTERN } from '@/lib/constants';
 import { useI18n } from '@/lib/i18n/client';
 import type { Lookups, Profile } from '@/lib/types';
 
@@ -41,7 +41,8 @@ export function OnboardingForm({ profile, lookups, declared, needsOrganization }
               <Field label={O.university.campus} name="campus" maxLength={120} />
             )}
             <Field label={O.company.location} name="location" maxLength={120} />
-            <Field label={O.company.website} name="website" type="url" placeholder="https://" maxLength={300} />
+            <Field label={O.company.website} name="website" type="url" placeholder="https://" maxLength={300} required={role === 'company'}
+              pattern={WEBSITE_PATTERN} help={O.company.websiteHelp} />
             <Field as="textarea" label={O.company.description} name="description" maxLength={1500} rows={3} className="sm:col-span-2" />
             {role === 'company' ? (
               <Field as="textarea" label={O.company.needs} name="needs" maxLength={1500} rows={3} className="sm:col-span-2" />

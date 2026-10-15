@@ -13,6 +13,7 @@ const uuid = z.string().uuid();
 const text = (max: number, min = 0) => z.string().trim().min(min).max(max);
 // `.optional()` before `.transform()` lets the key be absent (zod 4 decides key optionality from the input side).
 const optionalUuid = z.union([uuid, z.literal(''), z.null()]).optional().transform((v) => (v ? v : null));
+const requiredUuid = z.string().trim().min(1, 'field_required').pipe(uuid);
 const date = z.string().regex(/^\d{4}-\d{2}-\d{2}$/).refine((s) => !Number.isNaN(Date.parse(s)), 'invalid_date');
 const optionalDate = z.union([date, z.literal(''), z.null()]).optional().transform((v) => (v ? v : null));
 // zod 4 still runs refinements after a failed `.url()` check, so parsing must not throw here.
@@ -24,7 +25,8 @@ const httpsUrl = z.string().trim().max(2048).url().refine((value) => {
     return false;
   }
 }, 'https_only');
-const optionalHttps = z.union([httpsUrl, z.literal('')]).default('');
+// Same rule as the organizations.website check: at most 300 characters and no "@" anywhere.
+const optionalWebsite = z.union([httpsUrl.refine((v) => v.length <= 300 && !v.includes('@'), 'invalid_field'), z.literal('')]).default('');
 const intFromForm = (min: number, max: number) => z.coerce.number().int().min(min).max(max);
 const optionalInt = (min: number, max: number) => z.union([z.literal(''), z.null(), z.coerce.number().int().min(min).max(max)]).optional()
   .transform((v) => (v === '' || v === null || v === undefined ? null : v));
@@ -71,7 +73,7 @@ export const organizationOnboardingSchema = z.object({
   industry: text(60).default(''),
   size: z.union([z.enum(ORG_SIZES), z.literal('')]).default(''),
   location: text(120).default(''),
-  website: optionalHttps,
+  website: optionalWebsite,
   description: text(1500).default(''),
   needs: text(1500).default(''),
   campus: text(120).default(''),
@@ -142,8 +144,9 @@ export const linkEvidenceSchema = z.object({
   description: text(2000).default(''),
   kind: z.enum(LINK_KINDS),
   url: httpsUrl,
+  // The deliverable is required only when the challenge has deliverables; sp_add_evidence checks that.
   deliverable_id: optionalUuid,
-  task_id: optionalUuid,
+  task_id: requiredUuid,
   competency_ids: z.array(uuid).max(10).default([]),
   is_public: z.boolean().default(false),
   previous_id: optionalUuid,

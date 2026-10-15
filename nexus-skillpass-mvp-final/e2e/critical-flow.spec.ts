@@ -13,6 +13,7 @@ test('FLOW 01–10 · challenge → work → evidence → VATH → validation �
   const stamp = Date.now().toString(36).toUpperCase();
   const title = `E2E ${stamp} · Bitácora digital de mantenimiento`;
   const evidenceTitle = `Diagnóstico de mantenimiento ${stamp}`;
+  const taskTitle = `Levantar las órdenes de mantenimiento ${stamp}`;
   // Small, spread-out entries keep the test repeatable on shared backends (16 h/day limit per student).
   const hours = 2;
   const activityDay = -(1 + (Date.now() % 6));
@@ -33,10 +34,17 @@ test('FLOW 01–10 · challenge → work → evidence → VATH → validation �
   await test.step('FLOW 01 · company creates and publishes a challenge that persists', async () => {
     await switchTo(page, 'company');
     await page.goto('/challenges/new');
+    const publish = page.getByRole('button', { name: 'Publicar y abrir convocatoria' });
     await page.getByLabel('Nombre del reto').fill(title);
-    await page.getByLabel('Resumen (una línea)').fill('Digitalizar la bitácora de mantenimiento preventivo.');
     await page.getByLabel('Problema a resolver').fill('Las órdenes de mantenimiento se registran en papel y se pierden entre turnos.');
     await page.getByLabel(/^Objetivo/).fill('Entregar un prototipo de bitácora digital validado con el equipo de planta.');
+    // Only a complete challenge can be published (src/lib/challenge-readiness.ts); title, problem and objective are not enough.
+    await expect(publish).toBeDisabled();
+    const basics = page.getByRole('group', { name: 'Información general' });
+    await basics.getByLabel('Resumen (una línea)').fill('Digitalizar la bitácora de mantenimiento preventivo.');
+    await basics.getByLabel(/^Descripción/).fill('Nova registra el mantenimiento preventivo en papel; el reto es llevarlo a una bitácora digital usable en planta.');
+    await basics.getByLabel(/^Industria/).selectOption({ label: 'Manufactura' });
+    await page.getByLabel(/^Ubicación/).fill('Aguascalientes, Ags.');
     await page.getByLabel('Fecha de inicio').fill(isoDate(-7));
     await page.getByLabel('Fecha de fin').fill(isoDate(60));
     await page.getByLabel('Supervisor del reto').selectOption({ label: 'Carlos Méndez · Supervisor' });
@@ -44,7 +52,11 @@ test('FLOW 01–10 · challenge → work → evidence → VATH → validation �
     await page.locator('#comp-0').selectOption({ label: 'Automatización de procesos · Técnica' });
     await page.getByRole('button', { name: 'Agregar entregable' }).click();
     await page.locator('#del-t-0').fill('Prototipo de bitácora digital');
-    await page.getByRole('button', { name: 'Publicar y abrir convocatoria' }).click();
+    await expect(publish).toBeDisabled();
+    await page.getByLabel(/^Condiciones de participación/).fill('Dos visitas a planta con equipo de protección; el resto del trabajo es remoto.');
+    await expect(page.getByText('Para publicar, completa:')).toHaveCount(0);
+    await expect(publish).toBeEnabled();
+    await publish.click();
     await page.waitForURL(/\/challenges\/[0-9a-f-]{36}$/);
     challengeId = page.url().split('/').pop()!;
     await page.reload();
@@ -74,14 +86,36 @@ test('FLOW 01–10 · challenge → work → evidence → VATH → validation �
     await expect(page.getByRole('heading', { level: 1, name: title })).toBeVisible();
   });
 
-  await test.step('FLOW 03 · student uploads evidence linked to the challenge', async () => {
+  await test.step('FLOW 03 · student creates a task and uploads evidence linked to it and to its deliverable', async () => {
     await page.goto(`/workspace/${challengeId}?tab=evidence`);
+    const tabs = page.getByRole('navigation', { name: title });
     await page.getByRole('button', { name: 'Agregar evidencia' }).click();
-    const dialog = page.getByRole('dialog');
+    let dialog = page.getByRole('dialog');
+    // Evidence must name its task: a brand-new challenge has none, so the dialog sends the student to the Tasks tab.
+    await expect(dialog.getByText('Antes de agregar evidencia, crea en la pestaña Tareas la tarea a la que corresponde.')).toBeVisible();
+    await expect(dialog.getByRole('button', { name: 'Guardar' })).toHaveCount(0);
+    await dialog.getByRole('button', { name: 'Cerrar' }).click();
+
+    await tabs.getByRole('link', { name: /^Tareas/ }).click();
+    await page.waitForURL(/tab=tasks/);
+    await page.getByRole('button', { name: 'Nueva tarea' }).click();
+    dialog = page.getByRole('dialog');
+    await dialog.getByRole('textbox', { name: 'Tarea', exact: true }).fill(taskTitle);
+    await dialog.getByLabel('Responsable').selectOption({ label: 'María Torres' });
+    await dialog.getByRole('combobox', { name: 'Entregable', exact: true }).selectOption({ label: 'Prototipo de bitácora digital' });
+    await dialog.getByRole('button', { name: 'Guardar' }).click();
+    await expect(page.getByText(taskTitle)).toBeVisible();
+
+    await tabs.getByRole('link', { name: /^Evidencias/ }).click();
+    await page.waitForURL(/tab=evidence/);
+    await page.getByRole('button', { name: 'Agregar evidencia' }).click();
+    dialog = page.getByRole('dialog');
     await dialog.getByRole('radio', { name: 'Subir archivo' }).click();
     await dialog.getByLabel('Título').fill(evidenceTitle);
     await dialog.getByLabel('Descripción').fill('Levantamiento de órdenes y tiempos actuales (archivo de prueba E2E).');
     await dialog.locator('input[type="file"]').setInputFiles({ name: 'diagnóstico mantenimiento.pdf', mimeType: 'application/pdf', buffer: SAMPLE_PDF });
+    await dialog.getByLabel('Entregable relacionado').selectOption({ label: 'Prototipo de bitácora digital' });
+    await dialog.getByLabel('Tarea relacionada').selectOption({ label: taskTitle });
     await dialog.getByRole('button', { name: 'Guardar' }).click();
     await expect(page.getByText(evidenceTitle).first()).toBeVisible();
     await page.reload();

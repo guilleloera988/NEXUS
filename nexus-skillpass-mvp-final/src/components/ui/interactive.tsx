@@ -65,7 +65,10 @@ export function Dialog({ trigger, title, children, triggerClassName = 'btn-outli
       <dialog ref={ref} onClose={close} aria-label={title}
         className={`m-auto w-[calc(100%-2rem)] ${wide ? 'max-w-3xl' : 'max-w-lg'} rounded-2xl border border-ink-200 bg-white p-0 shadow-2xl backdrop:bg-ink-950/50 backdrop:backdrop-blur-sm`}>
         {open && (
-          <div className="max-h-[85vh] overflow-y-auto">
+          // `relative` makes this scroller the containing block of absolutely positioned content (the
+          // sr-only checkboxes of chip pickers); otherwise the <dialog> itself overflows and shows a
+          // second scrollbar.
+          <div className="relative max-h-[85vh] overflow-y-auto">
             <div className="sticky top-0 z-10 flex items-center justify-between border-b border-ink-100 bg-white px-5 py-4">
               <h2 className="text-lg font-bold">{title}</h2>
               <button type="button" onClick={close} className="btn-ghost btn-sm" aria-label={t.common.close}><X className="size-4" aria-hidden /></button>

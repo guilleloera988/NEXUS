@@ -5,6 +5,7 @@ import { ArrowLeft, BadgeCheck, CalendarDays, Clock, FileText, Lock, MapPin, Pen
 import { MatchRing } from '@/components/challenge-card';
 import { ApplyPanel, CandidateCard, EndAssignmentDialog, MatchBreakdown, StatusControl, WithdrawButton } from '@/components/challenge-panels';
 import { Alert, Avatar, Badge, Card, DefinitionList, EmptyState, LinkTabs, StatusBadge } from '@/components/ui/primitives';
+import { missingForPublish } from '@/lib/challenge-readiness';
 import { competencyName, formatDate, formatDateTime, formatHours } from '@/lib/format';
 import { fmt } from '@/lib/i18n';
 import { getMessages } from '@/lib/i18n/server';
@@ -28,6 +29,14 @@ export default async function ChallengePage({ params, searchParams }: PageProps<
   const { t, locale } = await getMessages();
   const D = t.challenges.detail;
   const c = data.challenge;
+  // Set by saveChallenge when "Publicar y abrir convocatoria" saved the draft but could not publish it.
+  const errors = t.errors as Record<string, string>;
+  const publishErrorKey = typeof sp.publish_error === 'string' && Object.hasOwn(errors, sp.publish_error) ? sp.publish_error : null;
+  const fields = t.fields as Record<string, string>;
+  const publishField = typeof sp.publish_field === 'string' && Object.hasOwn(fields, sp.publish_field) ? fields[sp.publish_field] : undefined;
+  const publishError = publishErrorKey
+    ? fmt((!publishField && errors[`${publishErrorKey}_any`]) || errors[publishErrorKey], { field: publishField ?? '' })
+    : null;
   const isStudent = me.profile.role === 'student';
   const assigned = data.my_assignment && data.my_assignment.status !== 'withdrawn';
   const tabKeys = data.can_review ? (['overview', 'candidates', 'team', 'history'] as const).filter((k) => k !== 'history' || data.can_manage) : (['overview'] as const);
@@ -160,7 +169,9 @@ export default async function ChallengePage({ params, searchParams }: PageProps<
             )}
             {data.can_manage && (
               <Card title={t.challenges.lifecycle}>
-                <StatusControl challengeId={c.id} status={c.status} />
+                {publishError && c.status === 'draft' && <Alert tone="danger" className="mb-3">{t.challenges.publishRefused} {publishError}</Alert>}
+                <StatusControl challengeId={c.id} status={c.status}
+                  missing={missingForPublish(c, { competencies: data.competencies.length, deliverables: data.deliverables.length })} />
               </Card>
             )}
             <Card title={t.common.details}>

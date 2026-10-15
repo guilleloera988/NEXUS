@@ -216,6 +216,7 @@ const en: Messages = {
     company: {
       intro: 'Your company will be pending verification by AINDEV before publishing challenges.',
       orgName: 'Company name', industry: 'Industry', size: 'Size', location: 'Location', website: 'Website (https)',
+      websiteHelp: 'Full address starting with https:// (no @).',
       description: 'Short description', needs: 'Which needs do you want to solve with challenges?', contactTitle: 'Your job title',
     },
     university: {
@@ -326,6 +327,10 @@ const en: Messages = {
     publishNow: 'Publish and open applications',
     saveDraft: 'Save draft', saveChanges: 'Save changes', created: 'Challenge saved.',
     lifecycle: 'Lifecycle', changeStatus: 'Change status', transitionTo: 'Move to: {status}',
+    publishMissing: 'To publish, add:', openMissing: 'To open applications, add:', keepMissing: 'The challenge needs:',
+    publishMissingCount: '{n} items missing to publish', publishForPublishing: 'needed to publish', requiredNote: 'required',
+    publishRefused: 'The challenge was saved as a draft, but it could not be published:',
+    publishHint: 'You can save the draft incomplete. To publish it, it needs a summary, description, industry, location (unless remote), participation conditions, competencies, deliverables, a supervisor and dates.',
     statusHelp: {
       draft: 'Only your organization sees it.', published: 'Visible to students; applications not open yet.', recruiting: 'Visible and accepting applications.',
       active: 'Work in progress.', under_review: 'Final deliverables under evaluation.', completed: 'Challenge closed.', archived: 'Hidden from the catalog.',
@@ -370,6 +375,7 @@ const en: Messages = {
       publicNotAllowed: 'This challenge does not allow publishing evidence.', version: 'v{n}', newVersion: 'Upload new version', mine: 'Mine', team: 'Team',
       reviewComment: 'Reviewer comment', openFile: 'Open file', openLink: 'Open link', added: 'Evidence added.', deleteConfirm: 'Delete draft',
       filterAll: 'All', public: 'Public', private: 'Private', by: 'by {name}',
+      taskFirst: 'Before adding evidence, create the task it belongs to in the Tasks tab.', goToTasks: 'Go to Tasks',
     },
     vath: {
       title: 'VATH entries', add: 'Log VATH', empty: 'No hours logged', emptyText: 'Log the time spent on real challenge activities.',
@@ -500,7 +506,7 @@ const en: Messages = {
         { title: 'Meet the student', text: 'María Torres studies Computer Engineering at Demo University. Look at her progress, VATH and verified competencies.', action: 'Check the dashboard and open “Continue challenge”.' },
         { title: 'Explore the challenge', text: '“Commercial Process Automation” by Nova Manufacturing: problem, competencies, deliverables, compensation and IP.', action: 'Read the conditions and the computed compatibility.' },
         { title: 'Review the work', text: 'The workspace brings together tasks, milestones, team and activity.', action: 'Look at progress and tasks.' },
-        { title: 'Inspect evidence', text: 'Every step is backed by files or links. Add a piece of evidence (for example an https link).', action: 'Go to Evidence and add one.' },
+        { title: 'Inspect evidence', text: 'Every step is backed by files or links. Add a piece of evidence (for example an https link) and choose its task and deliverable.', action: 'Go to Evidence and add one.' },
         { title: 'Log and submit VATH', text: 'María has draft hours linked to evidence. Log them and send them to the supervisor.', action: 'In the Validation tab click “Submit for validation”.' },
         { title: 'Validate competencies', text: 'You are now Carlos Méndez, supervisor. Verify or adjust hours, approve evidence and assess competencies with the rubric.', action: 'Open María’s request, tick “issue credential” and complete.' },
         { title: 'Open the SkillPass', text: 'Back as María: the new credential, her VATH and competencies are there.', action: 'Check the credential and the privacy section.' },
@@ -520,7 +526,8 @@ const en: Messages = {
     challenge_not_recruiting: 'The challenge is not accepting applications.', already_applied: 'You already applied to this challenge.', application_closed: 'This application was already resolved.',
     challenge_closed: 'The challenge no longer accepts participants.', challenge_full: 'The challenge reached its maximum participants.', already_assigned: 'The student is already assigned.',
     challenge_locked: 'The challenge is closed and cannot be changed.', invalid_dates: 'The end date must be after the start date.',
-    fair_work_unpaid_limit: 'Unpaid challenges are limited to 60 estimated VATH.', challenge_incomplete: 'To publish, the challenge needs competencies, deliverables, a supervisor and dates.',
+    fair_work_unpaid_limit: 'Unpaid challenges are limited to 60 estimated VATH.', challenge_incomplete: 'The challenge needs: {field} (required to publish it or keep it published).',
+    challenge_incomplete_any: 'To publish it or keep it published, the challenge needs a summary, description, industry, location, participation conditions, competencies, deliverables, a supervisor and dates.', field_required: 'Fill in the required field: {field}.',
     organization_not_verified: 'Your organization must be verified by AINDEV to publish challenges and invite its team.', invalid_transition: 'That status change is not allowed.',
     challenge_has_applications: 'Cannot go back to draft: there are applications.', challenge_has_active_assignments: 'Cannot archive with active participants.',
     pending_validations: 'There are pending validations to resolve.', not_assigned: 'You are not assigned to this challenge.', evidence_source_required: 'Upload a file or type a link.',
@@ -548,6 +555,8 @@ const en: Messages = {
     description: 'description', activity_date: 'date', email: 'email', estimated_vath: 'estimated VATH', storage_path: 'file', competencies: 'competencies',
     deliverables: 'deliverables', supervisor_id: 'supervisor', start_date: 'dates', end_date: 'end date', organization_name: 'organization name', website: 'website',
     comment: 'comment', reason: 'reason', verified_hours: 'verified hours', kind: 'evidence type', duration_weeks: 'duration', max_participants: 'participants',
+    summary: 'summary', industry: 'industry', location: 'location', conditions: 'participation conditions', task_id: 'related task',
+    deliverable_id: 'related deliverable',
   },
 };
 

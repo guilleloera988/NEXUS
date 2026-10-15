@@ -35,6 +35,8 @@ export const ORGS = {
 
 export const COMP = (n: number) => `30000000-0000-4000-8000-${String(n).padStart(12, '0')}`;
 export const CHALLENGE = (n: number) => `40000000-0000-4000-8000-${String(n).padStart(12, '0')}`;
+export const DELIVERABLE = (n: number) => `41000000-0000-4000-8000-${String(n).padStart(12, '0')}`;
+export const TASK = (n: number) => `52000000-0000-4000-8000-${String(n).padStart(12, '0')}`;
 
 export interface TestTx {
   query<T = Record<string, unknown>>(query: string, params?: unknown[]): Promise<{ rows: T[] }>;

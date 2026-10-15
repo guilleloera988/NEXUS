@@ -65,17 +65,17 @@ Navegador ──► Next.js 16 (App Router, Server Components, Server Actions)
 | Rol | Qué puede hacer |
 |---|---|
 | **Estudiante** | Perfil (declarado vs verificado), explorar retos con Skills Match transparente, aplicar, workspace (tareas, evidencias, VATH), enviar a validación, SkillPass y privacidad. |
-| **Empresa** | Organización, crear/publicar retos (requiere verificación AINDEV), candidatos y decisiones con historial, equipo, talento verificado, invitaciones. |
+| **Empresa** | Organización (con sitio web https), crear retos y publicarlos completos (requiere verificación AINDEV), candidatos y decisiones con historial, equipo, talento verificado, invitaciones. |
 | **Supervisor** | Bandeja de validación: verificar/ajustar/rechazar VATH, aprobar evidencia, evaluar competencias 1–5 y emitir credenciales. Sólo se obtiene por invitación de una organización verificada, registrándose como «Empresa» con el correo invitado. |
 | **Universidad** | Analítica agregada de sus estudiantes (VATH por carrera, competencias, empresas, participación) y exportación CSV. Nunca lee evidencia ni horas individuales. |
 | **Admin AINDEV** | Talent OS: verificación de organizaciones, usuarios y roles, retos, aplicaciones, evidencias, VATH, validaciones, competencias, credenciales (revocación), incidentes y bitácora de auditoría. Nunca se obtiene por registro. |
 
 ## Flujo principal
 
-1. La **empresa** crea un reto (problema, objetivo, competencias, entregables, fechas, supervisor, compensación, propiedad intelectual, confidencialidad y permisos de publicación) y lo publica.
+1. La **empresa** crea un reto (problema, objetivo, competencias, entregables, fechas, supervisor, compensación, propiedad intelectual, confidencialidad y permisos de publicación) y lo publica. El borrador puede quedar incompleto; para publicarlo necesita resumen, descripción, industria, ubicación (salvo remoto), condiciones de participación, competencias, entregables, supervisor y fechas (lo exige la base de datos).
 2. El **estudiante** lo descubre con un **Skills Match** basado en reglas (no IA): competencias 60 pts (verificada 100 %, declarada 60 %), intereses 15, carrera 10, disponibilidad 15.
 3. La empresa acepta la aplicación; queda un historial de decisiones.
-4. En el **workspace** el estudiante organiza tareas, sube **evidencias** (archivos verificados por contenido o enlaces https) y registra **VATH** vinculadas a evidencia.
+4. En el **workspace** el estudiante organiza tareas, sube **evidencias** (archivos verificados por contenido o enlaces https, cada una ligada a su tarea y, si el reto tiene entregables, a su entregable) y registra **VATH** vinculadas a evidencia.
 5. Envía a validación; el **supervisor** revisa horas y evidencias, ajusta con justificación, evalúa competencias y emite la credencial.
 6. El **SkillPass** se actualiza con el proyecto, las VATH verificadas y sólo las competencias con nivel ≥ 3.
 7. Cualquiera verifica la credencial en `/verify/<código>` o escaneando el **QR**; la universidad ve la analítica actualizada.
@@ -120,7 +120,7 @@ Ver [`.env.example`](.env.example). Resumen:
 
 ## Base de datos y Supabase
 
-- Migraciones en [`supabase/migrations`](supabase/migrations): esquema (24 tablas, triggers de integridad), seguridad (helpers + políticas RLS + grants), RPCs de flujo, RPCs de lectura y Storage; después, rendimiento (RLS con *InitPlan*, índices de llaves foráneas) y las correcciones de la revisión de seguridad H-1…H-6 ([SECURITY §6](docs/SECURITY.md)).
+- Migraciones en [`supabase/migrations`](supabase/migrations): esquema (24 tablas, triggers de integridad), seguridad (helpers + políticas RLS + grants), RPCs de flujo, RPCs de lectura y Storage; después, rendimiento (RLS con *InitPlan*, índices de llaves foráneas) y las correcciones de la revisión de seguridad H-1…H-6 ([SECURITY §6](docs/SECURITY.md)); por último, los campos obligatorios de la retroalimentación del 15 oct 2026 (`20261015000001`: evidencia con tarea y entregable, sitio web de empresa y reto completo para publicar; pendiente en producción, ver [STATUS](docs/STATUS.md#retroalimentación-del-15-oct-2026)).
 - Aplicar en Supabase: `supabase link --project-ref <ref>` y `supabase db push` (o `npm run seed -- --supabase --confirm-demo-project --apply-migrations` en un proyecto de demo vacío).
 - En Supabase Auth: habilitar email/password, configurar *Site URL* = `NEXT_PUBLIC_APP_URL` y *Redirect URL* `…/auth/callback`.
 - Detalle de tablas, RLS y RPCs: [docs/DATABASE.md](docs/DATABASE.md).
@@ -186,6 +186,7 @@ Objetivo: `https://skillpass.aindev.com.mx` en Vercel + Supabase. Guía completa
 - La DEMO local necesita disco persistente (no corre en funciones serverless de Vercel); en Vercel se usa `NEXUS_DEMO_MODE=supabase` o `off`.
 - Sin envío de correos propios (sólo los de Supabase Auth); notificaciones dentro de la app.
 - Sin IA: el Skills Match es por reglas y se declara así.
+- La migración `20261015000001` (retroalimentación del 15 oct) aún no está aplicada en producción ni en la demo (OI-12 en [docs/STATUS.md](docs/STATUS.md)).
 
 ## Roadmap
 

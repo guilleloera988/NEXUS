@@ -50,20 +50,20 @@ on conflict (id) do nothing;
 -- Organizations (fictional)
 -- ---------------------------------------------------------------------------
 insert into public.organizations (id, kind, name, slug, industry, size, location, website, description, needs, campus, programs, verification_status, verified_at, created_by, is_demo) values
-  ('20000000-0000-4000-8000-000000000001','company','Nova Manufacturing (DEMO)','nova-manufacturing-demo','manufacturing','201-1000','Aguascalientes, Ags.','',
+  ('20000000-0000-4000-8000-000000000001','company','Nova Manufacturing (DEMO)','nova-manufacturing-demo','manufacturing','201-1000','Aguascalientes, Ags.','https://nova-manufacturing.example',
    'Empresa ficticia de manufactura de componentes metálicos para la industria automotriz, creada sólo para esta demostración.',
    'Digitalizar procesos comerciales y de planta; conocer talento joven con experiencia comprobable.', '', '{}', 'verified', now() - interval '150 days', '10000000-0000-4000-8000-000000000003', true),
   ('20000000-0000-4000-8000-000000000002','university','Demo University','demo-university','education','','Aguascalientes, Ags.','',
    'Universidad ficticia para la demostración de SkillPass.', '', 'Campus Centro',
    array['Ingeniería en Sistemas Computacionales','Ingeniería Industrial','Ingeniería Mecatrónica','Licenciatura en Mercadotecnia','Administración de Empresas'],
    'verified', now() - interval '160 days', '10000000-0000-4000-8000-000000000004', true),
-  ('20000000-0000-4000-8000-000000000003','company','Bajío Logistics Hub (DEMO)','bajio-logistics-hub-demo','logistics','51-200','León, Gto.','',
+  ('20000000-0000-4000-8000-000000000003','company','Bajío Logistics Hub (DEMO)','bajio-logistics-hub-demo','logistics','51-200','León, Gto.','https://bajio-logistics.example',
    'Operador logístico ficticio del Bajío, creado sólo para esta demostración.',
    'Analítica de proveedores, rutas y comunicación comercial.', '', '{}', 'verified', now() - interval '140 days', '10000000-0000-4000-8000-000000000006', true),
   ('20000000-0000-4000-8000-000000000004','university','Instituto Tecnológico Demo','instituto-tecnologico-demo','education','','León, Gto.','',
    'Institución ficticia para la demostración de SkillPass.', '', 'Campus León', array['Ingeniería Industrial','Ingeniería en Logística'],
    'verified', now() - interval '130 days', '10000000-0000-4000-8000-000000000008', true),
-  ('20000000-0000-4000-8000-000000000006','company','Agroindustrias del Centro (DEMO)','agroindustrias-centro-demo','agribusiness','11-50','Zacatecas, Zac.','',
+  ('20000000-0000-4000-8000-000000000006','company','Agroindustrias del Centro (DEMO)','agroindustrias-centro-demo','agribusiness','11-50','Zacatecas, Zac.','https://agroindustrias-centro.example',
    'Empresa ficticia en espera de verificación por AINDEV, para mostrar el flujo de aprobación de organizaciones.',
    'Trazabilidad de lotes agrícolas.', '', '{}', 'pending', null, '10000000-0000-4000-8000-000000000009', true)
 on conflict (id) do nothing;

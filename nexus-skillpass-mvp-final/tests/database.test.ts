@@ -1,5 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { CHALLENGE, COMP, ORGS, USERS, createDatabase, rpc, sql, type TestDb } from './helpers/pg';
+import { missingForPublish } from '@/lib/challenge-readiness';
+import { CHALLENGE, COMP, DELIVERABLE, ORGS, TASK, USERS, createDatabase, rpc, sql, type TestDb } from './helpers/pg';
 
 type Row = Record<string, unknown>;
 type Json = Record<string, any>; // eslint-disable-line @typescript-eslint/no-explicit-any
@@ -39,6 +40,13 @@ const challengeInput = (overrides: Json = {}) => ({
 
 const expectError = async (promise: Promise<unknown>, pattern: RegExp) => {
   await expect(promise).rejects.toThrow(pattern);
+};
+
+/** sp_raise reports "sp:<key>" with the offending field in DETAIL (the app shows that field next to the message). */
+const expectSpError = async (promise: Promise<unknown>, key: string, field: string) => {
+  const error = await promise.then(() => null, (e: { message?: string; detail?: string }) => e);
+  expect(error, `expected sp:${key} (${field})`).not.toBeNull();
+  expect({ message: error?.message, detail: error?.detail }).toEqual({ message: `sp:${key}`, detail: field });
 };
 
 beforeAll(async () => {
@@ -185,25 +193,29 @@ describe('core workflow — acceptance flows 01 to 10', () => {
   });
 
   it('FLOW 03 · evidence is attached to the challenge and assignment', async () => {
+    // Evidence names its task and, as this challenge has deliverables, its deliverable.
+    const [{ id: deliverableId }] = (await db.query<{ id: string }>('select id from public.challenge_deliverables where challenge_id = $1', [challengeId])).rows;
+    const task = await rpc<Json>(db, USERS.valeria, 'sp_save_task', { challenge_id: challengeId, title: 'Diseñar el checklist digital', deliverable_id: deliverableId });
+    const refs = { task_id: task.id, deliverable_id: deliverableId };
     const link = await rpc<Json>(db, USERS.valeria, 'sp_add_evidence', {
       challenge_id: challengeId, title: 'Prototipo del checklist', description: 'Enlace al prototipo', kind: 'link',
-      url: 'https://example.com/checklist', competency_ids: [COMP(5)],
+      url: 'https://example.com/checklist', competency_ids: [COMP(5)], ...refs,
     });
     evidenceId = link.id;
     const file = await rpc<Json>(db, USERS.valeria, 'sp_add_evidence', {
       challenge_id: challengeId, title: 'Reporte de pruebas', kind: 'pdf', storage_path: `${USERS.valeria}/${challengeId}/abc123-reporte.pdf`,
-      file_name: 'reporte.pdf', mime_type: 'application/pdf', size_bytes: 2048,
+      file_name: 'reporte.pdf', mime_type: 'application/pdf', size_bytes: 2048, ...refs,
     });
     expect(file.id).toBeTruthy();
-    const [row] = await sql<Row>(db, USERS.valeria, 'select challenge_id, status, student_id from public.evidence where id = $1', [evidenceId]);
-    expect(row).toEqual({ challenge_id: challengeId, status: 'draft', student_id: USERS.valeria });
+    const [row] = await sql<Row>(db, USERS.valeria, 'select challenge_id, status, student_id, task_id, deliverable_id from public.evidence where id = $1', [evidenceId]);
+    expect(row).toEqual({ challenge_id: challengeId, status: 'draft', student_id: USERS.valeria, ...refs });
 
     await expectError(rpc(db, USERS.valeria, 'sp_add_evidence', { challenge_id: challengeId, title: 'Ruta ajena', kind: 'pdf',
-      storage_path: `${USERS.maria}/${challengeId}/x.pdf`, file_name: 'x.pdf', mime_type: 'application/pdf', size_bytes: 10 }), /invalid_field/);
+      storage_path: `${USERS.maria}/${challengeId}/x.pdf`, file_name: 'x.pdf', mime_type: 'application/pdf', size_bytes: 10, ...refs }), /invalid_field/);
     await expectError(rpc(db, USERS.valeria, 'sp_add_evidence', { challenge_id: challengeId, title: 'Ejecutable', kind: 'file',
-      storage_path: `${USERS.valeria}/${challengeId}/x.exe`, file_name: 'x.exe', mime_type: 'application/x-msdownload', size_bytes: 10 }), /invalid_file_type/);
-    await expectError(rpc(db, USERS.valeria, 'sp_add_evidence', { challenge_id: challengeId, title: 'Inseguro', kind: 'link', url: 'http://example.com' }), /invalid_field/);
-    await expectError(rpc(db, USERS.andres, 'sp_add_evidence', { challenge_id: challengeId, title: 'Intruso', kind: 'link', url: 'https://example.com' }), /not_assigned/);
+      storage_path: `${USERS.valeria}/${challengeId}/x.exe`, file_name: 'x.exe', mime_type: 'application/x-msdownload', size_bytes: 10, ...refs }), /invalid_file_type/);
+    await expectError(rpc(db, USERS.valeria, 'sp_add_evidence', { challenge_id: challengeId, title: 'Inseguro', kind: 'link', url: 'http://example.com', ...refs }), /invalid_field/);
+    await expectError(rpc(db, USERS.andres, 'sp_add_evidence', { challenge_id: challengeId, title: 'Intruso', kind: 'link', url: 'https://example.com', ...refs }), /not_assigned/);
   });
 
   it('FLOW 03 · drafts stay private to their author', async () => {
@@ -475,7 +487,7 @@ describe('security review regressions (docs/SECURITY.md §6)', () => {
   it('H-1 · only verified organizations invite, and only their invitations attach accounts', async () => {
     const eve = '10000000-0000-4000-8000-000000000094';
     await signUp(eve, 'eve.h1@test.invalid', 'company', 'Eve');
-    await rpc(db, eve, 'sp_complete_onboarding', { full_name: 'Eve', organization_name: 'Empresa sin verificar H1' });
+    await rpc(db, eve, 'sp_complete_onboarding', { full_name: 'Eve', organization_name: 'Empresa sin verificar H1', website: 'https://empresa-h1.example' });
     const [{ organization_id: eveOrg }] = (await db.query<Row>('select organization_id from public.organization_members where user_id = $1', [eve])).rows;
     await expectError(rpc(db, eve, 'sp_invite_member', { organization_id: eveOrg, email: 'fundadora.h1@test.invalid', member_role: 'supervisor' }), /organization_not_verified/);
 
@@ -524,7 +536,10 @@ describe('security review regressions (docs/SECURITY.md §6)', () => {
     await rpc(db, USERS.laura, 'sp_set_challenge_status', { challenge_id: created.id, status: 'recruiting' });
     const application = await rpc<Json>(db, USERS.andres, 'sp_apply', { challenge_id: created.id, motivation: 'Quiero aportar al reto confidencial de calidad.' });
     await rpc(db, USERS.laura, 'sp_decide_application', { application_id: application.id, decision: 'accept' });
-    const evidence = await rpc<Json>(db, USERS.andres, 'sp_add_evidence', { challenge_id: created.id, title: 'Minuta de levantamiento', kind: 'link', url: 'https://example.com/minuta' });
+    const [{ id: deliverableId }] = (await db.query<{ id: string }>('select id from public.challenge_deliverables where challenge_id = $1', [created.id])).rows;
+    const task = await rpc<Json>(db, USERS.andres, 'sp_save_task', { challenge_id: created.id, title: 'Levantar requerimientos', deliverable_id: deliverableId });
+    const evidence = await rpc<Json>(db, USERS.andres, 'sp_add_evidence', { challenge_id: created.id, title: 'Minuta de levantamiento', kind: 'link', url: 'https://example.com/minuta',
+      task_id: task.id, deliverable_id: deliverableId });
     const vath = await rpc<Json>(db, USERS.andres, 'sp_save_vath', { challenge_id: created.id, activity_date: '2026-09-25', activity: 'Levantamiento', description: 'Levantamiento de requerimientos con el equipo de calidad.', hours: 3, evidence_ids: [evidence.id] });
     const request = await rpc<Json>(db, USERS.andres, 'sp_submit_for_validation', { challenge_id: created.id });
     const done = await rpc<Json>(db, USERS.carlos, 'sp_complete_validation', {
@@ -589,7 +604,7 @@ describe('security review regressions (docs/SECURITY.md §6)', () => {
     expect(listed.credentials).toBe(active);
     const unverified = '10000000-0000-4000-8000-000000000092';
     await signUp(unverified, 'sin.verificar.h6@test.invalid', 'company', 'Sin Verificar');
-    await rpc(db, unverified, 'sp_complete_onboarding', { full_name: 'Sin Verificar', organization_name: 'Empresa sin verificar H6' });
+    await rpc(db, unverified, 'sp_complete_onboarding', { full_name: 'Sin Verificar', organization_name: 'Empresa sin verificar H6', website: 'https://empresa-h6.example' });
     expect(await rpc<Json>(db, unverified, 'sp_talent')).toEqual({ items: [], allowed: false });
 
     // sp_talent names a university only once it is verified; the admin also sees pending ones.
@@ -617,7 +632,8 @@ describe('security review regressions (docs/SECURITY.md §6)', () => {
   });
 
   it('H-4 · the activity feed shows teammates and reviewers only what RLS lets them read', async () => {
-    await rpc(db, USERS.diego, 'sp_add_evidence', { challenge_id: CHALLENGE(1), title: 'Borrador privado de Diego', kind: 'link', url: 'https://example.com/borrador' });
+    await rpc(db, USERS.diego, 'sp_add_evidence', { challenge_id: CHALLENGE(1), title: 'Borrador privado de Diego', kind: 'link', url: 'https://example.com/borrador',
+      task_id: TASK(1), deliverable_id: DELIVERABLE(1) });
     const titles = async (actor: string) => (await feed(actor, CHALLENGE(1))).map((x) => x.details?.title);
     expect(await titles(USERS.diego)).toContain('Borrador privado de Diego');
     expect(await titles(USERS.maria)).not.toContain('Borrador privado de Diego');
@@ -630,5 +646,290 @@ describe('security review regressions (docs/SECURITY.md §6)', () => {
     expect(await titles(USERS.diego)).toContain('Validación de Diego');
     expect(await titles(USERS.carlos)).toContain('Validación de Diego');
     expect(await titles(USERS.maria)).not.toContain('Validación de Diego');
+  });
+});
+
+describe('product feedback 15 oct 2026 (required fields)', () => {
+  const signUp = (id: string, email: string, accountType: string, fullName: string) =>
+    db.query('insert into auth.users(id, email, raw_user_meta_data) values ($1, $2, $3::jsonb)',
+      [id, email, JSON.stringify({ full_name: fullName, account_type: accountType })]);
+  const challengeStatus = async (id: string) => (await db.query<Row>('select status from public.challenges where id = $1', [id])).rows[0].status;
+  const missingInDb = async (id: string) =>
+    (await db.query<{ m: string[] }>('select public.sp_challenge_publish_missing(c) as m from public.challenges c where c.id = $1', [id])).rows[0].m;
+  const setStatus = (id: string, status: string) => rpc<Json>(db, USERS.laura, 'sp_set_challenge_status', { challenge_id: id, status });
+
+  // Each override leaves out exactly one publish item; the database must name that item in DETAIL.
+  const INCOMPLETE: [string, Json][] = [
+    ['summary', { summary: '' }],
+    ['summary', { summary: '   ' }],
+    ['summary', { summary: '\n\t\r\n' }], // sp_text keeps tabs and line breaks; they still count as empty
+    ['summary', { summary: '\u00a0\u0085\u200b\u3000' }], // so do Unicode blanks, whatever the database locale
+    ['description', { description: '' }],
+    ['industry', { industry: '' }],
+    ['location', { modality: 'hybrid', location: '' }],
+    ['location', { modality: 'onsite', location: ' ' }],
+    ['conditions', { conditions: '' }],
+    ['conditions', { conditions: '\t' }],
+    ['competencies', { competencies: [] }],
+    ['deliverables', { deliverables: [] }],
+    ['supervisor_id', { supervisor_id: null }],
+    ['start_date', { start_date: null }],
+    ['start_date', { end_date: null }],
+  ];
+  const BLANK: Json = { summary: '', description: '', industry: '', location: '', conditions: '', competencies: [], deliverables: [],
+    supervisor_id: null, start_date: null, end_date: null };
+
+  describe('evidence names its task, and its deliverable when the challenge has deliverables', () => {
+    const student = USERS.sofia;
+    let withDeliverables = '';
+    let withoutDeliverables = '';
+    let deliverable = '';
+    let task = '';
+    let looseTask = '';
+    const link = (challenge: string, refs: Json = {}) => ({ challenge_id: challenge, title: 'Enlace al prototipo', kind: 'link', url: 'https://example.com/prototipo', ...refs });
+    const file = (challenge: string, refs: Json = {}) => ({ challenge_id: challenge, title: 'Informe de avance', kind: 'pdf',
+      storage_path: `${student}/${challenge}/fb15-informe.pdf`, file_name: 'informe.pdf', mime_type: 'application/pdf', size_bytes: 4096, ...refs });
+    const stored = async () => sql<Row>(db, student, 'select challenge_id, title, task_id, deliverable_id from public.evidence where challenge_id in ($1, $2) order by title, deliverable_id nulls last',
+      [withDeliverables, withoutDeliverables]);
+    const assigned = async (title: string) => {
+      const { id } = await rpc<Json>(db, USERS.laura, 'sp_save_challenge', challengeInput({ title }));
+      await setStatus(id, 'recruiting');
+      const application = await rpc<Json>(db, student, 'sp_apply', { challenge_id: id, motivation: 'Quiero aportar evidencia trazable a este reto.' });
+      await rpc(db, USERS.laura, 'sp_decide_application', { application_id: application.id, decision: 'accept' });
+      return id as string;
+    };
+
+    beforeAll(async () => {
+      withDeliverables = await assigned('Reto con entregables (retroalimentación)');
+      withoutDeliverables = await assigned('Reto sin entregables (retroalimentación)');
+      // Publishing now needs a deliverable, so a challenge without any only exists from before this rule: emulate it.
+      await db.query('delete from public.challenge_deliverables where challenge_id = $1', [withoutDeliverables]);
+      [{ id: deliverable }] = (await db.query<{ id: string }>('select id from public.challenge_deliverables where challenge_id = $1', [withDeliverables])).rows;
+      task = (await rpc<Json>(db, student, 'sp_save_task', { challenge_id: withDeliverables, title: 'Preparar el prototipo', deliverable_id: deliverable })).id;
+      looseTask = (await rpc<Json>(db, student, 'sp_save_task', { challenge_id: withoutDeliverables, title: 'Documentar hallazgos' })).id;
+    });
+
+    it('sp_add_evidence requires the task for links and files, with or without deliverables', async () => {
+      for (const shape of [link, file]) {
+        await expectSpError(rpc(db, student, 'sp_add_evidence', shape(withDeliverables, { deliverable_id: deliverable })), 'field_required', 'task_id');
+        await expectSpError(rpc(db, student, 'sp_add_evidence', shape(withDeliverables, { task_id: '', deliverable_id: deliverable })), 'field_required', 'task_id');
+        await expectSpError(rpc(db, student, 'sp_add_evidence', shape(withoutDeliverables)), 'field_required', 'task_id');
+        await expectSpError(rpc(db, student, 'sp_add_evidence', shape(withoutDeliverables, { task_id: null })), 'field_required', 'task_id');
+        // A task of another challenge is still rejected.
+        await expectSpError(rpc(db, student, 'sp_add_evidence', shape(withoutDeliverables, { task_id: task })), 'invalid_field', 'task_id');
+      }
+      expect(await stored()).toEqual([]);
+    });
+
+    it('sp_add_evidence requires the deliverable only when the challenge has deliverables', async () => {
+      for (const shape of [link, file]) {
+        await expectSpError(rpc(db, student, 'sp_add_evidence', shape(withDeliverables, { task_id: task })), 'field_required', 'deliverable_id');
+        await expectSpError(rpc(db, student, 'sp_add_evidence', shape(withDeliverables, { task_id: task, deliverable_id: '' })), 'field_required', 'deliverable_id');
+      }
+      expect(await stored()).toEqual([]);
+
+      for (const shape of [link, file]) {
+        await rpc(db, student, 'sp_add_evidence', shape(withDeliverables, { task_id: task, deliverable_id: deliverable }));
+        await rpc(db, student, 'sp_add_evidence', shape(withoutDeliverables, { task_id: looseTask }));
+      }
+      expect(await stored()).toEqual([
+        { challenge_id: withDeliverables, title: 'Enlace al prototipo', task_id: task, deliverable_id: deliverable },
+        { challenge_id: withoutDeliverables, title: 'Enlace al prototipo', task_id: looseTask, deliverable_id: null },
+        { challenge_id: withDeliverables, title: 'Informe de avance', task_id: task, deliverable_id: deliverable },
+        { challenge_id: withoutDeliverables, title: 'Informe de avance', task_id: looseTask, deliverable_id: null },
+      ]);
+    });
+
+    it('sp_update_evidence keeps the same requirements', async () => {
+      const draft = { title: 'Bitácora de pruebas', kind: 'link', url: 'https://example.com/bitacora' };
+      const { id: evidence } = await rpc<Json>(db, student, 'sp_add_evidence', { challenge_id: withDeliverables, ...draft, task_id: task, deliverable_id: deliverable });
+      const { id: looseEvidence } = await rpc<Json>(db, student, 'sp_add_evidence', { challenge_id: withoutDeliverables, ...draft, task_id: looseTask });
+      const edit = (id: string, refs: Json = {}) => ({ id, title: 'Bitácora de pruebas (v2)', description: 'Con la retroalimentación del supervisor.', ...refs });
+      await expectSpError(rpc(db, student, 'sp_update_evidence', edit(evidence, { deliverable_id: deliverable })), 'field_required', 'task_id');
+      await expectSpError(rpc(db, student, 'sp_update_evidence', edit(evidence, { task_id: '', deliverable_id: deliverable })), 'field_required', 'task_id');
+      await expectSpError(rpc(db, student, 'sp_update_evidence', edit(evidence, { task_id: task })), 'field_required', 'deliverable_id');
+      await expectSpError(rpc(db, student, 'sp_update_evidence', edit(looseEvidence)), 'field_required', 'task_id');
+      const ids = [evidence, looseEvidence];
+      const read = () => sql<Row>(db, student, 'select title, task_id, deliverable_id from public.evidence where id in ($1, $2) order by deliverable_id nulls last', ids);
+      expect(await read()).toEqual([
+        { title: 'Bitácora de pruebas', task_id: task, deliverable_id: deliverable },
+        { title: 'Bitácora de pruebas', task_id: looseTask, deliverable_id: null },
+      ]);
+
+      await rpc(db, student, 'sp_update_evidence', edit(evidence, { task_id: task, deliverable_id: deliverable }));
+      await rpc(db, student, 'sp_update_evidence', edit(looseEvidence, { task_id: looseTask }));
+      expect(await read()).toEqual([
+        { title: 'Bitácora de pruebas (v2)', task_id: task, deliverable_id: deliverable },
+        { title: 'Bitácora de pruebas (v2)', task_id: looseTask, deliverable_id: null },
+      ]);
+    });
+  });
+
+  it('company onboarding requires an https website; university onboarding does not', async () => {
+    const company = '10000000-0000-4000-8000-000000000091';
+    await signUp(company, 'empresa.web@test.invalid', 'company', 'Empresa Web');
+    const base = { full_name: 'Empresa Web', organization_name: 'Empresa con sitio web' };
+    await expectSpError(rpc(db, company, 'sp_complete_onboarding', base), 'field_required', 'website');
+    await expectSpError(rpc(db, company, 'sp_complete_onboarding', { ...base, website: '  ' }), 'field_required', 'website');
+    await expectSpError(rpc(db, company, 'sp_complete_onboarding', { ...base, website: 'http://empresa-web.example' }), 'invalid_field', 'website');
+    await expectSpError(rpc(db, company, 'sp_complete_onboarding', { ...base, website: 'empresa-web.example' }), 'invalid_field', 'website');
+    // Nothing was created by the rejected attempts.
+    expect((await db.query<Row>('select organization_id from public.organization_members where user_id = $1', [company])).rows).toEqual([]);
+    expect((await db.query<Row>('select onboarding_completed from public.profiles where id = $1', [company])).rows).toEqual([{ onboarding_completed: false }]);
+
+    const done = await rpc<Json>(db, company, 'sp_complete_onboarding', { ...base, website: 'https://empresa-web.example' });
+    expect((await db.query<Row>('select kind, website from public.organizations where id = $1', [done.organization_id])).rows)
+      .toEqual([{ kind: 'company', website: 'https://empresa-web.example' }]);
+
+    const university = '10000000-0000-4000-8000-000000000090';
+    await signUp(university, 'universidad.web@test.invalid', 'university', 'Universidad Web');
+    await expectSpError(rpc(db, university, 'sp_complete_onboarding', { full_name: 'Universidad Web', organization_name: 'Universidad sin sitio web', website: 'http://universidad.example' }),
+      'invalid_field', 'website');
+    const uni = await rpc<Json>(db, university, 'sp_complete_onboarding', { full_name: 'Universidad Web', organization_name: 'Universidad sin sitio web' });
+    expect((await db.query<Row>('select kind, website from public.organizations where id = $1', [uni.organization_id])).rows)
+      .toEqual([{ kind: 'university', website: '' }]);
+  });
+
+  it('sp_update_organization keeps a company website; a university may leave it empty', async () => {
+    const current = async (id: string): Promise<Json> => ({ organization_id: id, ...(await db.query<Json>(
+      'select name, industry, size, location, website, description, needs, campus, programs from public.organizations where id = $1', [id])).rows[0] });
+    const saved = async (id: string) => (await db.query<Row>('select website, verification_status from public.organizations where id = $1', [id])).rows[0];
+
+    const nova = await current(ORGS.nova);
+    expect(nova.website).toMatch(/^https:\/\//); // the seeded demo companies have a website
+    await expectSpError(rpc(db, USERS.laura, 'sp_update_organization', { ...nova, website: '' }), 'field_required', 'website');
+    await expectSpError(rpc(db, USERS.laura, 'sp_update_organization', { ...nova, website: 'http://nova.example' }), 'invalid_field', 'website');
+    expect(await saved(ORGS.nova)).toEqual({ website: nova.website, verification_status: 'verified' });
+    await rpc(db, USERS.laura, 'sp_update_organization', { ...nova, website: 'https://www.nova-manufacturing.example' });
+    expect(await saved(ORGS.nova)).toEqual({ website: 'https://www.nova-manufacturing.example', verification_status: 'verified' });
+
+    const university = await current(ORGS.demoUniversity);
+    await rpc(db, USERS.elena, 'sp_update_organization', { ...university, website: '' });
+    expect(await saved(ORGS.demoUniversity)).toEqual({ website: '', verification_status: 'verified' });
+    await expectSpError(rpc(db, USERS.elena, 'sp_update_organization', { ...university, website: 'http://demo-university.example' }), 'invalid_field', 'website');
+  });
+
+  it('a draft goes to published or recruiting only when complete, naming the missing item', async () => {
+    for (const [field, overrides] of INCOMPLETE) {
+      const draft = await rpc<Json>(db, USERS.laura, 'sp_save_challenge', challengeInput({ title: `Borrador sin ${field}`, ...overrides }));
+      for (const status of ['recruiting', 'published']) {
+        await expectSpError(setStatus(draft.id, status), 'challenge_incomplete', field);
+      }
+      expect(await challengeStatus(draft.id)).toBe('draft');
+      expect(await missingInDb(draft.id), JSON.stringify(overrides)).toEqual([field]);
+    }
+
+    // A remote challenge needs no location.
+    for (const location of ['', 'Remoto']) {
+      const remote = await rpc<Json>(db, USERS.laura, 'sp_save_challenge', challengeInput({ title: 'Reto remoto', modality: 'remote', location }));
+      expect((await setStatus(remote.id, 'recruiting')).status).toBe('recruiting');
+      expect(await missingInDb(remote.id)).toEqual([]);
+    }
+    const complete = await rpc<Json>(db, USERS.laura, 'sp_save_challenge', challengeInput({ title: 'Reto completo' }));
+    expect((await setStatus(complete.id, 'published')).status).toBe('published');
+    // Archiving a draft does not need a complete challenge.
+    const archived = await rpc<Json>(db, USERS.laura, 'sp_save_challenge', challengeInput({ title: 'Borrador archivado', ...BLANK }));
+    expect((await setStatus(archived.id, 'archived')).status).toBe('archived');
+  });
+
+  it('drafts save incomplete, and publishing reports the missing items in a fixed order', async () => {
+    const full = challengeInput();
+    const steps: [string, Json][] = [
+      ['summary', { summary: full.summary }], ['description', { description: full.description }], ['industry', { industry: full.industry }],
+      ['location', { location: full.location }], ['conditions', { conditions: full.conditions }], ['competencies', { competencies: full.competencies }],
+      ['deliverables', { deliverables: full.deliverables }], ['supervisor_id', { supervisor_id: full.supervisor_id }],
+      ['start_date', { start_date: full.start_date, end_date: full.end_date }],
+    ];
+    let fields: Json = { title: 'Borrador por partes', ...BLANK };
+    const { id } = await rpc<Json>(db, USERS.laura, 'sp_save_challenge', challengeInput(fields));
+    for (const [index, [field, fill]] of steps.entries()) {
+      await expectSpError(setStatus(id, 'recruiting'), 'challenge_incomplete', field);
+      expect(await missingInDb(id)).toEqual(steps.slice(index).map(([f]) => f));
+      fields = { ...fields, ...fill };
+      await rpc(db, USERS.laura, 'sp_save_challenge', challengeInput({ id, ...fields }));
+      expect(await challengeStatus(id)).toBe('draft');
+    }
+    expect(await missingInDb(id)).toEqual([]);
+    expect((await setStatus(id, 'recruiting')).status).toBe('recruiting');
+  });
+
+  it('a challenge that left draft cannot be edited into an incomplete state', async () => {
+    const { id } = await rpc<Json>(db, USERS.laura, 'sp_save_challenge', challengeInput({ title: 'Reto publicado' }));
+    await setStatus(id, 'recruiting');
+    for (const [field, overrides] of INCOMPLETE) {
+      await expectSpError(rpc(db, USERS.laura, 'sp_save_challenge', challengeInput({ id, title: 'Reto publicado (editado)', ...overrides })), 'challenge_incomplete', field);
+    }
+    // The rejected edits changed nothing.
+    const before = await rpc<Json>(db, USERS.laura, 'sp_challenge', { id });
+    expect([before.challenge.title, before.challenge.status, before.competencies.length, before.deliverables.length]).toEqual(['Reto publicado', 'recruiting', 2, 1]);
+    expect(await missingInDb(id)).toEqual([]);
+
+    // Complete edits are saved; a remote challenge may drop its location.
+    await rpc(db, USERS.laura, 'sp_save_challenge', challengeInput({ id, title: 'Reto publicado (editado)', modality: 'remote', location: '' }));
+    const after = await rpc<Json>(db, USERS.laura, 'sp_challenge', { id });
+    expect([after.challenge.title, after.challenge.modality, after.challenge.location, after.challenge.status]).toEqual(['Reto publicado (editado)', 'remote', '', 'recruiting']);
+
+    // The same holds in the later states.
+    for (const status of ['published', 'active']) {
+      await setStatus(id, status);
+      await expectSpError(rpc(db, USERS.laura, 'sp_save_challenge', challengeInput({ id, title: `Reto ${status}`, modality: 'onsite', location: '' })), 'challenge_incomplete', 'location');
+      await expectSpError(rpc(db, USERS.laura, 'sp_save_challenge', challengeInput({ id, title: `Reto ${status}`, conditions: '' })), 'challenge_incomplete', 'conditions');
+      await rpc(db, USERS.laura, 'sp_save_challenge', challengeInput({ id, title: `Reto ${status}` }));
+      expect(await challengeStatus(id)).toBe(status);
+    }
+  });
+
+  it('a challenge published before these rules opens its call only once complete', async () => {
+    const { id } = await rpc<Json>(db, USERS.laura, 'sp_save_challenge', challengeInput({ title: 'Reto publicado antes de las reglas' }));
+    await setStatus(id, 'published');
+    // Simulate a row stored before migration 20261015000001 (the RPCs no longer allow it).
+    await db.query("update public.challenges set conditions = '', industry = '' where id = $1", [id]);
+    await expectSpError(setStatus(id, 'recruiting'), 'challenge_incomplete', 'industry');
+    expect(await challengeStatus(id)).toBe('published');
+    await db.query("update public.challenges set conditions = 'Condiciones', industry = 'manufacturing' where id = $1", [id]);
+    expect((await setStatus(id, 'recruiting')).status).toBe('recruiting');
+    // Closing an open call is never blocked, even for an incomplete legacy row.
+    await db.query("update public.challenges set conditions = '' where id = $1", [id]);
+    expect((await setStatus(id, 'published')).status).toBe('published');
+    // Nor is starting it; but going back from active to an open call needs it complete again.
+    expect((await setStatus(id, 'active')).status).toBe('active');
+    await expectSpError(setStatus(id, 'recruiting'), 'challenge_incomplete', 'conditions');
+    expect(await challengeStatus(id)).toBe('active');
+    await db.query("update public.challenges set conditions = 'Condiciones' where id = $1", [id]);
+    expect((await setStatus(id, 'recruiting')).status).toBe('recruiting');
+  });
+
+  it('sp_challenge_publish_missing is internal: API roles cannot execute it', async () => {
+    const [grants] = (await db.query<Row>(`select has_function_privilege('public', $1, 'execute') as public,
+      has_function_privilege('anon', $1, 'execute') as anon, has_function_privilege('authenticated', $1, 'execute') as authenticated`,
+    ['public.sp_challenge_publish_missing(public.challenges)'])).rows;
+    expect(grants).toEqual({ public: false, anon: false, authenticated: false });
+    await expectError(sql(db, USERS.laura, 'select public.sp_challenge_publish_missing(c) from public.challenges c where c.id = $1', [CHALLENGE(1)]), /permission denied/);
+    await expectError(sql(db, null, 'select public.sp_challenge_publish_missing(null::public.challenges)'), /permission denied/);
+  });
+
+  it('src/lib/challenge-readiness.ts reports the same items as the database', async () => {
+    const crafted: Json[] = [
+      {}, BLANK, { modality: 'remote', location: '' }, { modality: 'onsite', location: '  ' }, { summary: '', conditions: '', end_date: null },
+      { supervisor_id: null, deliverables: [] }, { competencies: [], start_date: null, industry: '' }, { ...BLANK, modality: 'remote' },
+      { description: '\t\n', location: '\r\n' }, { summary: '\u00a0', conditions: '\u0085' }, { industry: '\u200bx' },
+    ];
+    for (const overrides of crafted) {
+      const { id } = await rpc<Json>(db, USERS.laura, 'sp_save_challenge', challengeInput({ title: 'Reto espejo', ...overrides }));
+      // The challenge page feeds the sp_challenge payload to missingForPublish.
+      const detail = await rpc<Json>(db, USERS.laura, 'sp_challenge', { id });
+      const fromTs = missingForPublish(detail.challenge, { competencies: detail.competencies.length, deliverables: detail.deliverables.length });
+      expect(fromTs, JSON.stringify(overrides)).toEqual(await missingInDb(id));
+    }
+
+    // Every challenge stored so far (seed and earlier tests), incomplete seed draft included.
+    const rows = (await db.query<{ c: Json; missing: string[]; competencies: number; deliverables: number }>(`select to_jsonb(c) as c,
+      public.sp_challenge_publish_missing(c) as missing,
+      (select count(*)::int from public.challenge_competencies cc where cc.challenge_id = c.id) as competencies,
+      (select count(*)::int from public.challenge_deliverables cd where cd.challenge_id = c.id) as deliverables
+      from public.challenges c`)).rows;
+    expect(rows.length).toBeGreaterThan(30);
+    expect(rows.find((r) => r.c.id === CHALLENGE(7))?.missing).toEqual(['conditions', 'supervisor_id', 'start_date']);
+    for (const r of rows) expect(missingForPublish(r.c, r), r.c.title).toEqual(r.missing);
   });
 });

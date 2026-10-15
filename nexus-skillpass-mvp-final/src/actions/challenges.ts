@@ -18,7 +18,13 @@ export async function saveChallenge(_prev: ActionState, fd: FormData): Promise<A
     if (publish === 'recruiting') await write('sp_set_challenge_status', { challenge_id: id, status: 'recruiting' });
     return { id, message: 'created' };
   });
-  if (result.ok && id) redirect(`/challenges/${id}`);
+  // Once saved, always open the challenge (staying on the new-challenge form would create a duplicate draft
+  // on the next submit). If publishing was refused, the challenge page says why.
+  if (id && !result.ok) {
+    const query = new URLSearchParams({ publish_error: result.error ?? 'generic', ...(result.field ? { publish_field: result.field } : {}) });
+    redirect(`/challenges/${id}?${query}`);
+  }
+  if (id) redirect(`/challenges/${id}`);
   return result;
 }
 

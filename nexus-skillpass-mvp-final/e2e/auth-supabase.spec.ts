@@ -48,6 +48,12 @@ test('a new company stays pending verification and cannot publish', async ({ pag
   await page.getByRole('button', { name: 'Crear cuenta' }).click();
   await page.waitForURL(/\/onboarding/);
   await page.getByLabel('Nombre de la empresa').fill(`Empresa de prueba E2E ${Date.now()}`);
+  // Companies must give their website; the browser stops the form until it is filled.
+  const website = page.getByLabel('Sitio web (https)');
+  await page.getByRole('button', { name: 'Guardar y continuar' }).click();
+  expect(await website.evaluate((el) => el.matches(':invalid'))).toBe(true);
+  await expect(page).toHaveURL(/\/onboarding/);
+  await website.fill('https://empresa-e2e.example');
   await page.getByRole('button', { name: 'Guardar y continuar' }).click();
   await page.waitForURL(/\/dashboard/);
   await page.goto('/organization');

@@ -1,13 +1,14 @@
 'use client';
 
 import Link from 'next/link';
-import { useState } from 'react';
+import { useId, useState } from 'react';
 import { ChevronDown, Send } from 'lucide-react';
 import { applyToChallenge, decideApplication, endAssignment, setChallengeStatus, withdrawApplication } from '@/actions/challenges';
 import { CHALLENGE_TRANSITIONS } from '@/lib/constants';
 import { competencyName, formatRelative } from '@/lib/format';
 import { fmt } from '@/lib/i18n';
 import { useI18n } from '@/lib/i18n/client';
+import { opensChallenge, type PublishRequirement } from '@/lib/challenge-readiness';
 import type { CandidateApplication, ChallengeStatus, Match } from '@/lib/types';
 import { MatchRing } from './challenge-card';
 import { ActionForm, Field, SubmitButton } from './ui/form';
@@ -69,18 +70,41 @@ export function WithdrawButton({ applicationId }: { applicationId: string }) {
   );
 }
 
-export function StatusControl({ challengeId, status }: { challengeId: string; status: ChallengeStatus }) {
+/** Items a challenge still needs before it can open (see src/lib/challenge-readiness.ts). */
+export function PublishChecklist({ missing, title, id }: { missing: readonly PublishRequirement[]; title: string; id?: string }) {
   const { t } = useI18n();
+  if (missing.length === 0) return null;
+  return (
+    <div id={id} className="mt-3 rounded-xl border border-warning-700/20 bg-warning-50 px-3 py-2 text-sm text-warning-700" role="note">
+      <p className="font-semibold">{title}</p>
+      <ul className="mt-1 list-disc space-y-0.5 pl-5">
+        {missing.map((key) => <li key={key} className="first-letter:uppercase">{t.fields[key]}</li>)}
+      </ul>
+    </div>
+  );
+}
+
+export function StatusControl({ challengeId, status, missing = [] }: { challengeId: string; status: ChallengeStatus; missing?: readonly PublishRequirement[] }) {
+  const { t } = useI18n();
+  const checklistId = useId();
   const options = CHALLENGE_TRANSITIONS[status];
+  // Opening a challenge (draft -> published, any move into recruiting) needs every publish item; the
+  // database enforces the same rule (sp_set_challenge_status).
+  const blocked = (next: ChallengeStatus) => missing.length > 0 && opensChallenge(status, next);
+  const anyBlocked = options.some(blocked);
   return (
     <div>
       <p className="text-sm text-ink-600">{t.challenges.statusHelp[status]}</p>
+      {anyBlocked && (
+        <PublishChecklist id={checklistId} missing={missing} title={status === 'draft' ? t.challenges.publishMissing : t.challenges.openMissing} />
+      )}
       {options.length > 0 && (
         <ActionForm action={setChallengeStatus} className="mt-3" success={t.common.saved}>
           <input type="hidden" name="challenge_id" value={challengeId} />
           <div className="flex flex-wrap gap-2">
             {options.map((next, i) => (
-              <SubmitButton key={next} name="status" value={next} className={i === 0 ? 'btn-primary btn-sm' : 'btn-outline btn-sm'}>
+              <SubmitButton key={next} name="status" value={next} className={i === 0 ? 'btn-primary btn-sm' : 'btn-outline btn-sm'} disabled={blocked(next)}
+                describedBy={blocked(next) ? checklistId : undefined}>
                 {fmt(t.challenges.transitionTo, { status: t.status.challenge[next] })}
               </SubmitButton>
             ))}

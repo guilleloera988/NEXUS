@@ -7,14 +7,14 @@ Leyenda: **COMPLETE** (funcional, persistente, probado) · **PARTIAL** (funciona
 | # | Módulo | Estado | Notas |
 |---|---|---|---|
 | 1 | Autenticación (registro, login, recuperación, callback) | **COMPLETE** | Supabase Auth; registro/onboarding/logout/login probados E2E contra Supabase real. Tras el registro, pantalla «Revisa tu correo» con reenvío; enlaces de correo con `token_hash` válidos en cualquier dispositivo (probado el 8 oct contra el Supabase de producción). Recuperación por correo: envío real probado; el cambio de contraseña desde el enlace no se ha recorrido de punta a punta. |
-| 2 | Onboarding por tipo de cuenta | **COMPLETE** | Estudiante, empresa, universidad y personal invitado. |
+| 2 | Onboarding por tipo de cuenta | **COMPLETE** | Estudiante, empresa, universidad y personal invitado. La empresa debe indicar su sitio web (https); la universidad puede omitirlo (retroalimentación del 15 oct). |
 | 3 | Dashboard estudiante | **COMPLETE** | Progreso, VATH, competencias, siguiente paso. |
 | 4 | Perfil de talento (declarado vs verificado) | **COMPLETE** | |
-| 5 | Retos industriales (campos, estados, ciclo de vida) | **COMPLETE** | 7 estados con transiciones en BD; trabajo justo; IP/confidencialidad/publicación. |
+| 5 | Retos industriales (campos, estados, ciclo de vida) | **COMPLETE** | 7 estados con transiciones en BD; trabajo justo; IP/confidencialidad/publicación. El borrador se guarda incompleto; sólo se publica completo (retroalimentación del 15 oct). |
 | 6 | Descubrimiento con Skills Match por reglas | **COMPLETE** | Explicado en UI; no se presenta como IA. |
 | 7 | Matching / asignación con historial | **COMPLETE** | Preselección, aceptación, rechazo con nota, cupo, historial auditado. |
 | 8 | Workspace (Overview/Tasks/Evidence/VATH/Team/Validation) | **COMPLETE** | |
-| 9 | Evidencias (archivo/enlace, estados, versiones, visibilidad) | **COMPLETE** | Storage probado con Supabase real. Sin antivirus (ver SECURITY). |
+| 9 | Evidencias (archivo/enlace, estados, versiones, visibilidad) | **COMPLETE** | Storage probado con Supabase real. Sin antivirus (ver SECURITY). Cada evidencia nombra su tarea y, si el reto tiene entregables, su entregable (retroalimentación del 15 oct). |
 | 10 | VATH (declaradas vs verificadas, reglas) | **COMPLETE** | |
 | 11 | Validación del supervisor + auditoría | **COMPLETE** | Decisiones append-only, comentarios obligatorios. |
 | 12 | Rúbrica de competencias 1–5 | **COMPLETE** | Verificada ⇔ nivel ≥ 3 por supervisor autorizado. |
@@ -30,7 +30,7 @@ Leyenda: **COMPLETE** (funcional, persistente, probado) · **PARTIAL** (funciona
 | — | Incidentes (reporte y gestión) | **PARTIAL** | Reporte desde la app y gestión en admin; sin notificaciones por correo ni SLA. |
 | — | Seed (`npm run seed`) local y Supabase | **COMPLETE** | Supabase probado contra el stack local oficial. |
 | — | Pruebas (lint, tipos, unitarias, BD, E2E) y CI | **COMPLETE** | CI en `.github/workflows/skillpass-quality.yml`. |
-| — | Deployment Vercel + Supabase | **COMPLETE** | Producción en https://skillpass.aindev.com.mx (Vercel `skillpass-prod` + Supabase `aapwypujznnkxkjdbmsu`, `NEXUS_DEMO_MODE=off`, 13 migraciones, sin datos demo). Demo en https://skillpass-demo.vercel.app. Ver DEPLOYMENT §8–9. Ambos en planes gratuitos: pasar a Pro antes de abrir a usuarios reales. |
+| — | Deployment Vercel + Supabase | **COMPLETE** | Producción en https://skillpass.aindev.com.mx (Vercel `skillpass-prod` + Supabase `aapwypujznnkxkjdbmsu`, `NEXUS_DEMO_MODE=off`, 13 migraciones, sin datos demo; la 14.ª, `20261015000001`, está pendiente: ver OI-12). Demo en https://skillpass-demo.vercel.app. Ver DEPLOYMENT §8–9. Ambos en planes gratuitos: pasar a Pro antes de abrir a usuarios reales. |
 | — | Dominio `skillpass.aindev.com.mx` + SSL | **COMPLETE** | CNAME a Vercel (HostGator); certificado de Vercel con renovación automática; asignado al proyecto de producción el 8 oct; Auth de producción con *Site URL* y *Redirect URL* del dominio. |
 | — | Correo transaccional propio (SMTP) | **COMPLETE** | Resend con dominio `aindev.com.mx` verificado (DKIM/SPF en HostGator), remitente `noreply@aindev.com.mx`; envío real probado el 8 oct. Plan gratuito: 100 correos/día. |
 | — | Aviso de privacidad, términos, acuerdos de IP | **BLOCKED** | Decisión legal de AINDEV. |
@@ -62,6 +62,19 @@ Leyenda: **COMPLETE** (funcional, persistente, probado) · **PARTIAL** (funciona
 | Sin botones principales muertos | ✔ recorridos E2E y revisión visual |
 | README actualizado | ✔ |
 
+## Retroalimentación del 15 oct 2026
+
+Observaciones del responsable de producto (documento «Retroalimentación de SkillPass», con capturas) y cómo se resolvió cada una. Pruebas: E2E de las cuatro en `e2e/feedback.spec.ts` (más FLOW 01 y 03 de `critical-flow.spec.ts` y el registro de empresa de `auth-supabase.spec.ts`), de base de datos de las reglas 2–4 (PGlite y PostgreSQL 16) y unitarias de `task_id` y de `src/lib/challenge-readiness.ts`.
+
+| # | Observación | Resolución |
+|---|---|---|
+| 1 | Al subir una versión nueva de una evidencia, el diálogo mostraba dos barras de desplazamiento que hacían lo mismo (una desaparecía al intentar guardar sin archivo). | El contenedor con scroll del diálogo (`Dialog`, `src/components/ui/interactive.tsx`) ahora es `relative`: las casillas ocultas de los chips de competencias ya no hacen crecer el `<dialog>`, así que sólo se desplaza el contenido, con una barra. Sin cambios en la base de datos. |
+| 2 | Una evidencia se guardaba con sólo título y archivo; debía exigir la tarea relacionada. | «Tarea relacionada» siempre obligatoria y «Entregable relacionado» obligatorio cuando el reto tiene entregables; ambas listas empiezan en «Selecciona…». Al elegir la tarea se llena su entregable. Si el reto aún no tiene tareas, el diálogo pide crear una y enlaza a la pestaña Tareas. También lo exigen zod (`task_id`) y `sp_add_evidence` / `sp_update_evidence` (`sp:field_required`). |
+| 3 | Se podía crear una cuenta de empresa sin sitio web. | Sitio web (https) obligatorio para empresas en el onboarding y en «Mi organización»; lo revisan también la acción `completeOnboarding`, `sp_complete_onboarding` y `sp_update_organization` (`sp:field_required`; `sp:invalid_field` si no empieza con `https://` o contiene `@`); el navegador ya rechaza `http://` y explica la regla bajo el campo. Para universidades sigue siendo opcional. Las 3 empresas del seed tienen sitio `https://….example`. |
+| 4 | Se podía subir un reto con sólo título, problema y objetivo; debía pedir dirección, requerimientos y normas antes de publicarse. | El borrador se sigue guardando incompleto, pero para pasar a Publicado o Convocatoria abierta necesita resumen, descripción, industria, ubicación (salvo modalidad remota), condiciones de participación, al menos una competencia y un entregable, supervisor y fechas. El formulario marca esos campos «(necesario para publicar)» y deshabilita «Publicar y abrir convocatoria» mientras falte algo; el panel «Ciclo de vida» lista lo que falta («Para publicar, completa:» o «Para abrir la convocatoria, completa:») y deshabilita esas transiciones. `sp_set_challenge_status` lo exige al abrir el reto (de borrador a Publicado, o a Convocatoria abierta desde cualquier estado; `sp:challenge_incomplete` con el primer faltante) y `sp_save_challenge` impide dejar incompleto un reto que ya no es borrador. Detalle: [DATABASE](DATABASE.md#reglas-para-publicar-un-reto). |
+
+**Despliegue pendiente.** Las reglas 2–4 también viven en la base de datos, en la migración `20261015000001_feedback_required_fields.sql`, que **aún no está aplicada en producción** (`skillpass-prod`, Supabase `aapwypujznnkxkjdbmsu`, con 13 migraciones). Hay que aplicarla por la Management API, comprobando antes que estén exactamente las 13 anteriores, en cuanto se despliegue el código que la acompaña: el *push* a la rama de producción despliega la app primero, y la app funciona con la base sin migrar (el formulario y las acciones del servidor ya aplican las reglas; los mensajes de la base antigua sin campo se muestran con el texto general). En el proyecto de demo no se puede aplicar desde este entorno (igual que H-6, OI-11): hay que hacerlo desde el SQL editor del panel de Supabase, después de `20261008000001`. Las filas ya guardadas no se revisan hasta que cambian: una empresa sin sitio web tendrá que escribirlo la próxima vez que guarde «Mi organización», y un reto publicado incompleto tendrá que completarse al editarlo.
+
 ## Problemas abiertos
 
 | ID | Severidad | Descripción | Próximo paso |
@@ -77,3 +90,4 @@ Leyenda: **COMPLETE** (funcional, persistente, probado) · **PARTIAL** (funciona
 | OI-09 | Baja | Cambio de contraseña desde el enlace de recuperación sin prueba de punta a punta (el envío del correo sí se probó). | Recorrerlo en producción con una cuenta de prueba. |
 | OI-10 | Resuelto | Hallazgos de seguridad H-1…H-5 corregidos (`20261007000003`…`07`) con pruebas de regresión y aplicados en la demo. | — |
 | OI-11 | Baja | H-6 corregido (`20261008000001`, con prueba de regresión) y aplicado en producción el 8 oct. Falta en la demo, que ya no acepta cambios desde el entorno de despliegue: no tiene datos reales, pero conviene aplicarla desde el panel de Supabase. Quedan los riesgos bajos R-1…R-6. | Aplicar `20261008000001` en el proyecto de demo; ver SECURITY §6. |
+| OI-12 | Media | La migración `20261015000001` (retroalimentación del 15 oct) no está aplicada en producción ni en la demo: mientras falte, la base de esos entornos no exige tarea y entregable en la evidencia ni sitio web de empresa, y para publicar un reto sólo pide competencias, entregables, supervisor y fechas (no resumen, descripción, industria, ubicación ni condiciones). | Aplicarla en `skillpass-prod` por la Management API en cuanto se despliegue este código; en la demo, desde el panel de Supabase y después de `20261008000001`. |

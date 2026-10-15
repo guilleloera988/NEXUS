@@ -2,7 +2,7 @@
 
 import { inviteToChallenge } from '@/actions/challenges';
 import { inviteMember, reportIncident, updateOrganization, updateProfile } from '@/actions/profile';
-import { INDUSTRIES, ORG_SIZES } from '@/lib/constants';
+import { INDUSTRIES, ORG_SIZES, WEBSITE_PATTERN } from '@/lib/constants';
 import { useI18n } from '@/lib/i18n/client';
 import type { Lookups, Profile } from '@/lib/types';
 import { StudentProfileFields } from './profile-fields';
@@ -55,7 +55,8 @@ export function OrganizationForm({ org }: { org: { id: string; kind: string; nam
           </>
         )}
         <Field label={O.company.location} name="location" defaultValue={org.location} maxLength={120} />
-        <Field label={O.company.website} name="website" type="url" defaultValue={org.website} placeholder="https://" maxLength={300} />
+        <Field label={O.company.website} name="website" type="url" defaultValue={org.website} placeholder="https://" maxLength={300} required={org.kind === 'company'}
+          pattern={WEBSITE_PATTERN} help={O.company.websiteHelp} />
       </div>
       <Field as="textarea" label={O.company.description} name="description" defaultValue={org.description} maxLength={1500} rows={3} />
       {org.kind === 'company' ? (
