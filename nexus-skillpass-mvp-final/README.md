@@ -186,7 +186,7 @@ Objetivo: `https://skillpass.aindev.com.mx` en Vercel + Supabase. Guía completa
 - La DEMO local necesita disco persistente (no corre en funciones serverless de Vercel); en Vercel se usa `NEXUS_DEMO_MODE=supabase` o `off`.
 - Sin envío de correos propios (sólo los de Supabase Auth); notificaciones dentro de la app.
 - Sin IA: el Skills Match es por reglas y se declara así.
-- La migración `20261015000001` (retroalimentación del 15 oct) aún no está aplicada en producción ni en la demo (OI-12 en [docs/STATUS.md](docs/STATUS.md)).
+- La migración `20261015000001` (retroalimentación del 15 oct) está aplicada en producción desde el 15 oct, pero falta en la demo (OI-12 en [docs/STATUS.md](docs/STATUS.md)).
 
 ## Roadmap
 
