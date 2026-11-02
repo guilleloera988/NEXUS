@@ -79,7 +79,7 @@ Observaciones del responsable de producto (documento «Retroalimentación de Ski
 
 | ID | Severidad | Descripción | Próximo paso |
 |---|---|---|---|
-| OI-01 | Media | Producción desplegada (8 oct) pero en planes gratuitos: Supabase Free se pausa tras 7 días sin uso y no tiene respaldos diarios; Vercel Hobby no admite uso comercial. | Pasar Supabase `skillpass-prod` y el equipo de Vercel a Pro antes de abrir a usuarios reales. |
+| OI-01 | Media | Producción desplegada (8 oct) pero en planes gratuitos: Supabase Free se pausa tras 7 días sin uso y no tiene respaldos diarios; Vercel Hobby no admite uso comercial. La base de la demo estaba pausada el 24 oct (la verificación pública daba error 500) y se reactivó el 2 nov; desde entonces un cron diario de Vercel (`vercel.json`) abre una página de verificación que consulta la base, en la demo y en producción, para que no vuelvan a pausarse por inactividad. | Pasar Supabase `skillpass-prod` y el equipo de Vercel a Pro antes de abrir a usuarios reales. |
 | OI-02 | Resuelto (8 oct) | URLs de Auth de producción apuntan a `https://skillpass.aindev.com.mx` (y la demo conserva las suyas). | — |
 | OI-03 | Media | CSP con `'unsafe-inline'` en scripts. | Nonces vía `proxy.ts`. |
 | OI-04 | Media | *Rate limiting* en memoria por instancia. | Limitador compartido + CAPTCHA de Supabase Auth. |
