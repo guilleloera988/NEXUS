@@ -50,6 +50,8 @@ function secret() {
 /** The token sp_rate_limit checks; the database keeps only its SHA-256 (platform_settings 'rate_limit_gate'). */
 export const rateLimitGate = (key: string) => createHmac('sha256', key).update(GATE_CONTEXT).digest('hex');
 
+// The window length is part of every key: rate_limit_hits identifies a window by its start alone, so one key must
+// never be used with two window lengths (60 s and 3600 s windows start together at the top of each hour).
 const digest = (key: string, check: AttemptCheck) =>
   createHmac('sha256', key).update(`${check.rule.name}\n${check.rule.windowSeconds}\n${check.id}`).digest('hex');
 

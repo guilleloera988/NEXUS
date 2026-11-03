@@ -1241,15 +1241,17 @@ describe('shared attempt limits (pilot readiness)', () => {
     expect(await db.query('select 1 from public.rate_limit_hits')).toMatchObject({ rows: [] });
   });
 
-  it('counts hits per key and window for anonymous and signed-in callers; a read does not count', async () => {
-    expect((await limit([{ key: KEY(2), window: 600 }]))[0].hits).toBe(1);
-    expect((await limit([{ key: KEY(2), window: 600, hit: true }], GATE, USERS.maria))[0].hits).toBe(2);
-    expect((await limit([{ key: KEY(2), window: 600, hit: false }]))[0].hits).toBe(2);
-    expect((await limit([{ key: KEY(3), window: 600, hit: false }]))[0].hits).toBe(0);
-    const [a, b, c] = await limit([{ key: KEY(2), window: 600 }, { key: KEY(3), window: 600 }, { key: KEY(2), window: 60, hit: false }]);
+  // A key belongs to one window length: the app puts the window into each key's HMAC. Two windows that start at the
+  // same second (60 s and 3600 s at the top of the hour) would otherwise share a row, so these checks never mix them.
+  it('counts hits per key for anonymous and signed-in callers; a read does not count', async () => {
+    expect((await limit([{ key: KEY(2), window: 3600 }]))[0].hits).toBe(1);
+    expect((await limit([{ key: KEY(2), window: 3600, hit: true }], GATE, USERS.maria))[0].hits).toBe(2);
+    expect((await limit([{ key: KEY(2), window: 3600, hit: false }]))[0].hits).toBe(2);
+    expect((await limit([{ key: KEY(3), window: 3600, hit: false }]))[0].hits).toBe(0);
+    const [a, b, c] = await limit([{ key: KEY(2), window: 3600 }, { key: KEY(3), window: 3600 }, { key: KEY(6), window: 60, hit: false }]);
     expect([a.hits, b.hits, c.hits]).toEqual([3, 1, 0]);
     expect(a.reset_in).toBeGreaterThanOrEqual(0);
-    expect(a.reset_in).toBeLessThanOrEqual(600);
+    expect(a.reset_in).toBeLessThanOrEqual(3600);
     expect((await db.query<{ n: number }>('select count(*)::int as n from public.rate_limit_hits where key = $1', [KEY(3)])).rows[0].n).toBe(1);
   });
 
