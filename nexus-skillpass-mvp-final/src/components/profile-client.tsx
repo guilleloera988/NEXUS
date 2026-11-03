@@ -4,15 +4,15 @@ import { inviteToChallenge } from '@/actions/challenges';
 import { inviteMember, reportIncident, updateOrganization, updateProfile } from '@/actions/profile';
 import { INDUSTRIES, ORG_SIZES, WEBSITE_PATTERN } from '@/lib/constants';
 import { useI18n } from '@/lib/i18n/client';
-import type { Lookups, Profile } from '@/lib/types';
+import type { Lookups, MyUniversity, Profile } from '@/lib/types';
 import { StudentProfileFields } from './profile-fields';
 import { ActionForm, Field, SubmitButton } from './ui/form';
 
-export function StudentProfileForm({ profile, lookups, declared }: { profile: Profile; lookups: Lookups; declared: string[] }) {
+export function StudentProfileForm({ profile, lookups, declared, membership }: { profile: Profile; lookups: Lookups; declared: string[]; membership: MyUniversity | null }) {
   const { t } = useI18n();
   return (
     <ActionForm action={updateProfile} className="space-y-6" success={t.common.saved}>
-      <StudentProfileFields profile={profile} lookups={lookups} declared={declared} />
+      <StudentProfileFields profile={profile} lookups={lookups} declared={declared} membership={membership} />
       <div className="flex justify-end"><SubmitButton pendingLabel={t.common.saving}>{t.common.save}</SubmitButton></div>
     </ActionForm>
   );

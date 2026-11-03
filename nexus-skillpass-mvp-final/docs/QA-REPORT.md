@@ -10,8 +10,8 @@ Todas las cifras de este documento provienen de ejecuciones reales en esta entre
 |---|---|---|
 | Lint | `npm run lint` | ✔ 0 errores · 0 warnings |
 | Tipos | `npm run typecheck` | ✔ sin errores (TypeScript estricto + tipos de rutas generados) |
-| Unitarias + base de datos (PGlite) | `npm test` | ✔ **150/150** (3 nov 2026, con las regresiones de seguridad H-1…H-6, las reglas de la retroalimentación del 15 oct, la vinculación universitaria verificada y el doble factor) |
-| Base de datos en PostgreSQL 16 real | `npm run test:pg` | ✔ **75/75** (3 nov 2026) |
+| Unitarias + base de datos (PGlite) | `npm test` | ✔ **156/156** (3 nov 2026, con las regresiones de seguridad H-1…H-6, las reglas de la retroalimentación del 15 oct, la vinculación universitaria verificada y el doble factor) |
+| Base de datos en PostgreSQL 16 real | `npm run test:pg` | ✔ **81/81** (3 nov 2026) |
 | Base de datos en PostgreSQL 17.11 (imagen de Supabase) | `TEST_DATABASE_URL=… npm run test:pg` | ✔ **39/39** (corrida del 2 oct; las 12 migraciones se aplicaron después en el Supabase de la demo, PG 17) |
 | Build de producción | `npm run build` | ✔ compila sin errores ni warnings de tipos; 33 rutas dinámicas + 5 recursos estáticos (íconos, OG, robots, sitemap) |
 | E2E · DEMO local (dev) | `npm run test:e2e` | ✔ **15/15** (+3 omitidas: requieren Supabase) |

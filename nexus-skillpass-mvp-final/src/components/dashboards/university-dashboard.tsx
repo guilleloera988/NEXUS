@@ -20,7 +20,9 @@ export interface UniversityData {
 export interface UniversityRequests {
   organization: { id: string; name: string; verification_status: string; student_email_domains: string[]; can_manage: boolean } | null;
   verified_students?: number;
-  requests: { student_id: string; full_name: string; email: string | null; career: string; semester: number | null; requested_at: string; is_demo: boolean }[];
+  requests: { student_id: string; full_name: string; email: string | null; email_confirmed?: boolean; career: string; semester: number | null; requested_at: string; is_demo: boolean }[];
+  /** Rejected or removed students who still choose the university (staff can approve them). */
+  refused?: { student_id: string; full_name: string; email: string | null; kind: 'rejected' | 'removed'; decided_at: string }[];
 }
 
 export function UniversityDashboard({ data, requests, t, locale }: { data: UniversityData; requests: UniversityRequests | null; t: Messages; locale: Locale }) {
@@ -47,7 +49,8 @@ export function UniversityDashboard({ data, requests, t, locale }: { data: Unive
           <p className="text-sm text-ink-600">{U.requestsText}</p>
           <p className="mt-1 text-xs text-ink-500">
             {requests.organization.student_email_domains.length > 0
-              ? fmt(U.domainsActive, { domains: requests.organization.student_email_domains.join(', ') }) : U.domainsHint}
+              ? fmt(U.domainsActive, { domains: requests.organization.student_email_domains.join(', ') })
+              : requests.organization.can_manage ? U.domainsHint : null}
           </p>
           {requests.requests.length === 0 ? <p className="mt-4 text-sm text-ink-500">{U.requestsEmpty}</p> : (
             <ul className="mt-4 divide-y divide-ink-100">
@@ -56,7 +59,7 @@ export function UniversityDashboard({ data, requests, t, locale }: { data: Unive
                   <div className="min-w-0">
                     <p className="truncate text-sm font-semibold text-ink-900">{r.full_name}</p>
                     <p className="break-words text-xs text-ink-500">
-                      {[r.email, r.career, r.semester ? `${U.semesterCol} ${r.semester}` : '', fmt(U.requestedAt, { when: formatRelative(locale, r.requested_at) })]
+                      {[r.email_confirmed === false ? `${r.email} (${U.unconfirmedEmail})` : r.email, r.career, r.semester ? `${U.semesterCol} ${r.semester}` : '', fmt(U.requestedAt, { when: formatRelative(locale, r.requested_at) })]
                         .filter(Boolean).join(' · ')}
                     </p>
                   </div>
@@ -64,6 +67,23 @@ export function UniversityDashboard({ data, requests, t, locale }: { data: Unive
                 </li>
               ))}
             </ul>
+          )}
+          {(requests.refused ?? []).length > 0 && (
+            <details className="mt-4 border-t border-ink-100 pt-3">
+              <summary className="cursor-pointer text-sm font-semibold text-ink-700">{fmt(U.refusedTitle, { n: (requests.refused ?? []).length })}</summary>
+              <p className="mt-2 text-xs text-ink-500">{U.refusedText}</p>
+              <ul className="mt-2 divide-y divide-ink-100">
+                {(requests.refused ?? []).map((r) => (
+                  <li key={r.student_id} className="flex flex-wrap items-center justify-between gap-3 py-3">
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-semibold text-ink-900">{r.full_name}</p>
+                      <p className="break-words text-xs text-ink-500">{[r.email, `${U.refusedKinds[r.kind]} ${formatRelative(locale, r.decided_at)}`].filter(Boolean).join(' · ')}</p>
+                    </div>
+                    <UniversityRequestActions organizationId={requests.organization!.id} studentId={r.student_id} name={r.full_name} canReject={false} />
+                  </li>
+                ))}
+              </ul>
+            </details>
           )}
         </Card>
       )}

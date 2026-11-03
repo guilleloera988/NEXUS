@@ -12,6 +12,6 @@ test('the second-factor page needs a session and is skipped in the DEMO', async 
   await page.goto('/mfa');
   await expect(page).toHaveURL(/\/login\?next=%2Fmfa/);
   await enterDemo(page, 'admin');
-  await page.goto('/mfa?next=/admin');
-  await expect(page).toHaveURL(/\/admin$/);
+  await page.goto('/mfa?next=/notifications');
+  await expect(page).toHaveURL(/\/notifications$/);
 });

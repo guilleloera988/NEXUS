@@ -4,7 +4,7 @@ import { BrandLink } from '@/components/ui/brand';
 import { LocaleSwitch } from '@/components/shell/locale-switch';
 import { getMessages } from '@/lib/i18n/server';
 import { getMe, read } from '@/lib/server/backend';
-import type { Lookups, SkillPassMe } from '@/lib/types';
+import type { Lookups, MyUniversity, SkillPassMe } from '@/lib/types';
 import { OnboardingForm } from './onboarding-form';
 
 export const dynamic = 'force-dynamic';
@@ -20,6 +20,8 @@ export default async function OnboardingPage() {
   if (me.profile.onboarding_completed) redirect('/dashboard');
   const { t, locale } = await getMessages();
   const lookups = await read<Lookups>('sp_lookups');
+  // Databases without migration 20261103000001 have no membership verification.
+  const membership = me.profile.role === 'student' ? await read<MyUniversity>('sp_my_university').catch(() => null) : null;
   const declared = me.profile.role === 'student'
     ? ((await read<SkillPassMe | null>('sp_skillpass_me'))?.declared_skills ?? []).map((c) => c.id)
     : [];
@@ -36,7 +38,7 @@ export default async function OnboardingPage() {
         <h1 className="mt-2 text-3xl font-extrabold">{t.onboarding.title}</h1>
         <p className="mt-1 text-ink-500">{t.onboarding.subtitle}</p>
         <div className="card card-pad mt-6">
-          <OnboardingForm profile={me.profile} lookups={lookups} declared={declared} needsOrganization={me.memberships.length === 0} />
+          <OnboardingForm profile={me.profile} lookups={lookups} declared={declared} needsOrganization={me.memberships.length === 0} membership={membership} />
         </div>
       </main>
     </div>

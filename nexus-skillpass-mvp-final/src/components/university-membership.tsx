@@ -1,14 +1,17 @@
 'use client';
 
-import { useState } from 'react';
+import { useActionState, useState } from 'react';
 import { decideUniversityRequest, setUniversityDomains } from '@/actions/university';
+import { IDLE } from '@/lib/action-state';
 import { fmt } from '@/lib/i18n';
 import { useI18n } from '@/lib/i18n/client';
-import { ActionForm, Field, SubmitButton } from './ui/form';
+import { ActionForm, Field, FormFeedback, SubmitButton } from './ui/form';
 import { Dialog } from './ui/interactive';
 
-/** Approve or reject one pending request (university staff). */
-export function UniversityRequestActions({ organizationId, studentId, name }: { organizationId: string; studentId: string; name: string }) {
+/** Approve (and, for pending requests, reject) one student's request (university staff). */
+export function UniversityRequestActions({ organizationId, studentId, name, canReject = true }: {
+  organizationId: string; studentId: string; name: string; canReject?: boolean;
+}) {
   const { t } = useI18n();
   const U = t.dashboard.university;
   return (
@@ -18,9 +21,11 @@ export function UniversityRequestActions({ organizationId, studentId, name }: { 
       <SubmitButton name="decision" value="approve" className="btn-primary btn-sm" pendingLabel={t.common.saving}>
         <span aria-hidden>{U.approve}</span><span className="sr-only">{`${U.approve}: ${name}`}</span>
       </SubmitButton>
-      <SubmitButton name="decision" value="reject" className="btn-outline btn-sm" pendingLabel={t.common.saving}>
-        <span aria-hidden>{U.reject}</span><span className="sr-only">{`${U.reject}: ${name}`}</span>
-      </SubmitButton>
+      {canReject && (
+        <SubmitButton name="decision" value="reject" className="btn-outline btn-sm" pendingLabel={t.common.saving}>
+          <span aria-hidden>{U.reject}</span><span className="sr-only">{`${U.reject}: ${name}`}</span>
+        </SubmitButton>
+      )}
     </ActionForm>
   );
 }
@@ -31,8 +36,8 @@ export function RemoveStudentButton({ organizationId, studentId, name }: { organ
   const U = t.dashboard.university;
   const [open, setOpen] = useState(false);
   return (
-    <Dialog open={open} onOpenChange={setOpen} title={U.removeStudent} triggerClassName="btn-ghost btn-sm text-danger-700"
-      trigger={<><span aria-hidden>{U.removeStudent}</span><span className="sr-only">{`${U.removeStudent}: ${name}`}</span></>}>
+    <Dialog open={open} onOpenChange={setOpen} title={fmt(U.removeTitle, { name })} triggerClassName="btn-ghost btn-sm text-danger-700"
+      trigger={<><span aria-hidden>{U.removeStudent}</span><span className="sr-only">{fmt(U.removeTitle, { name })}</span></>}>
       <ActionForm action={decideUniversityRequest} onSuccess={() => setOpen(false)} className="space-y-4">
         <input type="hidden" name="organization_id" value={organizationId} />
         <input type="hidden" name="student_id" value={studentId} />
@@ -51,12 +56,15 @@ export function RemoveStudentButton({ organizationId, studentId, name }: { organ
 export function UniversityDomainsForm({ organizationId, domains }: { organizationId: string; domains: string[] }) {
   const { t } = useI18n();
   const O = t.organization;
+  const [state, action] = useActionState(setUniversityDomains, IDLE);
+  const linked = Number(state.data?.verified ?? 0);
   return (
-    <ActionForm action={setUniversityDomains} className="space-y-4" success={O.domainsSaved}>
+    <form action={action} className="space-y-4">
       <input type="hidden" name="organization_id" value={organizationId} />
       <Field as="textarea" label={O.domainsLabel} name="student_email_domains" defaultValue={domains.join('\n')} rows={3}
-        help={O.domainsHelp} placeholder="alumnos.universidad.mx" />
+        help={O.domainsHelp} placeholder={O.domainsPlaceholder} />
       <SubmitButton pendingLabel={t.common.saving}>{t.common.save}</SubmitButton>
-    </ActionForm>
+      <FormFeedback state={state} t={t} success={linked > 0 ? fmt(O.domainsLinked, { n: linked }) : O.domainsSaved} />
+    </form>
   );
 }

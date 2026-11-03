@@ -53,7 +53,7 @@ test('university managers set institutional domains; public mail providers are r
   const field = page.getByLabel('Dominios');
   await field.fill('gmail.com');
   await page.getByRole('button', { name: 'Guardar', exact: true }).last().click();
-  await expect(page.getByRole('alert').filter({ hasText: 'Revisa el campo: dominios de correo de estudiantes.' })).toBeVisible();
+  await expect(page.getByRole('alert').filter({ hasText: 'Ese dominio no se puede registrar' })).toBeVisible();
 
   await field.fill('@Demo.SkillPass.invalid');
   await page.getByRole('button', { name: 'Guardar', exact: true }).last().click();
@@ -67,4 +67,20 @@ test('university managers set institutional domains; public mail providers are r
   await chooseUniversity(page, DEMO_UNIVERSITY_OPTION);
   await page.goto('/profile?edit=1');
   await expect(page.getByText('Vinculación verificada con tu correo institucional.')).toBeVisible();
+
+  // A removal sticks: saving the profile again does not bring the student back through the domain.
+  await switchTo(page, 'university');
+  await page.getByRole('button', { name: 'Quitar a María Torres' }).click();
+  await page.getByRole('dialog', { name: 'Quitar a María Torres' }).getByRole('button', { name: 'Quitar' }).click();
+  await expect(page.getByRole('row', { name: /María Torres/ })).toHaveCount(0);
+  await switchTo(page, 'student');
+  await chooseUniversity(page, DEMO_UNIVERSITY_OPTION);
+  await page.goto('/profile?edit=1');
+  await expect(page.getByText(`${DEMO_UNIVERSITY} retiró tu vinculación.`)).toBeVisible();
+
+  // The university can still take her back from the refused list.
+  await switchTo(page, 'university');
+  await page.getByText('Rechazados o retirados (1)').click();
+  await page.getByRole('button', { name: 'Aprobar: María Torres' }).click();
+  await expect(page.getByRole('row', { name: /María Torres/ })).toBeVisible();
 });

@@ -13,7 +13,7 @@ import { supabaseServer } from './supabase';
 const READ_RPCS = [
   'sp_me', 'sp_lookups', 'sp_org_overview', 'sp_student_dashboard', 'sp_challenges', 'sp_challenge', 'sp_workspace',
   'sp_validation_queue', 'sp_validation', 'sp_skillpass_me', 'sp_talent_profile', 'sp_talent', 'sp_company_dashboard',
-  'sp_university_dashboard', 'sp_university_requests', 'sp_mfa_status', 'sp_admin_overview', 'sp_admin_list', 'sp_notifications', 'sp_evidence_file',
+  'sp_university_dashboard', 'sp_university_requests', 'sp_my_university', 'sp_mfa_status', 'sp_admin_overview', 'sp_admin_list', 'sp_notifications', 'sp_evidence_file',
 ] as const;
 const WRITE_RPCS = [
   'sp_decide_university_request', 'sp_set_university_domains', 'sp_accept_invitations', 'sp_complete_onboarding', 'sp_update_profile', 'sp_update_privacy', 'sp_update_organization',

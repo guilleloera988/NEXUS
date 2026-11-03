@@ -18,11 +18,10 @@ export interface Profile {
   headline: string;
   bio: string;
   location: string;
-  /** Verified university only; a choice that still needs the university's approval is the request below. */
+  /** Verified university only; a choice the university has not approved is a request (sp_my_university). */
   university_id: string | null;
-  university_verified_via: 'email_domain' | 'university' | 'admin' | 'seed' | null;
-  university_request_id: string | null;
-  university_request_status: 'pending' | 'rejected' | null;
+  /** Absent on databases without migration 20261103000001. */
+  university_verified_via?: 'email_domain' | 'university' | 'admin' | 'seed' | null;
   career: string;
   semester: number | null;
   interests: string[];
@@ -35,6 +34,12 @@ export interface Profile {
   public_show_career: boolean;
   is_demo: boolean;
   created_at: string;
+}
+
+/** sp_my_university: the student's verified university and pending or refused request. */
+export interface MyUniversity {
+  university: { id: string; name: string; verified_via: 'email_domain' | 'university' | 'admin' | 'seed' | null } | null;
+  request: { university_id: string; name: string; status: 'pending' | 'rejected' | 'removed'; requested_at: string } | null;
 }
 
 export interface OrganizationRef {

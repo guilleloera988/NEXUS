@@ -26,7 +26,7 @@ Público: `/` (landing), `/demo`, `/login`, `/signup`, `/verify`, `/verify/[cód
 
 ## Paso 2 · Perfil de talento
 
-`/profile`: tarjeta de identidad, mini SkillPass (VATH, proyectos, competencias verificadas), **Competencias verificadas** (con nivel y etiqueta de rúbrica) separadas de **Habilidades declaradas** (sólo las aún no verificadas), intereses, retos con estado y resumen VATH. `?edit=1` abre el formulario. Bajo «Universidad» se ve el estado de la vinculación: verificada (por correo institucional o por la universidad), solicitud pendiente (no cuenta en la analítica de la universidad ni se muestra en el SkillPass público) o no aprobada.
+`/profile`: tarjeta de identidad, mini SkillPass (VATH, proyectos, competencias verificadas), **Competencias verificadas** (con nivel y etiqueta de rúbrica) separadas de **Habilidades declaradas** (sólo las aún no verificadas), intereses, retos con estado y resumen VATH. `?edit=1` abre el formulario. Bajo «Universidad» se ve el estado de la vinculación: verificada (por correo institucional o por la universidad), solicitud pendiente (no cuenta en la analítica de la universidad ni se muestra en el SkillPass público), no aprobada o retirada por la universidad.
 
 ## Paso 3 · Retos y matching
 
@@ -67,7 +67,7 @@ Al completar: mensaje de éxito con el código de credencial y bitácora de deci
 
 ## Paso 9 · Panel universidad
 
-`/dashboard` (universidad): estudiantes participando, VATH verificadas, competencias verificadas, credenciales; gráficas de VATH por carrera, competencias más verificadas, empresas aliadas en retos y participación por mes (un solo tono dorado, tooltips, **ver como tabla**); tabla por estudiante y exportación CSV. Todo calculado con registros reales (consultas agregadas con RLS), sólo de estudiantes con vinculación verificada. Arriba, **Solicitudes de estudiantes**: quienes eligieron la institución sin correo institucional, con nombre, correo, carrera y semestre, y los botones **Aprobar** / **Rechazar**; en la tabla de estudiantes, **Quitar** (con confirmación). En `/organization`, dueños y managers registran los **dominios de correo institucional** que vinculan al instante.
+`/dashboard` (universidad): estudiantes participando, VATH verificadas, competencias verificadas, credenciales; gráficas de VATH por carrera, competencias más verificadas, empresas aliadas en retos y participación por mes (un solo tono dorado, tooltips, **ver como tabla**); tabla por estudiante y exportación CSV. Todo calculado con registros reales (consultas agregadas con RLS), sólo de estudiantes con vinculación verificada. Arriba, **Solicitudes de estudiantes**: quienes eligieron la institución sin correo institucional, con nombre, correo (y si falta confirmarlo), carrera y semestre, y los botones **Aprobar** / **Rechazar**; debajo, plegada, la lista **Rechazados o retirados** de quienes siguen eligiendo la institución, con **Aprobar** por si fue un error; en la tabla de estudiantes, **Quitar** (con confirmación). En `/organization`, dueños y managers registran los **dominios de correo institucional** que vinculan al instante.
 
 ## Admin · Talent OS
 

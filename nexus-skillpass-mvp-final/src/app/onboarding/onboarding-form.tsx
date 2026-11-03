@@ -6,10 +6,10 @@ import { ActionForm, Checkbox, Field, SubmitButton } from '@/components/ui/form'
 import { Alert } from '@/components/ui/primitives';
 import { INDUSTRIES, ORG_SIZES, WEBSITE_PATTERN } from '@/lib/constants';
 import { useI18n } from '@/lib/i18n/client';
-import type { Lookups, Profile } from '@/lib/types';
+import type { Lookups, MyUniversity, Profile } from '@/lib/types';
 
-export function OnboardingForm({ profile, lookups, declared, needsOrganization }: {
-  profile: Profile; lookups: Lookups; declared: string[]; needsOrganization: boolean;
+export function OnboardingForm({ profile, lookups, declared, needsOrganization, membership }: {
+  profile: Profile; lookups: Lookups; declared: string[]; needsOrganization: boolean; membership: MyUniversity | null;
 }) {
   const { t } = useI18n();
   const O = t.onboarding;
@@ -19,7 +19,7 @@ export function OnboardingForm({ profile, lookups, declared, needsOrganization }
       {role === 'student' && (
         <>
           <Alert tone="info">{O.student.intro}</Alert>
-          <StudentProfileFields profile={profile} lookups={lookups} declared={declared} />
+          <StudentProfileFields profile={profile} lookups={lookups} declared={declared} membership={membership} />
           <Checkbox name="open_to_opportunities" label={O.student.openToOpportunities} help={O.student.openHelp} defaultChecked={profile.open_to_opportunities} />
         </>
       )}

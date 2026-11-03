@@ -4,25 +4,34 @@ import { AVAILABILITY, INTERESTS } from '@/lib/constants';
 import { competencyName } from '@/lib/format';
 import { fmt } from '@/lib/i18n';
 import { useI18n } from '@/lib/i18n/client';
-import type { Competency, Lookups, Profile } from '@/lib/types';
+import type { Competency, Lookups, MyUniversity, Profile } from '@/lib/types';
 import { ChipGroup, Field } from './ui/form';
 
 /** Student profile inputs shared by onboarding and profile editing. */
-export function StudentProfileFields({ profile, lookups, declared }: { profile: Profile; lookups: Lookups; declared: string[] }) {
+export function StudentProfileFields({ profile, lookups, declared, membership }: {
+  profile: Profile; lookups: Lookups; declared: string[];
+  /** null on databases without migration 20261103000001 (no verification there). */
+  membership: MyUniversity | null;
+}) {
   const { t, locale } = useI18n();
   const O = t.onboarding.student;
-  // A pending or rejected request keeps the choice selected, so saving the profile again does not withdraw it.
-  const chosen = profile.university_id ?? profile.university_request_id ?? '';
-  const universityName = lookups.universities.find((u) => u.id === profile.university_request_id)?.name ?? '';
   const M = O.membership;
-  const membership = profile.university_id
-    ? { tone: 'text-success-700', text: { email_domain: M.verified_email_domain, university: M.verified_university, admin: M.verified_admin, seed: M.verified_seed }[
-        profile.university_verified_via ?? 'seed'] }
-    : profile.university_request_id && profile.university_request_status === 'pending'
-      ? { tone: 'text-warning-700', text: fmt(M.pending, { university: universityName }) }
-      : profile.university_request_id && profile.university_request_status === 'rejected'
-        ? { tone: 'text-danger-700', text: fmt(M.rejected, { university: universityName }) }
-        : null;
+  // The current university or request stays selected, even if it is not in the list (under re-verification),
+  // so saving the profile again neither withdraws a request nor drops a link.
+  const current = membership?.university ?? null;
+  const request = membership?.request ?? null;
+  const chosen = profile.university_id ?? request?.university_id ?? '';
+  const options = lookups.universities.map((u) => ({ value: u.id, label: u.campus ? `${u.name} · ${u.campus}` : u.name }));
+  const chosenName = current?.name ?? request?.name;
+  if (chosen && chosenName && !options.some((o) => o.value === chosen)) options.unshift({ value: chosen, label: chosenName });
+  const verifiedText = current?.verified_via
+    ? { email_domain: M.verified_email_domain, university: M.verified_university, admin: M.verified_admin, seed: M.verified_seed }[current.verified_via]
+    : undefined;
+  const status = current
+    ? (verifiedText ? { tone: 'text-success-700', text: verifiedText } : null)
+    : request
+      ? { tone: request.status === 'pending' ? 'text-warning-700' : 'text-danger-700', text: fmt(M[request.status], { university: request.name }) }
+      : null;
   const byCategory = (['technical', 'digital', 'business', 'human'] as const).map((category) => ({
     category,
     items: lookups.competencies.filter((c: Competency) => c.category === category),
@@ -36,11 +45,11 @@ export function StudentProfileFields({ profile, lookups, declared }: { profile: 
       </div>
       <div className="grid gap-4 sm:grid-cols-[2fr_2fr_1fr]">
         <Field as="select" label={O.university} name="university_id" defaultValue={chosen} placeholder={O.noUniversity}
-          options={lookups.universities.map((u) => ({ value: u.id, label: u.campus ? `${u.name} · ${u.campus}` : u.name }))} help={O.universityHelp} />
+          options={options} help={O.universityHelp} />
         <Field label={O.career} name="career" defaultValue={profile.career} maxLength={160} />
         <Field label={O.semester} name="semester" type="number" min={1} max={20} defaultValue={profile.semester ?? ''} inputMode="numeric" />
       </div>
-      {membership && <p className={`-mt-3 text-sm font-medium ${membership.tone}`}>{membership.text}</p>}
+      {status && <p className={`-mt-3 text-sm font-medium ${status.tone}`}>{status.text}</p>}
       <ChipGroup name="interests" legend={O.interests} help={O.interestsHelp} max={6} defaultValues={profile.interests}
         options={INTERESTS.map((key) => ({ value: key, label: t.enums.interests[key] }))} />
       <fieldset>

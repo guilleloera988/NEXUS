@@ -8,7 +8,7 @@ import { Avatar, Badge, Card, PageHeader, StatusBadge } from '@/components/ui/pr
 import { competencyName, formatHours } from '@/lib/format';
 import { getMessages } from '@/lib/i18n/server';
 import { getMe, read } from '@/lib/server/backend';
-import type { Lookups, SkillPassMe } from '@/lib/types';
+import type { Lookups, MyUniversity, SkillPassMe } from '@/lib/types';
 
 export async function generateMetadata(): Promise<Metadata> {
   const { t } = await getMessages();
@@ -54,6 +54,8 @@ export default async function ProfilePage({ searchParams }: PageProps<'/profile'
     read<TalentProfile>('sp_talent_profile', { student_id: me.profile.id }),
     editing ? read<Lookups>('sp_lookups') : Promise.resolve(null),
   ]);
+  // Databases without migration 20261103000001 have no membership verification.
+  const membership = editing ? await read<MyUniversity>('sp_my_university').catch(() => null) : null;
   const p = pass.profile;
   const verifiedIds = new Set(pass.verified_competencies.map((c) => c.id));
   // A declared skill that was later verified is shown only once, in the verified column.
@@ -63,7 +65,7 @@ export default async function ProfilePage({ searchParams }: PageProps<'/profile'
     return (
       <>
         <PageHeader kicker={t.nav.profile} title={P.editTitle} actions={<Link href="/profile" className="btn-outline">{t.common.cancel}</Link>} />
-        <div className="card card-pad"><StudentProfileForm profile={p} lookups={lookups} declared={pass.declared_skills.map((c) => c.id)} /></div>
+        <div className="card card-pad"><StudentProfileForm profile={p} lookups={lookups} declared={pass.declared_skills.map((c) => c.id)} membership={membership} /></div>
       </>
     );
   }

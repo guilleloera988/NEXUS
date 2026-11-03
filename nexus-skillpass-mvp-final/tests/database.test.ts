@@ -6,7 +6,7 @@ type Row = Record<string, unknown>;
 type Json = Record<string, any>; // eslint-disable-line @typescript-eslint/no-explicit-any
 
 let db: TestDb;
-const APP_TABLES = 25;
+const APP_TABLES = 27;
 
 const challengeInput = (overrides: Json = {}) => ({
   organization_id: ORGS.nova,
@@ -941,11 +941,16 @@ describe('verified university membership (pilot readiness)', () => {
       [id, email, confirmed ? new Date().toISOString() : null, JSON.stringify({ full_name: `Estudiante ${id.slice(-2)}`, account_type: 'student' })]);
   const chooseUniversity = (id: string, university: string | null) =>
     rpc(db, id, 'sp_update_profile', { full_name: `Estudiante ${id.slice(-2)}`, university_id: university ?? '' });
+  /** university_id + how it was verified, and the student's request (university, status). */
   const membership = async (id: string) => (await db.query<Row>(
-    `select university_id, university_verified_via, university_request_id, university_request_status
-     from public.profiles where id = $1`, [id])).rows[0];
-  const requests = async (actor: string, payload: Json = {}) =>
+    `select p.university_id, p.university_verified_via, r.university_id as request_id, r.status as request_status
+     from public.profiles p left join public.university_requests r on r.student_id = p.id where p.id = $1`, [id])).rows[0];
+  const linked = (university: string, via: string) => ({ university_id: university, university_verified_via: via, request_id: null, request_status: null });
+  const requested = (university: string, status: string) => ({ university_id: null, university_verified_via: null, request_id: university, request_status: status });
+  const NONE = { university_id: null, university_verified_via: null, request_id: null, request_status: null };
+  const pendingIds = async (actor: string, payload: Json = {}) =>
     ((await rpc<Json>(db, actor, 'sp_university_requests', payload)).requests as Json[]).map((r) => r.student_id);
+  const refusedIds = async (actor: string) => ((await rpc<Json>(db, actor, 'sp_university_requests')).refused as Json[]).map((r) => r.student_id);
   const decide = (actor: string, student: string, decision: string, organization: string = ORGS.demoUniversity) =>
     rpc<Json>(db, actor, 'sp_decide_university_request', { organization_id: organization, student_id: student, decision });
   const setDomains = (actor: string, domains: string[], organization: string = ORGS.demoUniversity) =>
@@ -953,8 +958,8 @@ describe('verified university membership (pilot readiness)', () => {
   const dashboardStudents = async () => ((await rpc<Json>(db, USERS.elena, 'sp_university_dashboard')).stats.students as number);
   const staffSees = async (student: string) =>
     (await sql<{ v: boolean }>(db, USERS.elena, 'select public.sp_can_view_profile($1) as v', [student]))[0].v;
-  const notifications = async (user: string) =>
-    (await db.query<Row>('select kind, params from public.notifications where user_id = $1 order by created_at', [user])).rows;
+  const notifications = async (user: string, kind?: string) =>
+    (await db.query<Row>('select kind, params from public.notifications where user_id = $1 order by created_at', [user])).rows.filter((n) => !kind || n.kind === kind);
 
   beforeAll(async () => {
     await signUp(STUDENT(1), 'ana@alumnos.demo-university.example');
@@ -962,16 +967,17 @@ describe('verified university membership (pilot readiness)', () => {
     await signUp(STUDENT(3), 'caro@demo-university.example', false);
     await signUp(STUDENT(4), 'dani@alumnos.nuevo-dominio.example');
     await signUp(STUDENT(5), 'eva@Demo-University.example');
+    await signUp(STUDENT(6), 'fer@hotmail.com.mx');
+    await signUp(STUDENT(7), 'gabi@gmail.com');
   });
 
   it('keeps the seeded students linked and marks how', async () => {
-    expect(await membership(USERS.maria)).toEqual({ university_id: ORGS.demoUniversity, university_verified_via: 'seed',
-      university_request_id: null, university_request_status: null });
+    expect(await membership(USERS.maria)).toEqual(linked(ORGS.demoUniversity, 'seed'));
   });
 
-  it('lets only the university managers or AINDEV set student e-mail domains, and refuses public mail providers', async () => {
+  it('lets only the university managers or AINDEV set student e-mail domains', async () => {
     for (const actor of [USERS.maria, USERS.laura, USERS.luis, USERS.carlos]) await expectError(setDomains(actor, ['demo-university.example']), /forbidden/);
-    for (const bad of [['gmail.com'], ['hotmail.com'], ['not a domain'], ['localhost'], ['-x.example'], ['a@b.example'], Array.from({ length: 11 }, (_, i) => `d${i}.example`)]) {
+    for (const bad of [['not a domain'], ['localhost'], ['-x.example'], ['a@b.example'], Array.from({ length: 11 }, (_, i) => `d${i}.example`)]) {
       await expectSpError(setDomains(USERS.elena, bad), 'invalid_field', 'student_email_domains');
     }
     const saved = await setDomains(USERS.elena, [' @Demo-University.EXAMPLE ', 'demo-university.example']);
@@ -980,14 +986,31 @@ describe('verified university membership (pilot readiness)', () => {
     expect((await setDomains(USERS.admin, ['tec-demo.example'], ORGS.tecDemo)).student_email_domains).toEqual(['tec-demo.example']);
   });
 
+  it('refuses public mail providers, their parent domains and shared suffixes', async () => {
+    for (const bad of ['gmail.com', 'hotmail.com', 'prodigy.net.mx', 'com.mx', 'net.mx', 'edu.mx', 'gob.mx', 'co.uk', 'ac.uk']) {
+      await expectSpError(setDomains(USERS.luis, [bad], ORGS.tecDemo), 'domain_not_allowed', 'student_email_domains');
+    }
+    for (const bare of ['com', 'edu', 'mx']) await expectSpError(setDomains(USERS.luis, [bare], ORGS.tecDemo), 'invalid_field', 'student_email_domains');
+    // A student on hotmail.com.mx is never linked through a suffix.
+    await chooseUniversity(STUDENT(6), ORGS.tecDemo);
+    expect(await membership(STUDENT(6))).toEqual(requested(ORGS.tecDemo, 'pending'));
+  });
+
+  it('keeps one university from claiming another one’s domains, unless AINDEV sets them', async () => {
+    for (const taken of ['demo-university.example', 'alumnos.demo-university.example', 'example']) {
+      const result = setDomains(USERS.luis, [taken], ORGS.tecDemo);
+      if (taken === 'example') await expectSpError(result, 'invalid_field', 'student_email_domains');
+      else await expectSpError(result, 'domain_in_use', 'student_email_domains');
+    }
+    expect((await setDomains(USERS.luis, ['tec-demo.example', 'alumnos.tec-demo.example'], ORGS.tecDemo)).student_email_domains)
+      .toEqual(['tec-demo.example', 'alumnos.tec-demo.example']);
+  });
+
   it('verifies at once a confirmed institutional e-mail, including subdomains and any letter case', async () => {
     const before = await dashboardStudents();
     await chooseUniversity(STUDENT(1), ORGS.demoUniversity);
     await chooseUniversity(STUDENT(5), ORGS.demoUniversity);
-    for (const id of [STUDENT(1), STUDENT(5)]) {
-      expect(await membership(id)).toEqual({ university_id: ORGS.demoUniversity, university_verified_via: 'email_domain',
-        university_request_id: null, university_request_status: null });
-    }
+    for (const id of [STUDENT(1), STUDENT(5)]) expect(await membership(id)).toEqual(linked(ORGS.demoUniversity, 'email_domain'));
     expect(await dashboardStudents()).toBe(before + 2);
     expect(await staffSees(STUDENT(1))).toBe(true);
   });
@@ -997,22 +1020,40 @@ describe('verified university membership (pilot readiness)', () => {
     await chooseUniversity(STUDENT(2), ORGS.demoUniversity);
     await chooseUniversity(STUDENT(3), ORGS.demoUniversity); // matching domain, but the address is not confirmed
     for (const id of [STUDENT(2), STUDENT(3)]) {
-      expect(await membership(id)).toEqual({ university_id: null, university_verified_via: null,
-        university_request_id: ORGS.demoUniversity, university_request_status: 'pending' });
+      expect(await membership(id)).toEqual(requested(ORGS.demoUniversity, 'pending'));
       expect(await staffSees(id)).toBe(false);
     }
     expect(await dashboardStudents()).toBe(before);
-    expect(await requests(USERS.elena)).toEqual(expect.arrayContaining([STUDENT(2), STUDENT(3)]));
-    expect(await requests(USERS.luis)).not.toContain(STUDENT(2));
-    expect(await requests(USERS.maria)).toEqual([]);
-    const me = await rpc<Json>(db, STUDENT(2), 'sp_me');
-    expect(me.university).toBeNull();
-    expect(me.profile.university_request_status).toBe('pending');
-    expect((await notifications(USERS.elena)).filter((n) => n.kind === 'university_request')).toHaveLength(2);
-    // Saving the profile again with the same choice keeps the request, and does not notify again.
+    expect(await pendingIds(USERS.elena)).toEqual(expect.arrayContaining([STUDENT(2), STUDENT(3)]));
+    expect(await pendingIds(USERS.luis)).not.toContain(STUDENT(2));
+    expect(await pendingIds(USERS.maria)).toEqual([]);
+    const mine = await rpc<Json>(db, STUDENT(2), 'sp_my_university');
+    expect(mine).toMatchObject({ university: null, request: { university_id: ORGS.demoUniversity, name: 'Demo University', status: 'pending' } });
+    expect(await notifications(USERS.elena, 'university_request')).toHaveLength(2);
+    // Saving the profile again with the same choice keeps the request and does not notify again.
     await chooseUniversity(STUDENT(2), ORGS.demoUniversity);
-    expect((await membership(STUDENT(2))).university_request_status).toBe('pending');
-    expect((await notifications(USERS.elena)).filter((n) => n.kind === 'university_request')).toHaveLength(2);
+    expect((await membership(STUDENT(2))).request_status).toBe('pending');
+    expect(await notifications(USERS.elena, 'university_request')).toHaveLength(2);
+  });
+
+  it('keeps the request private: only the student reads it, never a company that sees the profile', async () => {
+    expect(await sql(db, STUDENT(2), 'select university_id, status from public.university_requests'))
+      .toEqual([{ university_id: ORGS.demoUniversity, status: 'pending' }]);
+    for (const actor of [USERS.laura, USERS.elena, USERS.maria]) {
+      expect(await sql(db, actor, 'select * from public.university_requests where student_id = $1', [STUDENT(2)])).toEqual([]);
+    }
+    await expectError(sql(db, USERS.admin, 'select * from public.university_refusals'), /permission denied/);
+    await expectError(sql(db, null, 'select * from public.university_requests'), /permission denied/);
+  });
+
+  it('notifies staff at most once a day per student, however often the choice changes', async () => {
+    const before = (await notifications(USERS.elena, 'university_request')).length;
+    for (let i = 0; i < 5; i++) {
+      await chooseUniversity(STUDENT(7), ORGS.demoUniversity);
+      await chooseUniversity(STUDENT(7), ORGS.tecDemo);
+    }
+    expect((await notifications(USERS.elena, 'university_request')).length).toBe(before + 1);
+    await chooseUniversity(STUDENT(7), null);
   });
 
   it('lets only that university staff or AINDEV decide, and only on open requests', async () => {
@@ -1027,72 +1068,102 @@ describe('verified university membership (pilot readiness)', () => {
   it('links the student once the university approves, and tells them', async () => {
     const before = await dashboardStudents();
     expect(await decide(USERS.elena, STUDENT(2), 'approve')).toEqual({ student_id: STUDENT(2), decision: 'approve' });
-    expect(await membership(STUDENT(2))).toEqual({ university_id: ORGS.demoUniversity, university_verified_via: 'university',
-      university_request_id: null, university_request_status: null });
+    expect(await membership(STUDENT(2))).toEqual(linked(ORGS.demoUniversity, 'university'));
     expect(await dashboardStudents()).toBe(before + 1);
     expect(await staffSees(STUDENT(2))).toBe(true);
-    expect(await requests(USERS.elena)).not.toContain(STUDENT(2));
+    expect(await pendingIds(USERS.elena)).not.toContain(STUDENT(2));
     expect((await notifications(STUDENT(2))).map((n) => n.kind)).toContain('university_membership_approved');
-    const audit = (await db.query<Row>("select action, organization_id from public.audit_logs where subject_id = $1 and action like 'university_membership_%' order by created_at", [STUDENT(2)])).rows;
+    const audit = (await db.query<Row>("select action from public.audit_logs where subject_id = $1 and action like 'university_membership_%' order by created_at", [STUDENT(2)])).rows;
     expect(audit.map((a) => a.action)).toEqual(['university_membership_requested', 'university_membership_approve']);
   });
 
-  it('records a rejection, which a new save does not reopen, and lets the student choose again', async () => {
+  it('remembers a rejection: saving again, or leaving and choosing again, does not reopen it', async () => {
     await decide(USERS.elena, STUDENT(3), 'reject');
-    expect(await membership(STUDENT(3))).toEqual({ university_id: null, university_verified_via: null,
-      university_request_id: ORGS.demoUniversity, university_request_status: 'rejected' });
+    expect(await membership(STUDENT(3))).toEqual(requested(ORGS.demoUniversity, 'rejected'));
     expect((await notifications(STUDENT(3))).map((n) => n.kind)).toContain('university_membership_rejected');
-    expect(await requests(USERS.elena)).not.toContain(STUDENT(3));
+    expect(await pendingIds(USERS.elena)).not.toContain(STUDENT(3));
+    expect(await refusedIds(USERS.elena)).toContain(STUDENT(3));
+    const notified = (await notifications(USERS.elena, 'university_request')).length;
     await chooseUniversity(STUDENT(3), ORGS.demoUniversity);
-    expect((await membership(STUDENT(3))).university_request_status).toBe('rejected');
-    await chooseUniversity(STUDENT(3), ORGS.tecDemo);
-    expect(await membership(STUDENT(3))).toEqual({ university_id: null, university_verified_via: null,
-      university_request_id: ORGS.tecDemo, university_request_status: 'pending' });
-    expect(await requests(USERS.luis)).toContain(STUDENT(3));
+    expect((await membership(STUDENT(3))).request_status).toBe('rejected');
     await chooseUniversity(STUDENT(3), null);
-    expect(await membership(STUDENT(3))).toEqual({ university_id: null, university_verified_via: null,
-      university_request_id: null, university_request_status: null });
+    expect(await membership(STUDENT(3))).toEqual(NONE);
+    await chooseUniversity(STUDENT(3), ORGS.demoUniversity);
+    expect(await membership(STUDENT(3))).toEqual(requested(ORGS.demoUniversity, 'rejected'));
+    // Confirming the institutional address later does not link a rejected student either.
+    await db.query('update auth.users set email_confirmed_at = now() where id = $1', [STUDENT(3)]);
+    await chooseUniversity(STUDENT(3), ORGS.demoUniversity);
+    expect(await membership(STUDENT(3))).toEqual(requested(ORGS.demoUniversity, 'rejected'));
+    expect((await notifications(USERS.elena, 'university_request')).length).toBe(notified);
   });
 
-  it('lets the university remove a student and AINDEV approve for any university', async () => {
+  it('remembers a removal, even for an institutional e-mail, until the university approves again', async () => {
     const before = await dashboardStudents();
-    await decide(USERS.elena, STUDENT(2), 'remove');
-    expect(await membership(STUDENT(2))).toEqual({ university_id: null, university_verified_via: null,
-      university_request_id: ORGS.demoUniversity, university_request_status: 'rejected' });
+    await decide(USERS.elena, STUDENT(1), 'remove');
+    expect(await membership(STUDENT(1))).toEqual(requested(ORGS.demoUniversity, 'removed'));
     expect(await dashboardStudents()).toBe(before - 1);
-    expect(await staffSees(STUDENT(2))).toBe(false);
-    expect((await notifications(STUDENT(2))).map((n) => n.kind)).toContain('university_membership_removed');
-    await decide(USERS.admin, STUDENT(2), 'approve');
-    expect((await membership(STUDENT(2))).university_verified_via).toBe('admin');
+    expect(await staffSees(STUDENT(1))).toBe(false);
+    expect((await notifications(STUDENT(1))).map((n) => n.kind)).toContain('university_membership_removed');
+    expect((await rpc<Json>(db, STUDENT(1), 'sp_my_university')).request.status).toBe('removed');
+    await chooseUniversity(STUDENT(1), ORGS.demoUniversity); // institutional e-mail: still removed
+    expect(await membership(STUDENT(1))).toEqual(requested(ORGS.demoUniversity, 'removed'));
+    await chooseUniversity(STUDENT(1), null);
+    await chooseUniversity(STUDENT(1), ORGS.demoUniversity);
+    expect(await membership(STUDENT(1))).toEqual(requested(ORGS.demoUniversity, 'removed'));
+    // The university can take the student back from the refused list.
+    expect(await refusedIds(USERS.elena)).toContain(STUDENT(1));
+    await decide(USERS.elena, STUDENT(1), 'approve');
+    expect(await membership(STUDENT(1))).toEqual(linked(ORGS.demoUniversity, 'university'));
+    await chooseUniversity(STUDENT(1), null);
+    await chooseUniversity(STUDENT(1), ORGS.demoUniversity); // the refusal is gone: the domain links again
+    expect(await membership(STUDENT(1))).toEqual(linked(ORGS.demoUniversity, 'email_domain'));
   });
 
-  it('verifies pending requests at once when the university adds their domain', async () => {
+  it('lets AINDEV approve for any university', async () => {
+    await chooseUniversity(STUDENT(6), ORGS.demoUniversity);
+    await decide(USERS.admin, STUDENT(6), 'approve');
+    expect(await membership(STUDENT(6))).toEqual(linked(ORGS.demoUniversity, 'admin'));
+  });
+
+  it('verifies pending requests when the university adds their domain, but never refused ones', async () => {
     await chooseUniversity(STUDENT(4), ORGS.demoUniversity);
-    expect((await membership(STUDENT(4))).university_request_status).toBe('pending');
+    expect((await membership(STUDENT(4))).request_status).toBe('pending');
     const saved = await setDomains(USERS.elena, ['demo-university.example', 'nuevo-dominio.example']);
     expect(saved.verified).toBe(1);
-    expect(await membership(STUDENT(4))).toEqual({ university_id: ORGS.demoUniversity, university_verified_via: 'email_domain',
-      university_request_id: null, university_request_status: null });
+    expect(await membership(STUDENT(4))).toEqual(linked(ORGS.demoUniversity, 'email_domain'));
     expect((await notifications(STUDENT(4))).map((n) => n.kind)).toContain('university_membership_approved');
+    expect((await membership(STUDENT(3))).request_status).toBe('rejected');
+  });
+
+  it('keeps the link of a student whose university is being verified again', async () => {
+    await db.query("update public.organizations set verification_status = 'pending' where id = $1", [ORGS.demoUniversity]);
+    try {
+      expect((await rpc<Json>(db, STUDENT(4), 'sp_lookups')).universities.map((u: Json) => u.id)).not.toContain(ORGS.demoUniversity);
+      await chooseUniversity(STUDENT(4), ORGS.demoUniversity); // the form keeps sending the current university
+      expect(await membership(STUDENT(4))).toEqual(linked(ORGS.demoUniversity, 'email_domain'));
+      await expectSpError(chooseUniversity(STUDENT(7), ORGS.demoUniversity), 'invalid_field', 'university_id'); // a new choice needs a verified one
+    } finally {
+      await db.query("update public.organizations set verification_status = 'verified' where id = $1", [ORGS.demoUniversity]);
+    }
   });
 
   it('shows the university on public pages only once the link is verified', async () => {
-    const slug = (await db.query<{ slug: string }>('select slug from public.profiles where id = $1', [STUDENT(3)])).rows[0].slug;
-    await rpc(db, STUDENT(3), 'sp_update_privacy', { skillpass_public: true, public_show_university: true, public_show_career: true, open_to_opportunities: false });
-    await chooseUniversity(STUDENT(3), ORGS.tecDemo);
+    const slug = (await db.query<{ slug: string }>('select slug from public.profiles where id = $1', [STUDENT(7)])).rows[0].slug;
+    await rpc(db, STUDENT(7), 'sp_update_privacy', { skillpass_public: true, public_show_university: true, public_show_career: true, open_to_opportunities: false });
+    await chooseUniversity(STUDENT(7), ORGS.tecDemo);
     expect((await rpc<Json>(db, null, 'sp_public_skillpass', { slug })).profile.university).toBeNull();
-    await decide(USERS.luis, STUDENT(3), 'approve', ORGS.tecDemo);
+    await decide(USERS.luis, STUDENT(7), 'approve', ORGS.tecDemo);
     expect((await rpc<Json>(db, null, 'sp_public_skillpass', { slug })).profile.university).toBe('Instituto Tecnológico Demo');
   });
 
-  it('keeps the helpers internal and exposes the three RPCs to signed-in users only', async () => {
+  it('keeps the helpers internal and exposes the four RPCs to signed-in users only', async () => {
     const can = async (role: string, fn: string) =>
       (await db.query<{ v: boolean }>('select has_function_privilege($1, $2, \'execute\') as v', [role, fn])).rows[0].v;
-    for (const fn of ['public.sp_university_email_match(uuid, uuid)', 'public.sp_choose_university(uuid, uuid)',
-      'public.sp_membership_university(jsonb)', 'public.sp_student_email_domain_valid(text)']) {
+    for (const fn of ['public.sp_university_email_match(uuid, uuid)', 'public.sp_choose_university(uuid, uuid)', 'public.sp_link_university(uuid, uuid, text)',
+      'public.sp_membership_university(jsonb)', 'public.sp_student_email_domain_allowed(text)', 'public.sp_apply_student_profile(uuid, jsonb)']) {
       expect({ fn, anon: await can('anon', fn), authenticated: await can('authenticated', fn) }).toEqual({ fn, anon: false, authenticated: false });
     }
-    for (const fn of ['public.sp_university_requests(jsonb)', 'public.sp_decide_university_request(jsonb)', 'public.sp_set_university_domains(jsonb)']) {
+    for (const fn of ['public.sp_my_university(jsonb)', 'public.sp_university_requests(jsonb)', 'public.sp_decide_university_request(jsonb)', 'public.sp_set_university_domains(jsonb)']) {
       expect({ fn, anon: await can('anon', fn), authenticated: await can('authenticated', fn) }).toEqual({ fn, anon: false, authenticated: true });
     }
   });
