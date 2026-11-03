@@ -4,11 +4,12 @@ import { cookies, headers } from 'next/headers';
 import { redirect } from 'next/navigation';
 import type { ActionState } from '@/lib/action-state';
 import { DEMO_PERSONAS, DEMO_PERSONA_KEYS, type DemoPersona } from '@/lib/demo-personas';
-import { fdString, rateLimit, runAction } from '@/lib/server/action';
+import { fdString, runAction } from '@/lib/server/action';
 import { createDemoScenario, demoScenarioExists } from '@/lib/server/demo-db';
 import { DEMO_COOKIE, signDemoSession, verifyDemoSession } from '@/lib/server/demo-session';
 import { demoMode, demoTtlHours } from '@/lib/server/env';
 import { AppError } from '@/lib/server/errors';
+import { LIMITS, clientNetwork, limitAttempts } from '@/lib/server/rate-limit';
 import { supabaseServer } from '@/lib/server/supabase';
 import { safeNextPath } from '@/lib/safety';
 
@@ -24,7 +25,7 @@ export async function enterDemo(_prev: ActionState, fd: FormData): Promise<Actio
   const result = await runAction(async () => {
     if (!DEMO_PERSONA_KEYS.includes(persona)) throw new AppError('invalid_field', 400, 'persona');
     const h = await headers();
-    rateLimit(`demo:${h.get('x-forwarded-for')?.split(',')[0] ?? 'local'}`, 30);
+    await limitAttempts([{ rule: LIMITS.demo, id: await clientNetwork() }]);
     const mode = demoMode();
     const jar = await cookies();
     if (mode === 'local') {

@@ -35,7 +35,20 @@ Actores: visitante anónimo, estudiante, compañero de equipo, empresa/superviso
 - Descargas: consulta con RLS antes de servir; URL firmada de 60 s (Supabase) o archivo DEMO con protección de *path traversal*; *inline* sólo PDF e imágenes, `Content-Security-Policy: sandbox`, `nosniff`, `Content-Disposition` seguro.
 - Exportación CSV con neutralización de fórmulas (`=`, `+`, `-`, `@`, tab).
 - Errores: mensajes traducidos por clave; nunca se expone el texto de PostgreSQL ni trazas.
-- *Rate limiting* básico por IP en login, registro, demo y acciones sensibles.
+- **Límite de intentos compartido** (`20261104000001`, `src/lib/server/rate-limit.ts`): los contadores viven en la base de datos, así que valen para todas las instancias de Vercel. Por red (IPv4, o el /64 de IPv6) con márgenes amplios, porque un grupo entero entra desde la misma IP del campus; por cuenta, más estrictos:
+
+  | Acción | Por red | Por cuenta |
+  |---|---|---|
+  | Iniciar sesión | 60 intentos / 5 min | 10 contraseñas incorrectas / 15 min por correo |
+  | Crear cuenta | 40 / 10 min | 3 / hora por correo |
+  | Reenviar confirmación | 10 / 10 min | 3 / 15 min por correo |
+  | Recuperar contraseña | 20 / 10 min | 3 / 15 min por correo (nadie puede llenar de enlaces el buzón de otra persona) |
+  | Código de doble factor | — | 5 / 5 min y 20 / hora por usuario |
+  | Configurar doble factor | — | 5 / 10 min por usuario |
+  | Subir archivos de evidencia | — | 20 / min por usuario |
+  | Entrar a la demo | 30 / min | — |
+
+  Sólo el servidor de la app usa `sp_rate_limit`: envía una compuerta derivada de `RATE_LIMIT_SECRET` (la base guarda sólo su SHA-256) y las llaves como HMAC-SHA256 con ese secreto, así que nadie puede consultar ni agotar desde fuera los contadores de otra persona, y la tabla no guarda correos ni IPs. Sin el secreto o sin la compuerta (DEMO local, proyecto de demo, base sin migrar) o si la base falla, la app usa el límite en memoria por instancia y deja de consultar la base durante un minuto. Bloquear por cuenta permite que alguien deje sin acceso unos minutos a otra persona escribiendo mal su contraseña a propósito; el CAPTCHA (pendiente) lo encarece. En Vercel, `x-forwarded-for` lo fija la plataforma y el cliente no puede falsearlo.
 
 ### 2.3 Sesiones
 
@@ -49,6 +62,7 @@ Actores: visitante anónimo, estudiante, compañero de equipo, empresa/superviso
 
 ### 2.5 Secretos
 
+- `RATE_LIMIT_SECRET` (≥ 32 caracteres, sólo en Vercel): firma las llaves del límite de intentos y deriva su compuerta; `scripts/rate-limit-gate.mjs` imprime el SQL que guarda la compuerta (su SHA-256) en la base. Al cambiarlo hay que volver a guardar la compuerta.
 - La app sólo usa la llave **pública** de Supabase. La service-role key y la URL de base de datos se usan exclusivamente en la máquina del operador (`npm run seed -- --supabase`) y nunca se configuran en Vercel.
 - `.env*` ignorado por git (excepto `.env.example` sin valores). No hay llaves reales en el repositorio.
 - `/api/health` no expone configuración sensible (probado).
@@ -95,7 +109,7 @@ Hallazgos corregidos durante la revisión:
 | Riesgo | Mitigación recomendada |
 |---|---|
 | CSP con `'unsafe-inline'` para scripts (sin nonces) | Implementar CSP con nonce vía `proxy.ts` cuando se estabilice el despliegue. |
-| *Rate limiting* en memoria (por instancia) | Usar un limitador compartido (Upstash/Redis o Supabase) en producción; activar CAPTCHA de Supabase Auth. |
+| Límite de intentos compartido sólo activo con `RATE_LIMIT_SECRET` en Vercel y la compuerta en la base (si no, por instancia) | Configurarlos en producción (DEPLOYMENT §9) y agregar CAPTCHA (Cloudflare Turnstile) en registro, inicio de sesión y recuperación. |
 | Sin escaneo antivirus de archivos | Integrar escaneo (p. ej. ClamAV o servicio gestionado) antes de mostrar archivos a revisores. |
 | Políticas de contraseña/confirmación dependen de la configuración de Supabase Auth | Configurar longitud mínima ≥ 10, confirmación de email y protección de contraseñas filtradas. |
 | Modo DEMO `supabase` comparte estado entre visitantes | Usar un proyecto Supabase exclusivo de demo y re-sembrar periódicamente; nunca en el proyecto productivo. |

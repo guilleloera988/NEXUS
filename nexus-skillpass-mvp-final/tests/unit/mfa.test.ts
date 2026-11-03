@@ -107,8 +107,12 @@ describe('second-factor actions', () => {
   it('limits code attempts per user', async () => {
     const { verifyMfa } = await import('@/actions/mfa');
     verifyError = { message: 'Invalid TOTP code entered' };
+    session = { mode: 'supabase', userId: 'u-guessing' };
     const fd = form({ factor_id: '11111111-2222-4333-8444-555555555555', code: '000000', next: '/dashboard' });
-    for (let i = 0; i < 10; i++) expect((await verifyMfa({ ok: false }, fd)).error).toBe('mfa_invalid_code');
+    for (let i = 0; i < 5; i++) expect((await verifyMfa({ ok: false }, fd)).error).toBe('mfa_invalid_code');
     expect((await verifyMfa({ ok: false }, fd)).error).toBe('rate_limited');
+    // Another account keeps its own allowance.
+    session = { mode: 'supabase', userId: 'u-other' };
+    expect((await verifyMfa({ ok: false }, fd)).error).toBe('mfa_invalid_code');
   });
 });

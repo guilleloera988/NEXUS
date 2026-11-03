@@ -2,7 +2,8 @@
 
 import { redirect } from 'next/navigation';
 import type { ActionState } from '@/lib/action-state';
-import { fdAll, fdBool, fdString, rateLimit, runAction } from '@/lib/server/action';
+import { fdAll, fdBool, fdString, runAction } from '@/lib/server/action';
+import { LIMITS, limitAttempts } from '@/lib/server/rate-limit';
 import { requireSession, write } from '@/lib/server/backend';
 import { AppError } from '@/lib/server/errors';
 import { removeEvidenceFile, storeEvidenceFile } from '@/lib/server/storage';
@@ -38,7 +39,7 @@ export async function addEvidence(_prev: ActionState, fd: FormData): Promise<Act
       is_public: fdBool(fd, 'is_public'), previous_id: fdString(fd, 'previous_id'),
     };
     if (fdString(fd, 'source') === 'file') {
-      rateLimit(`upload:${session.userId}`, 20);
+      await limitAttempts([{ rule: LIMITS.upload, id: session.userId }]);
       const input = fileEvidenceSchema.parse(base);
       const file = fd.get('file');
       if (!(file instanceof File)) throw new AppError('evidence_source_required', 400, 'file');

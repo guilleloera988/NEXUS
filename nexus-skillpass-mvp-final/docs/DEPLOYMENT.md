@@ -47,6 +47,7 @@ La DEMO `local` **no** funciona en funciones serverless (no hay disco persistent
    | `NEXUS_DEMO_MODE` | `off` (producción) · `supabase` (proyecto de demo) |
    | `NEXUS_DEMO_PASSWORD` | sólo en el proyecto de demo |
    | `MAX_UPLOAD_MB` | `4` |
+   | `RATE_LIMIT_SECRET` | ≥ 32 caracteres aleatorios (`openssl rand -hex 32`), sólo Production. Después de aplicar `20261104000001`, guardar su compuerta en la base con el SQL que imprime `RATE_LIMIT_SECRET=… node scripts/rate-limit-gate.mjs` (y repetirlo si el secreto cambia). Sin ella el límite de intentos es por instancia. |
 
    **Nunca** configurar `SUPABASE_SERVICE_ROLE_KEY` ni `SUPABASE_DB_URL` en Vercel.
 3. Las variables `NEXT_PUBLIC_*` se fijan en build: tras cambiarlas, volver a desplegar.

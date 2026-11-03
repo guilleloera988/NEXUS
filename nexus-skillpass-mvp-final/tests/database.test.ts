@@ -6,7 +6,7 @@ type Row = Record<string, unknown>;
 type Json = Record<string, any>; // eslint-disable-line @typescript-eslint/no-explicit-any
 
 let db: TestDb;
-const APP_TABLES = 27;
+const APP_TABLES = 28;
 
 const challengeInput = (overrides: Json = {}) => ({
   organization_id: ORGS.nova,
@@ -79,7 +79,7 @@ describe('schema, grants and RLS baseline', () => {
     await expect(sql(db, null, 'select * from public.unrelated_app')).resolves.toEqual([]);
     const fns = await db.query<{ proname: string }>(
       "select p.proname from pg_proc p join pg_namespace n on n.oid = p.pronamespace where n.nspname = 'public' and p.proname like 'sp\\_%' and has_function_privilege('anon', p.oid, 'execute') order by 1");
-    expect(fns.rows.map((r) => r.proname)).toEqual(['sp_is_public_evidence_object', 'sp_public_credential', 'sp_public_evidence_file', 'sp_public_skillpass']);
+    expect(fns.rows.map((r) => r.proname)).toEqual(['sp_is_public_evidence_object', 'sp_public_credential', 'sp_public_evidence_file', 'sp_public_skillpass', 'sp_rate_limit']);
   });
 
   it('blocks anonymous table reads and private RPCs', async () => {
@@ -1215,5 +1215,80 @@ describe('second factor for privileged actions (pilot readiness)', () => {
       .toEqual({ anon: false, authenticated: true });
     await expectError(sql(db, USERS.admin, 'select * from public.platform_settings', [], AAL2), /permission denied/);
     await expectError(sql(db, null, 'select * from public.platform_settings'), /permission denied/);
+  });
+});
+
+describe('shared attempt limits (pilot readiness)', () => {
+  const GATE = 'test-gate-token';
+  const KEY = (n: number) => n.toString(16).padStart(64, 'a');
+  const limit = <T = Json[]>(checks: unknown, gate: unknown = GATE, actor: string | null = null) =>
+    rpc<T>(db, actor, 'sp_rate_limit', { gate, checks });
+  const setGate = (token: string | null) => token === null
+    ? db.query("delete from public.platform_settings where key = 'rate_limit_gate'")
+    : db.query(`insert into public.platform_settings(key, value) values ('rate_limit_gate', to_jsonb(encode(sha256(convert_to($1, 'UTF8')), 'hex')))
+                on conflict (key) do update set value = excluded.value`, [token]);
+
+  beforeAll(async () => { await setGate(GATE); });
+  afterAll(async () => { await setGate(null); await db.query('delete from public.rate_limit_hits'); });
+
+  it('refuses every caller until the server gate is configured, and any token but the right one', async () => {
+    await setGate(null);
+    await expectError(limit([{ key: KEY(1), window: 60 }]), /sp:rate_limit_unavailable/);
+    await setGate(GATE);
+    for (const gate of ['wrong-token', '', 42, null]) {
+      await expect(limit([{ key: KEY(1), window: 60 }], gate)).rejects.toThrow(/sp:rate_limit_unavailable/);
+    }
+    expect(await db.query('select 1 from public.rate_limit_hits')).toMatchObject({ rows: [] });
+  });
+
+  it('counts hits per key and window for anonymous and signed-in callers; a read does not count', async () => {
+    expect((await limit([{ key: KEY(2), window: 600 }]))[0].hits).toBe(1);
+    expect((await limit([{ key: KEY(2), window: 600, hit: true }], GATE, USERS.maria))[0].hits).toBe(2);
+    expect((await limit([{ key: KEY(2), window: 600, hit: false }]))[0].hits).toBe(2);
+    expect((await limit([{ key: KEY(3), window: 600, hit: false }]))[0].hits).toBe(0);
+    const [a, b, c] = await limit([{ key: KEY(2), window: 600 }, { key: KEY(3), window: 600 }, { key: KEY(2), window: 60, hit: false }]);
+    expect([a.hits, b.hits, c.hits]).toEqual([3, 1, 0]);
+    expect(a.reset_in).toBeGreaterThanOrEqual(0);
+    expect(a.reset_in).toBeLessThanOrEqual(600);
+    expect((await db.query<{ n: number }>('select count(*)::int as n from public.rate_limit_hits where key = $1', [KEY(3)])).rows[0].n).toBe(1);
+  });
+
+  it('accepts only digests, windows of 1 to 3600 seconds and up to five checks', async () => {
+    const bad: [unknown, string][] = [
+      [[{ key: 'maria@example.com', window: 60 }], 'key'],
+      [[{ key: KEY(4).toUpperCase(), window: 60 }], 'key'],
+      [[{ window: 60 }], 'key'],
+      [['not-an-object'], 'key'],
+      [[{ key: KEY(4), window: 0 }], 'window'],
+      [[{ key: KEY(4), window: 3601 }], 'window'],
+      [[{ key: KEY(4), window: '60' }], 'window'],
+      [[{ key: KEY(4), window: 1.5 }], 'window'],
+      [[{ key: KEY(4), window: 60, hit: 'no' }], 'hit'],
+      [[], 'checks'],
+      [Array.from({ length: 6 }, (_, i) => ({ key: KEY(10 + i), window: 60 })), 'checks'],
+      [{ key: KEY(4), window: 60 }, 'checks'],
+    ];
+    for (const [checks, field] of bad) await expectSpError(limit(checks), 'invalid_data', field);
+    expect((await db.query<{ n: number }>('select count(*)::int as n from public.rate_limit_hits where key = $1', [KEY(4)])).rows[0].n).toBe(0);
+  });
+
+  it('removes expired windows a few at a time', async () => {
+    await db.query(`insert into public.rate_limit_hits(key, window_start, expires_at, hits)
+      select lpad(to_hex(1000 + g), 64, 'b'), now() - interval '2 hours', now() - interval '1 hour', 3 from generate_series(1, 25) g`);
+    const expired = async () => (await db.query<{ n: number }>('select count(*)::int as n from public.rate_limit_hits where expires_at < now()')).rows[0].n;
+    expect(await expired()).toBe(25);
+    await limit([{ key: KEY(5), window: 60, hit: false }]);
+    expect(await expired()).toBe(5);
+    await limit([{ key: KEY(5), window: 60, hit: false }]);
+    expect(await expired()).toBe(0);
+  });
+
+  it('keeps the counters out of reach of API roles', async () => {
+    await expectError(sql(db, null, 'select * from public.rate_limit_hits'), /permission denied/);
+    await expectError(sql(db, USERS.admin, 'select * from public.rate_limit_hits', [], { 'request.jwt.claim.aal': 'aal2' }), /permission denied/);
+    await expectError(sql(db, USERS.maria, "delete from public.rate_limit_hits"), /permission denied/);
+    const can = async (role: string) =>
+      (await db.query<{ v: boolean }>("select has_function_privilege($1, 'public.sp_rate_limit(jsonb)', 'execute') as v", [role])).rows[0].v;
+    expect({ anon: await can('anon'), authenticated: await can('authenticated') }).toEqual({ anon: true, authenticated: true });
   });
 });

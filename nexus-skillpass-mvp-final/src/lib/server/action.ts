@@ -53,19 +53,3 @@ export function fdJson(fd: FormData, key = 'payload'): unknown {
     throw new AppError('invalid_data');
   }
 }
-
-// ---------------------------------------------------------------------------
-// Minimal in-memory rate limiter (per server instance). Supabase Auth applies its own limits.
-// ---------------------------------------------------------------------------
-const buckets = new Map<string, { count: number; until: number }>();
-export function rateLimit(key: string, limit: number, windowMs = 60_000) {
-  const now = Date.now();
-  if (buckets.size > 5000) for (const [k, v] of buckets) if (v.until < now) buckets.delete(k);
-  const entry = buckets.get(key);
-  if (!entry || entry.until < now) {
-    buckets.set(key, { count: 1, until: now + windowMs });
-    return;
-  }
-  entry.count += 1;
-  if (entry.count > limit) throw new AppError('rate_limited', 429);
-}

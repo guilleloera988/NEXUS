@@ -3,9 +3,10 @@
 import { redirect } from 'next/navigation';
 import QRCode from 'qrcode';
 import type { ActionState } from '@/lib/action-state';
-import { fdString, rateLimit, runAction } from '@/lib/server/action';
+import { fdString, runAction } from '@/lib/server/action';
 import { requireSession } from '@/lib/server/backend';
 import { AppError } from '@/lib/server/errors';
+import { LIMITS, limitAttempts } from '@/lib/server/rate-limit';
 import { supabaseServer } from '@/lib/server/supabase';
 import { safeNextPath } from '@/lib/safety';
 
@@ -21,7 +22,7 @@ async function supabaseUser() {
 export async function startMfaEnrollment(): Promise<ActionState> {
   return runAction(async () => {
     const { session, supabase } = await supabaseUser();
-    rateLimit(`mfa-enroll:${session.userId}`, 5);
+    await limitAttempts([{ rule: LIMITS.mfaEnroll, id: session.userId }]);
     const { data: factors } = await supabase.auth.mfa.listFactors();
     for (const factor of factors?.all ?? []) {
       if (factor.factor_type === 'totp' && factor.status === 'unverified') await supabase.auth.mfa.unenroll({ factorId: factor.id });
@@ -39,7 +40,8 @@ export async function verifyMfa(_prev: ActionState, fd: FormData): Promise<Actio
   const next = safeNextPath(fdString(fd, 'next'));
   const result = await runAction(async () => {
     const { session, supabase } = await supabaseUser();
-    rateLimit(`mfa-verify:${session.userId}`, 10);
+    // Six digits: few guesses per account, whichever server instance receives them.
+    await limitAttempts([{ rule: LIMITS.mfaVerifyBurst, id: session.userId }, { rule: LIMITS.mfaVerifyHour, id: session.userId }]);
     const code = fdString(fd, 'code').replace(/\s/g, '');
     const factorId = fdString(fd, 'factor_id');
     if (!/^\d{6}$/.test(code)) throw new AppError('mfa_invalid_code', 400, 'code');

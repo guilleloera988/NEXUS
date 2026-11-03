@@ -567,7 +567,7 @@ const es = {
     credential_requires_hours: 'Para emitir la credencial se necesitan horas verificadas.', credential_requires_assessment: 'Evalúa al menos una competencia para emitir la credencial.',
     credential_not_active: 'La credencial no está vigente.', user_role_incompatible: 'Esa cuenta no puede unirse a esta organización.', already_invited: 'Ya existe una invitación.', already_member: 'Esa persona ya es miembro de la organización.',
     invitation_closed: 'La invitación ya no está pendiente.', last_owner: 'La organización necesita al menos un responsable.', member_supervises_challenges: 'La persona supervisa retos activos.',
-    student_not_in_talent_pool: 'El estudiante no está disponible en Talento verificado.', admin_role_protected: 'Ese rol está protegido.', rate_limited: 'Demasiadas solicitudes. Espera un momento.',
+    student_not_in_talent_pool: 'El estudiante no está disponible en Talento verificado.', admin_role_protected: 'Ese rol está protegido.', rate_limited: 'Demasiados intentos. Espera unos minutos e inténtalo de nuevo.', rate_limit_unavailable: 'El servicio no está disponible por ahora. Inténtalo de nuevo en unos minutos.',
     supabase_not_configured: 'Las cuentas reales no están configuradas en este entorno.', demo_disabled: 'La demo no está habilitada en este entorno.', demo_expired: 'El escenario DEMO expiró. Inicia uno nuevo.',
     invalid_credentials: 'Correo o contraseña incorrectos.', signup_failed: 'No pudimos crear la cuenta. Revisa los datos.',
     email_send_failed: 'No pudimos enviar el correo de confirmación, así que la cuenta no se creó. Intenta más tarde o avisa a AINDEV.',

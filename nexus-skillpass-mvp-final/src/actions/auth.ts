@@ -3,19 +3,15 @@
 import { cookies, headers } from 'next/headers';
 import { redirect } from 'next/navigation';
 import type { ActionState } from '@/lib/action-state';
-import { fdString, rateLimit, runAction } from '@/lib/server/action';
+import { fdString, runAction } from '@/lib/server/action';
 import { DEMO_COOKIE } from '@/lib/server/demo-session';
 import { SIGNUP_EMAIL_COOKIE } from '@/lib/server/auth-cookies';
 import { appOrigin, supabaseConfig } from '@/lib/server/env';
 import { AppError } from '@/lib/server/errors';
+import { LIMITS, clientNetwork, emailIdentity, limitAttempts, recordAttempts } from '@/lib/server/rate-limit';
 import { supabaseServer } from '@/lib/server/supabase';
 import { forgotSchema, loginSchema, resetSchema, signupSchema } from '@/lib/schemas';
 import { safeNextPath } from '@/lib/safety';
-
-async function clientKey() {
-  const h = await headers();
-  return h.get('x-forwarded-for')?.split(',')[0]?.trim() || h.get('x-real-ip') || 'local';
-}
 
 /** Remembers, for the confirmation link's lifetime, which address the check-email page talks about. */
 async function rememberSignupEmail(email: string) {
@@ -40,9 +36,11 @@ async function origin() {
 export async function login(_prev: ActionState, fd: FormData): Promise<ActionState> {
   const next = safeNextPath(fdString(fd, 'next'));
   const result = await runAction(async () => {
-    rateLimit(`login:${await clientKey()}`, 10);
-    if (!supabaseConfig()) throw new AppError('supabase_not_configured', 503);
     const input = loginSchema.parse({ email: fdString(fd, 'email'), password: fdString(fd, 'password') });
+    // Every attempt counts against the network; only failures count against the account.
+    const failures = { rule: LIMITS.loginFailures, id: emailIdentity(input.email) };
+    await limitAttempts([{ rule: LIMITS.loginNetwork, id: await clientNetwork() }, { ...failures, mode: 'peek' }]);
+    if (!supabaseConfig()) throw new AppError('supabase_not_configured', 503);
     const supabase = await supabaseServer();
     const { error } = await supabase.auth.signInWithPassword(input);
     if (error) {
@@ -52,6 +50,7 @@ export async function login(_prev: ActionState, fd: FormData): Promise<ActionSta
         await rememberSignupEmail(input.email);
         redirect('/signup/check-email?pending=1');
       }
+      await recordAttempts([failures]);
       throw new AppError('invalid_credentials', 401);
     }
     await clearAuthCookies();
@@ -63,11 +62,14 @@ export async function login(_prev: ActionState, fd: FormData): Promise<ActionSta
 
 export async function signup(_prev: ActionState, fd: FormData): Promise<ActionState> {
   return runAction(async () => {
-    rateLimit(`signup:${await clientKey()}`, 5);
-    if (!supabaseConfig()) throw new AppError('supabase_not_configured', 503);
     const input = signupSchema.parse({
       full_name: fdString(fd, 'full_name'), email: fdString(fd, 'email'), password: fdString(fd, 'password'), account_type: fdString(fd, 'account_type'),
     });
+    await limitAttempts([
+      { rule: LIMITS.signupNetwork, id: await clientNetwork() },
+      { rule: LIMITS.signupEmail, id: emailIdentity(input.email) },
+    ]);
+    if (!supabaseConfig()) throw new AppError('supabase_not_configured', 503);
     const supabase = await supabaseServer();
     const { data, error } = await supabase.auth.signUp({
       email: input.email,
@@ -98,9 +100,12 @@ export async function signup(_prev: ActionState, fd: FormData): Promise<ActionSt
 
 export async function resendConfirmation(): Promise<ActionState> {
   return runAction(async () => {
-    rateLimit(`resend:${await clientKey()}`, 3);
-    if (!supabaseConfig()) throw new AppError('supabase_not_configured', 503);
     const parsed = forgotSchema.safeParse({ email: (await cookies()).get(SIGNUP_EMAIL_COOKIE)?.value ?? '' });
+    await limitAttempts([
+      { rule: LIMITS.resendNetwork, id: await clientNetwork() },
+      ...(parsed.success ? [{ rule: LIMITS.resendEmail, id: emailIdentity(parsed.data.email) }] : []),
+    ]);
+    if (!supabaseConfig()) throw new AppError('supabase_not_configured', 503);
     if (!parsed.success) throw new AppError('signup_email_unknown', 400);
     const supabase = await supabaseServer();
     const { error } = await supabase.auth.resend({
@@ -120,9 +125,10 @@ export async function resendConfirmation(): Promise<ActionState> {
 
 export async function forgotPassword(_prev: ActionState, fd: FormData): Promise<ActionState> {
   return runAction(async () => {
-    rateLimit(`forgot:${await clientKey()}`, 5);
-    if (!supabaseConfig()) throw new AppError('supabase_not_configured', 503);
     const { email } = forgotSchema.parse({ email: fdString(fd, 'email') });
+    // Limits per address too: nobody can flood someone else's inbox with reset links.
+    await limitAttempts([{ rule: LIMITS.forgotNetwork, id: await clientNetwork() }, { rule: LIMITS.forgotEmail, id: emailIdentity(email) }]);
+    if (!supabaseConfig()) throw new AppError('supabase_not_configured', 503);
     const supabase = await supabaseServer();
     // The response is identical whether or not the account exists (no account enumeration).
     await supabase.auth.resetPasswordForEmail(email, { redirectTo: new URL('/auth/callback?next=/reset-password', await origin()).toString() });
