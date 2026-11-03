@@ -109,7 +109,7 @@ Hallazgos corregidos durante la revisión:
 | Riesgo | Mitigación recomendada |
 |---|---|
 | CSP con `'unsafe-inline'` para scripts (sin nonces) | Implementar CSP con nonce vía `proxy.ts` cuando se estabilice el despliegue. |
-| Límite de intentos compartido sólo activo con `RATE_LIMIT_SECRET` en Vercel y la compuerta en la base (si no, por instancia) | Configurarlos en producción (DEPLOYMENT §9) y agregar CAPTCHA (Cloudflare Turnstile) en registro, inicio de sesión y recuperación. |
+| Sin CAPTCHA en registro, inicio de sesión y recuperación (el límite de intentos compartido está activo en producción desde el 3 nov; sin `RATE_LIMIT_SECRET` y su compuerta, como en la demo, es por instancia) | Agregar Cloudflare Turnstile y activarlo después en Supabase Auth. |
 | Sin escaneo antivirus de archivos | Integrar escaneo (p. ej. ClamAV o servicio gestionado) antes de mostrar archivos a revisores. |
 | Políticas de contraseña/confirmación dependen de la configuración de Supabase Auth | Configurar longitud mínima ≥ 10, confirmación de email y protección de contraseñas filtradas. |
 | Modo DEMO `supabase` comparte estado entre visitantes | Usar un proyecto Supabase exclusivo de demo y re-sembrar periódicamente; nunca en el proyecto productivo. |

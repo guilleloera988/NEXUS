@@ -83,7 +83,7 @@ Pendientes técnicos para abrir SkillPass a una universidad, sus estudiantes y e
 |---|---|---|
 | 1 | Comprobar que el estudiante pertenece a la universidad: vinculación inmediata con correo institucional; si no, aprobación del personal de la universidad | **Hecho y en producción** (3 nov, `20261103000001`; revisión adversarial y sus correcciones, pruebas de BD y E2E). |
 | 2 | Doble factor (MFA) obligatorio para admin y supervisores | **Hecho y en producción** (3 nov, `20261103000002`, pantalla `/mfa`). El admin configura su app de autenticación al volver a entrar. |
-| 3 | Límite de intentos compartido y CAPTCHA en registro e inicio de sesión (OI-04) | **En curso.** Límite compartido hecho (`20261104000001`, [SECURITY §2.2](SECURITY.md#22-aplicación)): por red y por cuenta en inicio de sesión, registro, reenvío, recuperación, doble factor, subidas y demo. Para activarlo en producción falta aplicar la migración, configurar `RATE_LIMIT_SECRET` en Vercel y guardar su compuerta en la base. CAPTCHA (Cloudflare Turnstile) pendiente de la *Site Key*. |
+| 3 | Límite de intentos compartido y CAPTCHA en registro e inicio de sesión (OI-04) | **En curso.** Límite compartido **hecho y en producción** (3 nov, `20261104000001`, [SECURITY §2.2](SECURITY.md#22-aplicación)): por red y por cuenta en inicio de sesión, registro, reenvío, recuperación, doble factor, subidas y demo; comprobado con un inicio de sesión fallido real (dos contadores, sólo digests). CAPTCHA (Cloudflare Turnstile) pendiente de la *Site Key*. |
 | 4 | Antivirus para archivos subidos (OI-05) | Pendiente |
 | 5 | Monitoreo de errores y avisos por correo | Pendiente |
 | 6 | Prueba completa de recuperación de contraseña (OI-09) | Pendiente |
@@ -97,7 +97,7 @@ Del lado del negocio, sin bloquear lo anterior: planes de pago de Supabase y Ver
 | OI-01 | Media | Producción desplegada (8 oct) pero en planes gratuitos: Supabase Free se pausa tras 7 días sin uso y no tiene respaldos diarios; Vercel Hobby no admite uso comercial. La base de la demo estaba pausada el 24 oct (la verificación pública daba error 500) y se reactivó el 2 nov; desde entonces un cron diario de Vercel (`vercel.json`) abre una página de verificación que consulta la base, en la demo y en producción, para que no vuelvan a pausarse por inactividad. | Pasar Supabase `skillpass-prod` y el equipo de Vercel a Pro antes de abrir a usuarios reales. |
 | OI-02 | Resuelto (8 oct) | URLs de Auth de producción apuntan a `https://skillpass.aindev.com.mx` (y la demo conserva las suyas). | — |
 | OI-03 | Media | CSP con `'unsafe-inline'` en scripts. | Nonces vía `proxy.ts`. |
-| OI-04 | Media | Límite de intentos compartido listo en el código (`20261104000001`); en producción sigue por instancia hasta aplicar la migración y configurar `RATE_LIMIT_SECRET` con su compuerta. Sin CAPTCHA. | Activarlo en producción; CAPTCHA con Cloudflare Turnstile en registro, inicio de sesión y recuperación. |
+| OI-04 | Media | Límite de intentos compartido activo en producción desde el 3 nov (`20261104000001`, `RATE_LIMIT_SECRET` en Vercel); el proyecto de demo sigue con el límite por instancia. Sin CAPTCHA. | CAPTCHA con Cloudflare Turnstile en registro, inicio de sesión y recuperación. |
 | OI-05 | Media | Sin escaneo antivirus de archivos subidos. | Integrar escaneo antes de exponer archivos a revisores. |
 | OI-06 | Media | Textos legales (privacidad, términos, IP) pendientes. | Decisión legal de AINDEV. |
 | OI-07 | Baja | La DEMO local usa ~42 MB de disco por escenario. | Ajustar límites o implementar snapshot comprimido. |
