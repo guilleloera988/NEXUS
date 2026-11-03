@@ -87,6 +87,16 @@ export const organizationSchema = organizationOnboardingSchema.omit({ full_name:
 
 export const inviteSchema = z.object({ organization_id: uuid, email: z.string().trim().toLowerCase().email().max(254), member_role: z.enum(['manager', 'supervisor', 'staff']) });
 
+/** A university's decision on a student's membership (sp_decide_university_request checks who may decide). */
+export const universityDecisionSchema = z.object({ organization_id: uuid, student_id: uuid, decision: z.enum(['approve', 'reject', 'remove']) });
+
+/** Student e-mail domains; the database also refuses public mail providers. */
+export const STUDENT_EMAIL_DOMAIN = /^([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$/;
+export const universityDomainsSchema = z.object({
+  organization_id: uuid,
+  student_email_domains: z.array(z.string().trim().toLowerCase().transform((v) => v.replace(/^@/, '')).pipe(z.string().max(253).regex(STUDENT_EMAIL_DOMAIN))).max(10),
+});
+
 export const challengeSchema = z.object({
   id: optionalUuid,
   organization_id: optionalUuid,

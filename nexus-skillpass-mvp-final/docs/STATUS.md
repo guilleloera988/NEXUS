@@ -75,6 +75,21 @@ Observaciones del responsable de producto (documento «Retroalimentación de Ski
 
 **Despliegue.** Las reglas 2–4 también viven en la base de datos, en la migración `20261015000001_feedback_required_fields.sql`. El código se desplegó primero (el *push* a la rama de producción despliega la app, y la app funciona con la base sin migrar: el formulario y las acciones del servidor ya aplican las reglas; los mensajes de una base antigua sin campo se muestran con el texto general). La migración se **aplicó en producción el 15 oct** (`skillpass-prod`, Supabase `aapwypujznnkxkjdbmsu`) por la Management API, en una sola transacción que comprobó antes que estuvieran exactamente las 13 migraciones anteriores y las seis funciones sin cambios, y después permisos, dueños y cuerpos: 14 de 14 comprobaciones de verificación correctas y ningún aviso nuevo en el *Security Advisor* (detalle en DEPLOYMENT §9). En el proyecto de demo no se puede aplicar desde este entorno (igual que H-6, OI-11): hay que hacerlo desde el SQL editor del panel de Supabase, después de `20261008000001`. Las filas ya guardadas no se revisan hasta que cambian: una empresa sin sitio web tendrá que escribirlo la próxima vez que guarde «Mi organización» (en producción hay una), un borrador incompleto sigue siendo borrador hasta completarlo y un reto publicado incompleto tendrá que completarse al editarlo.
 
+## Piloto con universidades (nov 2026)
+
+Pendientes técnicos para abrir SkillPass a una universidad, sus estudiantes y empresas reales, en el orden acordado:
+
+| # | Pendiente | Estado |
+|---|---|---|
+| 1 | Comprobar que el estudiante pertenece a la universidad: vinculación inmediata con correo institucional; si no, aprobación del personal de la universidad | **Hecho** (`20261103000001`, pantallas, pruebas de BD y E2E). Pendiente de aplicar en producción (OI-13). |
+| 2 | Doble factor (MFA) obligatorio para admin y supervisores | **Hecho** (`20261103000002`, pantalla `/mfa`, pruebas de BD y unitarias). Pendiente de aplicar en producción (OI-13). |
+| 3 | Límite de intentos compartido y CAPTCHA en registro e inicio de sesión (OI-04) | Pendiente |
+| 4 | Antivirus para archivos subidos (OI-05) | Pendiente |
+| 5 | Monitoreo de errores y avisos por correo | Pendiente |
+| 6 | Prueba completa de recuperación de contraseña (OI-09) | Pendiente |
+
+Del lado del negocio, sin bloquear lo anterior: planes de pago de Supabase y Vercel (OI-01) y textos legales (OI-06).
+
 ## Problemas abiertos
 
 | ID | Severidad | Descripción | Próximo paso |
@@ -91,3 +106,4 @@ Observaciones del responsable de producto (documento «Retroalimentación de Ski
 | OI-10 | Resuelto | Hallazgos de seguridad H-1…H-5 corregidos (`20261007000003`…`07`) con pruebas de regresión y aplicados en la demo. | — |
 | OI-11 | Baja | H-6 corregido (`20261008000001`, con prueba de regresión) y aplicado en producción el 8 oct. Falta en la demo, que ya no acepta cambios desde el entorno de despliegue: no tiene datos reales, pero conviene aplicarla desde el panel de Supabase. Quedan los riesgos bajos R-1…R-6. | Aplicar `20261008000001` en el proyecto de demo; ver SECURITY §6. |
 | OI-12 | Baja | La migración `20261015000001` (retroalimentación del 15 oct) está aplicada en producción (15 oct, 14 de 14 comprobaciones correctas) pero falta en la demo, que ya no acepta cambios desde el entorno de despliegue: mientras falte, la base de la demo no exige tarea y entregable en la evidencia ni sitio web de empresa, y para publicar un reto sólo pide competencias, entregables, supervisor y fechas (la app sí aplica esas reglas). | Aplicarla en la demo desde el panel de Supabase, después de `20261008000001`. |
+| OI-13 | Media | Las migraciones `20261103000001` (vinculación universitaria verificada) y `20261103000002` (doble factor) no están aplicadas en producción ni en la demo; con la segunda, el admin de producción tendrá que configurar su app de autenticación al volver a entrar. La app funciona sin ellas (el panel de la universidad no muestra solicitudes y no aparece el formulario de dominios), pero hasta aplicarlas cualquier estudiante puede declararse de una universidad y el admin entra sin segundo factor. | Aplicarlas en `skillpass-prod`, en orden, con los scripts de comprobaciones previas y posteriores ya ensayados, con autorización; en la demo, desde el panel de Supabase después de `20261015000001`. |

@@ -10,12 +10,12 @@ Todas las cifras de este documento provienen de ejecuciones reales en esta entre
 |---|---|---|
 | Lint | `npm run lint` | ✔ 0 errores · 0 warnings |
 | Tipos | `npm run typecheck` | ✔ sin errores (TypeScript estricto + tipos de rutas generados) |
-| Unitarias + base de datos (PGlite) | `npm test` | ✔ **128/128** (15 oct 2026, con las regresiones de seguridad H-1…H-6 y las reglas de la retroalimentación del 15 oct) |
-| Base de datos en PostgreSQL 16 real | `npm run test:pg` | ✔ **60/60** |
+| Unitarias + base de datos (PGlite) | `npm test` | ✔ **150/150** (3 nov 2026, con las regresiones de seguridad H-1…H-6, las reglas de la retroalimentación del 15 oct, la vinculación universitaria verificada y el doble factor) |
+| Base de datos en PostgreSQL 16 real | `npm run test:pg` | ✔ **75/75** (3 nov 2026) |
 | Base de datos en PostgreSQL 17.11 (imagen de Supabase) | `TEST_DATABASE_URL=… npm run test:pg` | ✔ **39/39** (corrida del 2 oct; las 12 migraciones se aplicaron después en el Supabase de la demo, PG 17) |
 | Build de producción | `npm run build` | ✔ compila sin errores ni warnings de tipos; 33 rutas dinámicas + 5 recursos estáticos (íconos, OG, robots, sitemap) |
 | E2E · DEMO local (dev) | `npm run test:e2e` | ✔ **15/15** (+3 omitidas: requieren Supabase) |
-| E2E · DEMO local (build de producción, modo CI) | `CI=1 npm run test:e2e` | ✔ **15/15** (+3 omitidas); 8 oct, con la prueba de descarga pública: ✔ **16/16** (+3 omitidas); 15 oct, con la retroalimentación (`feedback.spec.ts`) y las pantallas de registro: ✔ **22/22** (+3 omitidas) |
+| E2E · DEMO local (build de producción, modo CI) | `CI=1 npm run test:e2e` | ✔ **15/15** (+3 omitidas); 8 oct, con la prueba de descarga pública: ✔ **16/16** (+3 omitidas); 15 oct, con la retroalimentación (`feedback.spec.ts`) y las pantallas de registro: ✔ **22/22** (+3 omitidas); 3 nov, con la vinculación universitaria (`university-membership.spec.ts`) y la ruta del doble factor (`mfa.spec.ts`): ✔ **25/25** (+3 omitidas). El flujo TOTP se prueba con un cliente de Supabase simulado (`tests/unit/mfa.test.ts`): no hay servidor de Supabase Auth en este entorno. |
 | E2E · DEMO local (build de producción) con las pantallas de confirmación (8 oct 2026) | `CI=1 npm run test:e2e` | ✔ **18/18** (+3 omitidas: requieren Supabase) |
 | Registro contra el Supabase **de producción** (app local, 8 oct 2026) | Playwright con direcciones de prueba `delivered+…@resend.dev` | ✔ registro → `/signup/check-email` con el correo (sobrevive a recargas); reenvío con cuenta regresiva de 60 s; login sin confirmar → misma pantalla con aviso; enlace `token_hash` (generado con la Admin API) abierto en un navegador limpio → sesión y `/onboarding`; segundo uso del enlace → `/login` con explicación; contraseña incorrecta → error genérico. Cuentas de prueba borradas al terminar. |
 | E2E · Supabase real (stack local: Auth, PostgREST, Storage, Kong) | `E2E_BASE_URL=… E2E_SUPABASE=1 npx playwright test` | ✔ **17/17** (+1 omitida: sólo DEMO local) |

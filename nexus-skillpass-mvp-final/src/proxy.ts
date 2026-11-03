@@ -3,7 +3,7 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { DEMO_COOKIE, verifyDemoSession } from '@/lib/server/demo-session';
 import { demoMode, supabaseConfig } from '@/lib/server/env';
 
-const PRIVATE = /^\/(dashboard|challenges|workspace|validations|profile|my-skillpass|talent|organization|notifications|admin|onboarding)(\/|$)/;
+const PRIVATE = /^\/(dashboard|challenges|workspace|validations|profile|my-skillpass|talent|organization|notifications|admin|onboarding|mfa)(\/|$)/;
 
 /**
  * Refreshes the Supabase session cookie on every navigation and sends signed-out visitors

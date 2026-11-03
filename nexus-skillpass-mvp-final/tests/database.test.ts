@@ -6,7 +6,7 @@ type Row = Record<string, unknown>;
 type Json = Record<string, any>; // eslint-disable-line @typescript-eslint/no-explicit-any
 
 let db: TestDb;
-const APP_TABLES = 24;
+const APP_TABLES = 25;
 
 const challengeInput = (overrides: Json = {}) => ({
   organization_id: ORGS.nova,
@@ -931,5 +931,218 @@ describe('product feedback 15 oct 2026 (required fields)', () => {
     expect(rows.length).toBeGreaterThan(30);
     expect(rows.find((r) => r.c.id === CHALLENGE(7))?.missing).toEqual(['conditions', 'supervisor_id', 'start_date']);
     for (const r of rows) expect(missingForPublish(r.c, r), r.c.title).toEqual(r.missing);
+  });
+});
+
+describe('verified university membership (pilot readiness)', () => {
+  const STUDENT = (n: number) => `10000000-0000-4000-8000-0000000007${String(n).padStart(2, '0')}`;
+  const signUp = (id: string, email: string, confirmed = true) =>
+    db.query('insert into auth.users(id, email, email_confirmed_at, raw_user_meta_data) values ($1, $2, $3, $4::jsonb)',
+      [id, email, confirmed ? new Date().toISOString() : null, JSON.stringify({ full_name: `Estudiante ${id.slice(-2)}`, account_type: 'student' })]);
+  const chooseUniversity = (id: string, university: string | null) =>
+    rpc(db, id, 'sp_update_profile', { full_name: `Estudiante ${id.slice(-2)}`, university_id: university ?? '' });
+  const membership = async (id: string) => (await db.query<Row>(
+    `select university_id, university_verified_via, university_request_id, university_request_status
+     from public.profiles where id = $1`, [id])).rows[0];
+  const requests = async (actor: string, payload: Json = {}) =>
+    ((await rpc<Json>(db, actor, 'sp_university_requests', payload)).requests as Json[]).map((r) => r.student_id);
+  const decide = (actor: string, student: string, decision: string, organization: string = ORGS.demoUniversity) =>
+    rpc<Json>(db, actor, 'sp_decide_university_request', { organization_id: organization, student_id: student, decision });
+  const setDomains = (actor: string, domains: string[], organization: string = ORGS.demoUniversity) =>
+    rpc<Json>(db, actor, 'sp_set_university_domains', { organization_id: organization, student_email_domains: domains });
+  const dashboardStudents = async () => ((await rpc<Json>(db, USERS.elena, 'sp_university_dashboard')).stats.students as number);
+  const staffSees = async (student: string) =>
+    (await sql<{ v: boolean }>(db, USERS.elena, 'select public.sp_can_view_profile($1) as v', [student]))[0].v;
+  const notifications = async (user: string) =>
+    (await db.query<Row>('select kind, params from public.notifications where user_id = $1 order by created_at', [user])).rows;
+
+  beforeAll(async () => {
+    await signUp(STUDENT(1), 'ana@alumnos.demo-university.example');
+    await signUp(STUDENT(2), 'beto@gmail.com');
+    await signUp(STUDENT(3), 'caro@demo-university.example', false);
+    await signUp(STUDENT(4), 'dani@alumnos.nuevo-dominio.example');
+    await signUp(STUDENT(5), 'eva@Demo-University.example');
+  });
+
+  it('keeps the seeded students linked and marks how', async () => {
+    expect(await membership(USERS.maria)).toEqual({ university_id: ORGS.demoUniversity, university_verified_via: 'seed',
+      university_request_id: null, university_request_status: null });
+  });
+
+  it('lets only the university managers or AINDEV set student e-mail domains, and refuses public mail providers', async () => {
+    for (const actor of [USERS.maria, USERS.laura, USERS.luis, USERS.carlos]) await expectError(setDomains(actor, ['demo-university.example']), /forbidden/);
+    for (const bad of [['gmail.com'], ['hotmail.com'], ['not a domain'], ['localhost'], ['-x.example'], ['a@b.example'], Array.from({ length: 11 }, (_, i) => `d${i}.example`)]) {
+      await expectSpError(setDomains(USERS.elena, bad), 'invalid_field', 'student_email_domains');
+    }
+    const saved = await setDomains(USERS.elena, [' @Demo-University.EXAMPLE ', 'demo-university.example']);
+    expect(saved).toEqual({ id: ORGS.demoUniversity, student_email_domains: ['demo-university.example'], verified: 0 });
+    await expectError(setDomains(USERS.elena, ['tec-demo.example'], ORGS.tecDemo), /forbidden/);
+    expect((await setDomains(USERS.admin, ['tec-demo.example'], ORGS.tecDemo)).student_email_domains).toEqual(['tec-demo.example']);
+  });
+
+  it('verifies at once a confirmed institutional e-mail, including subdomains and any letter case', async () => {
+    const before = await dashboardStudents();
+    await chooseUniversity(STUDENT(1), ORGS.demoUniversity);
+    await chooseUniversity(STUDENT(5), ORGS.demoUniversity);
+    for (const id of [STUDENT(1), STUDENT(5)]) {
+      expect(await membership(id)).toEqual({ university_id: ORGS.demoUniversity, university_verified_via: 'email_domain',
+        university_request_id: null, university_request_status: null });
+    }
+    expect(await dashboardStudents()).toBe(before + 2);
+    expect(await staffSees(STUDENT(1))).toBe(true);
+  });
+
+  it('keeps any other choice as a pending request that does not count, show or open the student data', async () => {
+    const before = await dashboardStudents();
+    await chooseUniversity(STUDENT(2), ORGS.demoUniversity);
+    await chooseUniversity(STUDENT(3), ORGS.demoUniversity); // matching domain, but the address is not confirmed
+    for (const id of [STUDENT(2), STUDENT(3)]) {
+      expect(await membership(id)).toEqual({ university_id: null, university_verified_via: null,
+        university_request_id: ORGS.demoUniversity, university_request_status: 'pending' });
+      expect(await staffSees(id)).toBe(false);
+    }
+    expect(await dashboardStudents()).toBe(before);
+    expect(await requests(USERS.elena)).toEqual(expect.arrayContaining([STUDENT(2), STUDENT(3)]));
+    expect(await requests(USERS.luis)).not.toContain(STUDENT(2));
+    expect(await requests(USERS.maria)).toEqual([]);
+    const me = await rpc<Json>(db, STUDENT(2), 'sp_me');
+    expect(me.university).toBeNull();
+    expect(me.profile.university_request_status).toBe('pending');
+    expect((await notifications(USERS.elena)).filter((n) => n.kind === 'university_request')).toHaveLength(2);
+    // Saving the profile again with the same choice keeps the request, and does not notify again.
+    await chooseUniversity(STUDENT(2), ORGS.demoUniversity);
+    expect((await membership(STUDENT(2))).university_request_status).toBe('pending');
+    expect((await notifications(USERS.elena)).filter((n) => n.kind === 'university_request')).toHaveLength(2);
+  });
+
+  it('lets only that university staff or AINDEV decide, and only on open requests', async () => {
+    for (const actor of [USERS.luis, USERS.laura, USERS.carlos, STUDENT(2), STUDENT(1)]) await expectError(decide(actor, STUDENT(2), 'approve'), /forbidden/);
+    await expectError(decide(USERS.elena, STUDENT(1), 'approve'), /membership_request_closed/); // already verified
+    await expectError(decide(USERS.elena, STUDENT(1), 'reject'), /membership_request_closed/);
+    await expectError(decide(USERS.elena, STUDENT(2), 'remove'), /membership_request_closed/); // not a member yet
+    await expectSpError(decide(USERS.elena, STUDENT(2), 'maybe'), 'invalid_field', 'decision');
+    await expectError(decide(USERS.elena, USERS.laura, 'approve'), /not_found/);
+  });
+
+  it('links the student once the university approves, and tells them', async () => {
+    const before = await dashboardStudents();
+    expect(await decide(USERS.elena, STUDENT(2), 'approve')).toEqual({ student_id: STUDENT(2), decision: 'approve' });
+    expect(await membership(STUDENT(2))).toEqual({ university_id: ORGS.demoUniversity, university_verified_via: 'university',
+      university_request_id: null, university_request_status: null });
+    expect(await dashboardStudents()).toBe(before + 1);
+    expect(await staffSees(STUDENT(2))).toBe(true);
+    expect(await requests(USERS.elena)).not.toContain(STUDENT(2));
+    expect((await notifications(STUDENT(2))).map((n) => n.kind)).toContain('university_membership_approved');
+    const audit = (await db.query<Row>("select action, organization_id from public.audit_logs where subject_id = $1 and action like 'university_membership_%' order by created_at", [STUDENT(2)])).rows;
+    expect(audit.map((a) => a.action)).toEqual(['university_membership_requested', 'university_membership_approve']);
+  });
+
+  it('records a rejection, which a new save does not reopen, and lets the student choose again', async () => {
+    await decide(USERS.elena, STUDENT(3), 'reject');
+    expect(await membership(STUDENT(3))).toEqual({ university_id: null, university_verified_via: null,
+      university_request_id: ORGS.demoUniversity, university_request_status: 'rejected' });
+    expect((await notifications(STUDENT(3))).map((n) => n.kind)).toContain('university_membership_rejected');
+    expect(await requests(USERS.elena)).not.toContain(STUDENT(3));
+    await chooseUniversity(STUDENT(3), ORGS.demoUniversity);
+    expect((await membership(STUDENT(3))).university_request_status).toBe('rejected');
+    await chooseUniversity(STUDENT(3), ORGS.tecDemo);
+    expect(await membership(STUDENT(3))).toEqual({ university_id: null, university_verified_via: null,
+      university_request_id: ORGS.tecDemo, university_request_status: 'pending' });
+    expect(await requests(USERS.luis)).toContain(STUDENT(3));
+    await chooseUniversity(STUDENT(3), null);
+    expect(await membership(STUDENT(3))).toEqual({ university_id: null, university_verified_via: null,
+      university_request_id: null, university_request_status: null });
+  });
+
+  it('lets the university remove a student and AINDEV approve for any university', async () => {
+    const before = await dashboardStudents();
+    await decide(USERS.elena, STUDENT(2), 'remove');
+    expect(await membership(STUDENT(2))).toEqual({ university_id: null, university_verified_via: null,
+      university_request_id: ORGS.demoUniversity, university_request_status: 'rejected' });
+    expect(await dashboardStudents()).toBe(before - 1);
+    expect(await staffSees(STUDENT(2))).toBe(false);
+    expect((await notifications(STUDENT(2))).map((n) => n.kind)).toContain('university_membership_removed');
+    await decide(USERS.admin, STUDENT(2), 'approve');
+    expect((await membership(STUDENT(2))).university_verified_via).toBe('admin');
+  });
+
+  it('verifies pending requests at once when the university adds their domain', async () => {
+    await chooseUniversity(STUDENT(4), ORGS.demoUniversity);
+    expect((await membership(STUDENT(4))).university_request_status).toBe('pending');
+    const saved = await setDomains(USERS.elena, ['demo-university.example', 'nuevo-dominio.example']);
+    expect(saved.verified).toBe(1);
+    expect(await membership(STUDENT(4))).toEqual({ university_id: ORGS.demoUniversity, university_verified_via: 'email_domain',
+      university_request_id: null, university_request_status: null });
+    expect((await notifications(STUDENT(4))).map((n) => n.kind)).toContain('university_membership_approved');
+  });
+
+  it('shows the university on public pages only once the link is verified', async () => {
+    const slug = (await db.query<{ slug: string }>('select slug from public.profiles where id = $1', [STUDENT(3)])).rows[0].slug;
+    await rpc(db, STUDENT(3), 'sp_update_privacy', { skillpass_public: true, public_show_university: true, public_show_career: true, open_to_opportunities: false });
+    await chooseUniversity(STUDENT(3), ORGS.tecDemo);
+    expect((await rpc<Json>(db, null, 'sp_public_skillpass', { slug })).profile.university).toBeNull();
+    await decide(USERS.luis, STUDENT(3), 'approve', ORGS.tecDemo);
+    expect((await rpc<Json>(db, null, 'sp_public_skillpass', { slug })).profile.university).toBe('Instituto Tecnológico Demo');
+  });
+
+  it('keeps the helpers internal and exposes the three RPCs to signed-in users only', async () => {
+    const can = async (role: string, fn: string) =>
+      (await db.query<{ v: boolean }>('select has_function_privilege($1, $2, \'execute\') as v', [role, fn])).rows[0].v;
+    for (const fn of ['public.sp_university_email_match(uuid, uuid)', 'public.sp_choose_university(uuid, uuid)',
+      'public.sp_membership_university(jsonb)', 'public.sp_student_email_domain_valid(text)']) {
+      expect({ fn, anon: await can('anon', fn), authenticated: await can('authenticated', fn) }).toEqual({ fn, anon: false, authenticated: false });
+    }
+    for (const fn of ['public.sp_university_requests(jsonb)', 'public.sp_decide_university_request(jsonb)', 'public.sp_set_university_domains(jsonb)']) {
+      expect({ fn, anon: await can('anon', fn), authenticated: await can('authenticated', fn) }).toEqual({ fn, anon: false, authenticated: true });
+    }
+  });
+});
+
+describe('second factor for privileged actions (pilot readiness)', () => {
+  const as = async <T = Json>(actor: string, fn: string, payload: Json = {}, settings: Record<string, string> = {}) =>
+    (await sql<{ r: T }>(db, actor, `select public.${fn}($1::jsonb) as r`, [JSON.stringify(payload)], settings))[0]?.r as T;
+  const AAL2 = { 'request.jwt.claim.aal': 'aal2' };
+  const AAL2_CLAIMS = { 'request.jwt.claims': JSON.stringify({ sub: USERS.admin, aal: 'aal2' }) };
+  const setRequired = (on: boolean) => db.query("update public.platform_settings set value = $1::jsonb where key = 'mfa_required'", [JSON.stringify(on)]);
+
+  beforeAll(async () => { await setRequired(true); });
+  afterAll(async () => { await setRequired(false); });
+
+  it('keeps the DEMO seed without a second factor and new databases with it', async () => {
+    await setRequired(false);
+    expect(await as(USERS.admin, 'sp_mfa_status')).toEqual({ required: false, aal: 'aal1', satisfied: true });
+    await setRequired(true);
+    expect(await as(USERS.admin, 'sp_mfa_status')).toEqual({ required: true, aal: 'aal1', satisfied: false });
+    expect(await as(USERS.admin, 'sp_mfa_status', {}, AAL2)).toEqual({ required: true, aal: 'aal2', satisfied: true });
+    expect(await as(USERS.admin, 'sp_mfa_status', {}, AAL2_CLAIMS)).toEqual({ required: true, aal: 'aal2', satisfied: true });
+  });
+
+  it('closes every admin power until the session completes the second factor', async () => {
+    expect(await as(USERS.admin, 'sp_admin_overview')).toBeNull();
+    await expectError(as(USERS.admin, 'sp_admin_set_org_status', { organization_id: ORGS.agroPending, status: 'pending' }), /admin_only/);
+    await expectError(as(USERS.admin, 'sp_revoke_credential', { credential_id: '50000000-0000-4000-8000-000000000001', reason: 'Prueba de MFA' }), /admin_only/);
+    // RLS admin branches too: at aal1 the admin sees only their own audit rows, like any signed-in user.
+    const others = "select count(*)::int as n from public.audit_logs where actor_id is distinct from $1 and subject_id is distinct from $1";
+    expect((await sql<{ n: number }>(db, USERS.admin, others, [USERS.admin]))[0].n).toBe(0);
+    expect((await sql<{ n: number }>(db, USERS.admin, others, [USERS.admin], AAL2))[0].n).toBeGreaterThan(10);
+    expect((await as<Json>(USERS.admin, 'sp_admin_overview', {}, AAL2))).not.toBeNull();
+  });
+
+  it('asks for the second factor before a reviewer can complete a validation and issue a credential', async () => {
+    await expectError(as(USERS.carlos, 'sp_complete_validation', { request_id: '00000000-0000-4000-8000-000000000000' }), /mfa_required/);
+    // With the second factor the RPC goes on to its own checks.
+    await expectError(as(USERS.carlos, 'sp_complete_validation', { request_id: '00000000-0000-4000-8000-000000000000' }, AAL2), /not_found/);
+  });
+
+  it('exposes only the status RPC and hides the setting itself', async () => {
+    const can = async (role: string, fn: string) =>
+      (await db.query<{ v: boolean }>('select has_function_privilege($1, $2, \'execute\') as v', [role, fn])).rows[0].v;
+    for (const fn of ['public.sp_current_aal()', 'public.sp_mfa_required()', 'public.sp_mfa_satisfied()', 'public.sp_require_mfa()']) {
+      expect({ fn, anon: await can('anon', fn), authenticated: await can('authenticated', fn) }).toEqual({ fn, anon: false, authenticated: false });
+    }
+    expect({ anon: await can('anon', 'public.sp_mfa_status(jsonb)'), authenticated: await can('authenticated', 'public.sp_mfa_status(jsonb)') })
+      .toEqual({ anon: false, authenticated: true });
+    await expectError(sql(db, USERS.admin, 'select * from public.platform_settings', [], AAL2), /permission denied/);
+    await expectError(sql(db, null, 'select * from public.platform_settings'), /permission denied/);
   });
 });

@@ -2,6 +2,7 @@
 
 import { AVAILABILITY, INTERESTS } from '@/lib/constants';
 import { competencyName } from '@/lib/format';
+import { fmt } from '@/lib/i18n';
 import { useI18n } from '@/lib/i18n/client';
 import type { Competency, Lookups, Profile } from '@/lib/types';
 import { ChipGroup, Field } from './ui/form';
@@ -10,6 +11,18 @@ import { ChipGroup, Field } from './ui/form';
 export function StudentProfileFields({ profile, lookups, declared }: { profile: Profile; lookups: Lookups; declared: string[] }) {
   const { t, locale } = useI18n();
   const O = t.onboarding.student;
+  // A pending or rejected request keeps the choice selected, so saving the profile again does not withdraw it.
+  const chosen = profile.university_id ?? profile.university_request_id ?? '';
+  const universityName = lookups.universities.find((u) => u.id === profile.university_request_id)?.name ?? '';
+  const M = O.membership;
+  const membership = profile.university_id
+    ? { tone: 'text-success-700', text: { email_domain: M.verified_email_domain, university: M.verified_university, admin: M.verified_admin, seed: M.verified_seed }[
+        profile.university_verified_via ?? 'seed'] }
+    : profile.university_request_id && profile.university_request_status === 'pending'
+      ? { tone: 'text-warning-700', text: fmt(M.pending, { university: universityName }) }
+      : profile.university_request_id && profile.university_request_status === 'rejected'
+        ? { tone: 'text-danger-700', text: fmt(M.rejected, { university: universityName }) }
+        : null;
   const byCategory = (['technical', 'digital', 'business', 'human'] as const).map((category) => ({
     category,
     items: lookups.competencies.filter((c: Competency) => c.category === category),
@@ -22,11 +35,12 @@ export function StudentProfileFields({ profile, lookups, declared }: { profile: 
         <Field label={O.headline} name="headline" defaultValue={profile.headline} placeholder={O.headlinePlaceholder} maxLength={160} className="sm:col-span-2" />
       </div>
       <div className="grid gap-4 sm:grid-cols-[2fr_2fr_1fr]">
-        <Field as="select" label={O.university} name="university_id" defaultValue={profile.university_id ?? ''} placeholder={O.noUniversity}
+        <Field as="select" label={O.university} name="university_id" defaultValue={chosen} placeholder={O.noUniversity}
           options={lookups.universities.map((u) => ({ value: u.id, label: u.campus ? `${u.name} · ${u.campus}` : u.name }))} help={O.universityHelp} />
         <Field label={O.career} name="career" defaultValue={profile.career} maxLength={160} />
         <Field label={O.semester} name="semester" type="number" min={1} max={20} defaultValue={profile.semester ?? ''} inputMode="numeric" />
       </div>
+      {membership && <p className={`-mt-3 text-sm font-medium ${membership.tone}`}>{membership.text}</p>}
       <ChipGroup name="interests" legend={O.interests} help={O.interestsHelp} max={6} defaultValues={profile.interests}
         options={INTERESTS.map((key) => ({ value: key, label: t.enums.interests[key] }))} />
       <fieldset>

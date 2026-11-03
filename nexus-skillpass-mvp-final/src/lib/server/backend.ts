@@ -13,10 +13,10 @@ import { supabaseServer } from './supabase';
 const READ_RPCS = [
   'sp_me', 'sp_lookups', 'sp_org_overview', 'sp_student_dashboard', 'sp_challenges', 'sp_challenge', 'sp_workspace',
   'sp_validation_queue', 'sp_validation', 'sp_skillpass_me', 'sp_talent_profile', 'sp_talent', 'sp_company_dashboard',
-  'sp_university_dashboard', 'sp_admin_overview', 'sp_admin_list', 'sp_notifications', 'sp_evidence_file',
+  'sp_university_dashboard', 'sp_university_requests', 'sp_mfa_status', 'sp_admin_overview', 'sp_admin_list', 'sp_notifications', 'sp_evidence_file',
 ] as const;
 const WRITE_RPCS = [
-  'sp_accept_invitations', 'sp_complete_onboarding', 'sp_update_profile', 'sp_update_privacy', 'sp_update_organization',
+  'sp_decide_university_request', 'sp_set_university_domains', 'sp_accept_invitations', 'sp_complete_onboarding', 'sp_update_profile', 'sp_update_privacy', 'sp_update_organization',
   'sp_invite_member', 'sp_revoke_invitation', 'sp_remove_member', 'sp_save_challenge', 'sp_set_challenge_status', 'sp_apply',
   'sp_withdraw_application', 'sp_decide_application', 'sp_end_assignment', 'sp_invite_to_challenge', 'sp_save_task',
   'sp_set_task_status', 'sp_delete_task', 'sp_add_evidence', 'sp_update_evidence', 'sp_delete_evidence',

@@ -150,6 +150,15 @@ const es = {
     footerDisclaimer: 'SkillPass registra experiencia verificada dentro de la plataforma. No sustituye títulos, créditos académicos ni certificaciones oficiales.',
   },
   auth: {
+    mfa: {
+      title: 'Verificación en dos pasos', subtitle: 'Tu cuenta administra o valida credenciales, así que pedimos un segundo paso además de tu contraseña.',
+      enrollTitle: 'Configura tu app de autenticación', enrollText: 'Usa Google Authenticator, Microsoft Authenticator, 1Password u otra app compatible. Sólo se configura una vez.',
+      start: 'Configurar', scan: 'Escanea este código con la app.', secret: 'Si no puedes escanearlo, escribe esta clave en la app:',
+      code: 'Código de 6 dígitos', verify: 'Verificar', verifying: 'Verificando…',
+      challengeTitle: 'Escribe el código de tu app', challengeText: 'Abre tu app de autenticación y escribe el código de SkillPass.',
+      lost: '¿Perdiste el acceso a tu app? Pide a AINDEV que restablezca tu verificación en dos pasos.', signOut: 'Cerrar sesión',
+      validationNeeded: 'Para completar validaciones y emitir credenciales necesitas la verificación en dos pasos.', validationLink: 'Verificar ahora',
+    },
     loginTitle: 'Inicia sesión en SkillPass',
     loginSubtitle: 'Accede a tus retos, evidencias y validaciones.',
     email: 'Correo electrónico', password: 'Contraseña', passwordHint: 'Mínimo 10 caracteres.',
@@ -203,7 +212,13 @@ const es = {
     subtitle: 'Sólo pedimos lo necesario para que la plataforma funcione para ti.',
     student: {
       intro: 'Esta información permite calcular la compatibilidad con retos. Tus habilidades declaradas nunca se muestran como verificadas.',
-      university: 'Universidad', universityHelp: 'Al vincularte, tu universidad podrá ver tu participación, tus VATH y tus competencias verificadas (nunca tus evidencias privadas).',
+      university: 'Universidad', universityHelp: 'Si tu cuenta usa tu correo institucional, quedas vinculado al instante; si no, tu universidad revisará la solicitud (verá tu nombre, correo, carrera y semestre). Ya vinculada, podrá ver tu participación, tus VATH y tus competencias verificadas (nunca tus evidencias privadas).',
+      membership: {
+        verified_email_domain: 'Vinculación verificada con tu correo institucional.', verified_university: 'Tu universidad confirmó tu vinculación.',
+        verified_admin: 'AINDEV confirmó tu vinculación.', verified_seed: 'Vinculación verificada.',
+        pending: 'Solicitud enviada a {university}. Mientras la revisa, no apareces en su analítica ni se muestra en tu SkillPass público.',
+        rejected: '{university} no aprobó tu vinculación. Si es un error, contacta a tu universidad o elige otra.',
+      },
       noUniversity: 'Mi universidad no aparece / prefiero no vincularla',
       career: 'Carrera', semester: 'Semestre', interests: 'Áreas de interés', interestsHelp: 'Elige hasta 6.',
       skills: 'Habilidades declaradas', skillsHelp: 'Autodeclaradas. Se verifican sólo mediante retos.',
@@ -267,6 +282,11 @@ const es = {
       careerCol: 'Carrera', semesterCol: 'Semestre', challengesCol: 'Retos', vathCol: 'VATH', competenciesCol: 'Competencias', credentialsCol: 'Credenciales',
       viewTable: 'Ver como tabla', participatingLabel: 'Participan', notParticipating: 'Aún sin reto', total: 'Total', month: 'Mes',
       noData: 'Aún no hay actividad verificada de tus estudiantes.',
+      requestsTitle: 'Solicitudes de estudiantes', requestsText: 'Estos estudiantes eligieron tu institución, pero su correo no es institucional. Aprueba sólo a quienes sí estudian aquí: hasta entonces no cuentan en tu analítica ni ves sus datos.',
+      requestsEmpty: 'No hay solicitudes pendientes.', requestedAt: 'Solicitó {when}', approve: 'Aprobar', reject: 'Rechazar',
+      approved: 'Estudiante vinculado.', rejected: 'Solicitud rechazada.', removeStudent: 'Quitar', removeConfirm: '¿Quitar a {name} de tu institución? Dejará de contar en tu analítica y no verás sus datos.',
+      removed: 'Vinculación retirada.', domainsHint: 'Para vincular al instante a quien use su correo institucional, registra los dominios en «Mi organización».',
+      domainsActive: 'Se vinculan al instante los correos de: {domains}.',
     },
     admin: {
       title: 'Talent OS · Administración AINDEV', subtitle: 'Supervisión del ecosistema, verificaciones, integridad y métricas.',
@@ -464,6 +484,8 @@ const es = {
     invite: 'Invitar persona', inviteEmail: 'Correo', inviteRole: 'Rol', sendInvite: 'Enviar invitación', invited: 'Invitación registrada. La persona se unirá al crear su cuenta con ese correo eligiendo «Empresa» o «Universidad» según tu organización, o al iniciar sesión con una cuenta de ese tipo que aún no pertenezca a otra organización. Las cuentas de estudiante no pueden unirse.',
     pendingInvites: 'Invitaciones pendientes', revoke: 'Revocar', removeMember: 'Quitar', verification: 'Verificación',
     renameWarning: 'Cambiar el nombre de una organización verificada requiere una nueva verificación de AINDEV.', none: 'No perteneces a una organización.',
+    domainsTitle: 'Correos institucionales de estudiantes', domainsLabel: 'Dominios', domainsHelp: 'Uno por línea, p. ej. alumnos.tu-universidad.mx. Incluye sus subdominios. Quien se registre con un correo confirmado de estos dominios queda vinculado al instante; los demás esperan tu aprobación. No se admiten correos públicos como gmail.com.',
+    domainsSaved: 'Dominios guardados. Las solicitudes pendientes con esos correos ya quedaron vinculadas.',
   },
   incidents: {
     title: 'Reportar un problema', text: 'Si detectas datos incorrectos, conducta indebida o un problema de privacidad, avisa a AINDEV. El reporte queda registrado con tu nombre y se revisa en Talent OS.',
@@ -478,7 +500,9 @@ const es = {
       credential_issued: 'Se emitió tu credencial {code} por «{challenge}».', credential_revoked: 'La credencial {code} fue revocada.',
       challenge_status: '«{challenge}» cambió a {status}.', challenge_invitation: '{organization} te invita a aplicar a «{challenge}».',
       organization_membership: 'Te agregaron a {organization}.', organization_status: 'La verificación de {organization} cambió a: {status}.',
-      assignment_ended: 'Terminó una participación en «{challenge}».', fallback: 'Tienes una nueva actualización.',
+      assignment_ended: 'Terminó una participación en «{challenge}».', university_request: '{student} pidió vincularse a tu institución.',
+      university_membership_approved: '{university} confirmó tu vinculación.', university_membership_rejected: '{university} no aprobó tu vinculación.',
+      university_membership_removed: '{university} retiró tu vinculación.', fallback: 'Tienes una nueva actualización.',
     },
   },
   demo: {
@@ -548,6 +572,9 @@ const es = {
     email_send_failed_resend: 'No pudimos enviar el correo en este momento. Intenta más tarde o avisa a AINDEV.',
     signup_email_unknown: 'No sabemos a qué correo reenviar el enlace. Inicia sesión con tu correo y contraseña y te ofreceremos uno nuevo.',
     weak_password: 'La contraseña debe tener al menos 10 caracteres.', password_mismatch: 'Las contraseñas no coinciden.', append_only: 'Este registro es de sólo lectura.',
+    membership_request_closed: 'Esa solicitud ya fue resuelta o cambió. Recarga la página.',
+    mfa_required: 'Esta acción necesita la verificación en dos pasos.', mfa_invalid_code: 'El código no es válido o ya venció. Escribe el código actual de tu app.',
+    mfa_failed: 'No pudimos configurar la verificación en dos pasos. Intenta de nuevo.', university_not_verified: 'Tu institución debe estar verificada por AINDEV para gestionar estudiantes.',
   },
   fields: {
     full_name: 'nombre', title: 'título', problem: 'problema', objective: 'objetivo', motivation: 'motivación', url: 'URL', hours: 'horas', activity: 'actividad',
@@ -555,7 +582,7 @@ const es = {
     deliverables: 'entregables', supervisor_id: 'supervisor', start_date: 'fechas', end_date: 'fecha de fin', organization_name: 'nombre de la organización', website: 'sitio web',
     comment: 'comentario', reason: 'motivo', verified_hours: 'horas verificadas', kind: 'tipo de evidencia', duration_weeks: 'duración', max_participants: 'participantes',
     summary: 'resumen', industry: 'industria', location: 'ubicación', conditions: 'condiciones de participación', task_id: 'tarea relacionada',
-    deliverable_id: 'entregable relacionado',
+    deliverable_id: 'entregable relacionado', student_email_domains: 'dominios de correo de estudiantes', decision: 'decisión', code: 'código',
   },
 } as const;
 

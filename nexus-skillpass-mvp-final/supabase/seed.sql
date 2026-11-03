@@ -122,6 +122,9 @@ update public.profiles set slug = 'ricardo-pena-demo', headline = 'Estudiante de
   career = 'Ingeniería en Logística', semester = 9, interests = array['logistics','data'], availability = 'full_time', hours_per_week = 30,
   bio = 'Perfil ficticio de demostración.', onboarding_completed = true, skillpass_public = true, open_to_opportunities = true, is_demo = true
   where id = '10000000-0000-4000-8000-000000000017';
+-- The demo students' university links come from the seed, not from an e-mail domain or a staff decision.
+update public.profiles set university_verified_via = 'seed', university_verified_at = created_at
+  where is_demo and role = 'student' and university_id is not null and university_verified_via is null;
 
 insert into public.organization_members (organization_id, user_id, member_role) values
   ('20000000-0000-4000-8000-000000000001','10000000-0000-4000-8000-000000000003','owner'),
@@ -557,3 +560,6 @@ insert into public.audit_logs (actor_id, action, entity_type, entity_id, organiz
 
 insert into public.incidents (reported_by, entity_type, entity_id, category, description, status, created_at) values
   ('10000000-0000-4000-8000-000000000014','profile',null,'incorrect_data','Mi semestre aparece desactualizado en un reporte institucional (incidente ficticio de demostración).','open', now() - interval '1 days');
+
+-- The DEMO personas sign in without a second factor (migration 20261103000002 turns it on elsewhere).
+update public.platform_settings set value = 'false'::jsonb, updated_at = now() where key = 'mfa_required';

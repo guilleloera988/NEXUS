@@ -1,7 +1,8 @@
 import { Award, BadgeCheck, Building2, Clock, Download, FileText, GraduationCap, Target, Users } from 'lucide-react';
 import { ColumnChart, HBarChart, ParticipationBars } from '@/components/charts';
 import { Alert, Badge, Card, EmptyState, PageHeader, StatCard } from '@/components/ui/primitives';
-import { formatHours, formatNumber } from '@/lib/format';
+import { RemoveStudentButton, UniversityRequestActions } from '@/components/university-membership';
+import { formatHours, formatNumber, formatRelative } from '@/lib/format';
 import { fmt, intlLocale, type Locale, type Messages } from '@/lib/i18n';
 
 export interface UniversityData {
@@ -16,7 +17,13 @@ export interface UniversityData {
   students?: { id: string; full_name: string; career: string; semester: number | null; challenges: number; verified_vath: number; competencies: number; credentials: number; active: boolean; is_demo: boolean }[];
 }
 
-export function UniversityDashboard({ data, t, locale }: { data: UniversityData; t: Messages; locale: Locale }) {
+export interface UniversityRequests {
+  organization: { id: string; name: string; verification_status: string; student_email_domains: string[]; can_manage: boolean } | null;
+  verified_students?: number;
+  requests: { student_id: string; full_name: string; email: string | null; career: string; semester: number | null; requested_at: string; is_demo: boolean }[];
+}
+
+export function UniversityDashboard({ data, requests, t, locale }: { data: UniversityData; requests: UniversityRequests | null; t: Messages; locale: Locale }) {
   const U = t.dashboard.university;
   if (!data.organization) return <><PageHeader title={t.nav.analytics} /><EmptyState title={U.noOrg} /></>;
   if (data.pending || !data.stats) {
@@ -34,6 +41,32 @@ export function UniversityDashboard({ data, t, locale }: { data: UniversityData;
     <>
       <PageHeader kicker={t.roles.university} title={data.organization.name} subtitle={U.subtitle}
         actions={<a href="/api/university/students.csv" className="btn-outline"><Download className="size-4" aria-hidden /> {U.exportCsv}</a>} />
+
+      {requests?.organization && (
+        <Card title={`${U.requestsTitle} (${requests.requests.length})`} className="mb-6">
+          <p className="text-sm text-ink-600">{U.requestsText}</p>
+          <p className="mt-1 text-xs text-ink-500">
+            {requests.organization.student_email_domains.length > 0
+              ? fmt(U.domainsActive, { domains: requests.organization.student_email_domains.join(', ') }) : U.domainsHint}
+          </p>
+          {requests.requests.length === 0 ? <p className="mt-4 text-sm text-ink-500">{U.requestsEmpty}</p> : (
+            <ul className="mt-4 divide-y divide-ink-100">
+              {requests.requests.map((r) => (
+                <li key={r.student_id} className="flex flex-wrap items-center justify-between gap-3 py-3">
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-semibold text-ink-900">{r.full_name}</p>
+                    <p className="break-words text-xs text-ink-500">
+                      {[r.email, r.career, r.semester ? `${U.semesterCol} ${r.semester}` : '', fmt(U.requestedAt, { when: formatRelative(locale, r.requested_at) })]
+                        .filter(Boolean).join(' · ')}
+                    </p>
+                  </div>
+                  <UniversityRequestActions organizationId={requests.organization!.id} studentId={r.student_id} name={r.full_name} />
+                </li>
+              ))}
+            </ul>
+          )}
+        </Card>
+      )}
 
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         <StatCard icon={<Users className="size-5" />} label={U.students} value={formatNumber(locale, s.students)} hint={fmt(U.participatingOf, { a: s.participating, b: s.students })} />
@@ -105,6 +138,7 @@ export function UniversityDashboard({ data, t, locale }: { data: UniversityData;
                 <th scope="col">{t.common.name}</th><th scope="col">{U.careerCol}</th><th scope="col">{U.semesterCol}</th>
                 <th scope="col" className="text-right">{U.challengesCol}</th><th scope="col" className="text-right">{U.vathCol}</th>
                 <th scope="col" className="text-right">{U.competenciesCol}</th><th scope="col" className="text-right">{U.credentialsCol}</th><th scope="col">{t.common.status}</th>
+                {requests?.organization && <th scope="col"><span className="sr-only">{U.removeStudent}</span></th>}
               </tr>
             </thead>
             <tbody>
@@ -118,6 +152,7 @@ export function UniversityDashboard({ data, t, locale }: { data: UniversityData;
                   <td className="text-right tabular-nums">{st.competencies}</td>
                   <td className="text-right tabular-nums">{st.credentials}</td>
                   <td>{st.active ? <Badge tone="success">{U.activeLabel}</Badge> : <Badge tone="neutral">{U.inactiveLabel}</Badge>}</td>
+                  {requests?.organization && <td className="text-right"><RemoveStudentButton organizationId={requests.organization.id} studentId={st.id} name={st.full_name} /></td>}
                 </tr>
               ))}
             </tbody>

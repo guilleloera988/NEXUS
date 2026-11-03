@@ -20,6 +20,8 @@ PostgreSQL (Supabase en producción; PGlite en la DEMO local y en pruebas; Postg
 | `20261007000007_storage_public_sign_only.sql` | La lectura pública de Storage sólo aplica a la firma de URL; el bucket no se puede listar (H-5). |
 | `20261008000001_talent_credentials_scope.sql` | Las empresas del talent pool ya no leen la fila cruda de credenciales: `credentials_select` admite al titular, a los revisores del reto, al admin y a la universidad; `sp_talent_profile` usa `sp_visible_credentials_json` (enmascarada) y `sp_talent` pasa a `SECURITY DEFINER` sin revelar retos confidenciales ajenos (H-6). |
 | `20261015000001_feedback_required_fields.sql` | Campos obligatorios de la retroalimentación del 15 oct 2026 ([STATUS](STATUS.md#retroalimentación-del-15-oct-2026)): la evidencia nombra su tarea y, si el reto tiene entregables, su entregable (`sp_add_evidence`, `sp_update_evidence`); una empresa tiene sitio web https al crearse en el onboarding y cada vez que guarda su perfil (`sp_complete_onboarding`, `sp_update_organization`); un reto sólo pasa de borrador a Publicado o Convocatoria abierta si está completo (`sp_set_challenge_status`) y, fuera de borrador, no se puede editar a un estado incompleto (`sp_save_challenge`). Agrega el helper interno `sp_challenge_publish_missing`. Las filas ya guardadas no se revisan hasta que cambian. |
+| `20261103000001_university_membership.sql` | Vinculación universitaria verificada ([STATUS](STATUS.md#piloto-con-universidades-nov-2026)): `profiles.university_id` guarda sólo la universidad **verificada**; la elección del estudiante queda como solicitud (`university_request_id`, `university_request_status`) hasta que su correo confirmado pertenece a un dominio de la universidad (`organizations.student_email_domains`) o el personal de la universidad la aprueba. RPCs `sp_university_requests`, `sp_decide_university_request` y `sp_set_university_domains`; helpers internos `sp_choose_university`, `sp_university_email_match`, `sp_student_email_domain_valid` y `sp_membership_university`. Los vínculos existentes que no son DEMO pasan a solicitud pendiente. |
+| `20261103000002_mfa_privileged_actions.sql` | Doble factor para acciones privilegiadas: tabla `platform_settings` (sin acceso desde la API) con `mfa_required`, encendido en bases sin datos DEMO y apagado por el seed. Con él, `sp_is_admin()` exige una sesión `aal2` (Supabase Auth MFA/TOTP) y `sp_complete_validation` la exige a cualquier revisor (`sp:mfa_required`). Helpers internos `sp_current_aal`, `sp_mfa_required`, `sp_mfa_satisfied`, `sp_require_mfa`; RPC `sp_mfa_status` para la app. |
 
 `supabase/demo-bootstrap.sql` emula lo mínimo de Supabase Auth (roles `anon`/`authenticated`, `auth.users`, `auth.uid()`) **sólo** para PGlite/pruebas. Nunca se ejecuta en Supabase.
 
@@ -120,6 +122,17 @@ Si falta algo lanza `sp:challenge_incomplete` con el primer faltante en `DETAIL`
 
 - `sp_add_evidence` y `sp_update_evidence`: `task_id` siempre obligatorio y `deliverable_id` obligatorio cuando el reto tiene al menos un entregable (`sp:field_required`, `DETAIL` `task_id` / `deliverable_id`); ambos deben ser del mismo reto (`sp:invalid_field`). `linkEvidenceSchema` y `fileEvidenceSchema` (zod) exigen también `task_id` antes de llamar a la RPC.
 - `sp_complete_onboarding` (al crear la organización de una cuenta de empresa) y `sp_update_organization` (organizaciones `company`): `website` obligatorio (`sp:field_required`, `DETAIL` `website`). Un sitio escrito debe empezar con `https://` (`sp:invalid_field`); las universidades pueden dejarlo vacío. La acción `completeOnboarding` lo revisa antes de llamar a la RPC.
+
+### Vinculación universitaria verificada
+
+Todo lo que ya lee `profiles.university_id` (analítica de la universidad, `sp_is_university_staff_for`, páginas públicas, talent pool, CSV) sigue igual y ahora significa «universidad verificada». La elección pasa por `sp_apply_student_profile` → `sp_choose_university`:
+
+- Sin universidad: se borran el vínculo y la solicitud.
+- La misma universidad verificada: se mantiene (y se retira una solicitud a otra).
+- Correo confirmado (`auth.users.email_confirmed_at`) del dominio o de un subdominio de la universidad: vínculo inmediato (`university_verified_via = 'email_domain'`).
+- Cualquier otro caso: solicitud `pending`, sin vínculo; se avisa a los miembros de la universidad. Volver a guardar la misma elección no la reabre ni repite el aviso, y una rechazada sigue rechazada.
+
+`sp_decide_university_request` (cualquier miembro de la universidad verificada, o el admin) aprueba (`university` o `admin`), rechaza o retira a un estudiante vinculado, con notificación y bitácora; si la solicitud ya cambió, `sp:membership_request_closed`. `sp_set_university_domains` (dueño o manager de la universidad, o el admin) guarda hasta 10 dominios en minúsculas, rechaza proveedores públicos (gmail.com, outlook.com, …) y vincula al momento las solicitudes pendientes cuyo correo confirmado ya coincide. `sp_university_requests` muestra al personal nombre, correo, carrera, semestre y fecha de cada solicitud pendiente.
 
 ### Errores
 

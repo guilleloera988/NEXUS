@@ -3,7 +3,7 @@ import { redirect } from 'next/navigation';
 import { AdminDashboard, type AdminOverview } from '@/components/dashboards/admin-dashboard';
 import { CompanyDashboard } from '@/components/dashboards/company-dashboard';
 import { StudentDashboard } from '@/components/dashboards/student-dashboard';
-import { UniversityDashboard, type UniversityData } from '@/components/dashboards/university-dashboard';
+import { UniversityDashboard, type UniversityData, type UniversityRequests } from '@/components/dashboards/university-dashboard';
 import { getMessages } from '@/lib/i18n/server';
 import { getMe, read } from '@/lib/server/backend';
 
@@ -23,7 +23,9 @@ export default async function DashboardPage() {
     case 'supervisor':
       return <CompanyDashboard me={me} t={t} locale={locale} data={await read('sp_company_dashboard')} />;
     case 'university':
-      return <UniversityDashboard t={t} locale={locale} data={await read<UniversityData>('sp_university_dashboard')} />;
+      return <UniversityDashboard t={t} locale={locale} data={await read<UniversityData>('sp_university_dashboard')}
+        // Databases without migration 20261103000001 have no membership requests yet.
+        requests={await read<UniversityRequests>('sp_university_requests').catch(() => null)} />;
     case 'admin':
       return <AdminDashboard t={t} locale={locale} data={await read<AdminOverview>('sp_admin_overview')} />;
   }

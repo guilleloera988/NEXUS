@@ -20,9 +20,13 @@ Público: `/` (landing), `/demo`, `/login`, `/signup`, `/verify`, `/verify/[cód
 - **Registro** (`/signup`): tipo de cuenta Estudiante / Empresa / Universidad (supervisor sólo por invitación de una organización verificada: el invitado elige «Empresa», o «Universidad» si lo invitó una institución, y usa el correo invitado; admin nunca). Supabase Auth con confirmación de correo → pantalla «Revisa tu correo» (`/signup/check-email`: correo usado, pasos, reenvío) → enlace del correo, válido en cualquier dispositivo → `/auth/callback` → onboarding. Un inicio de sesión con el correo sin confirmar vuelve a esa pantalla; un enlace vencido o usado lleva a `/login` con explicación.
 - **Onboarding** (`/onboarding`): estudiante (universidad opcional con explicación de qué verá, carrera, semestre, intereses ≤ 6, habilidades declaradas, disponibilidad, opt-in a Talento verificado); empresa/universidad (organización que queda «Pendiente de verificación»; la empresa debe indicar su **sitio web** completo con `https://` y sin `@` (el navegador lo comprueba y la regla aparece bajo el campo) y la universidad puede omitirlo, regla que también aplica al guardar «Mi organización»); personal invitado (nombre y puesto).
 
+## Doble factor (admin y supervisores)
+
+`/mfa`: con la verificación en dos pasos activa (producción), admins y supervisores pasan por aquí al entrar. La primera vez configuran una app de autenticación (QR y clave para escribir a mano, luego un código de 6 dígitos); después sólo escriben el código. Quien revise una validación sin ese paso ve un aviso con el enlace **Verificar ahora** en lugar del formulario. La demo no lo pide.
+
 ## Paso 2 · Perfil de talento
 
-`/profile`: tarjeta de identidad, mini SkillPass (VATH, proyectos, competencias verificadas), **Competencias verificadas** (con nivel y etiqueta de rúbrica) separadas de **Habilidades declaradas** (sólo las aún no verificadas), intereses, retos con estado y resumen VATH. `?edit=1` abre el formulario.
+`/profile`: tarjeta de identidad, mini SkillPass (VATH, proyectos, competencias verificadas), **Competencias verificadas** (con nivel y etiqueta de rúbrica) separadas de **Habilidades declaradas** (sólo las aún no verificadas), intereses, retos con estado y resumen VATH. `?edit=1` abre el formulario. Bajo «Universidad» se ve el estado de la vinculación: verificada (por correo institucional o por la universidad), solicitud pendiente (no cuenta en la analítica de la universidad ni se muestra en el SkillPass público) o no aprobada.
 
 ## Paso 3 · Retos y matching
 
@@ -63,7 +67,7 @@ Al completar: mensaje de éxito con el código de credencial y bitácora de deci
 
 ## Paso 9 · Panel universidad
 
-`/dashboard` (universidad): estudiantes participando, VATH verificadas, competencias verificadas, credenciales; gráficas de VATH por carrera, competencias más verificadas, empresas aliadas en retos y participación por mes (un solo tono dorado, tooltips, **ver como tabla**); tabla por estudiante y exportación CSV. Todo calculado con registros reales (consultas agregadas con RLS).
+`/dashboard` (universidad): estudiantes participando, VATH verificadas, competencias verificadas, credenciales; gráficas de VATH por carrera, competencias más verificadas, empresas aliadas en retos y participación por mes (un solo tono dorado, tooltips, **ver como tabla**); tabla por estudiante y exportación CSV. Todo calculado con registros reales (consultas agregadas con RLS), sólo de estudiantes con vinculación verificada. Arriba, **Solicitudes de estudiantes**: quienes eligieron la institución sin correo institucional, con nombre, correo, carrera y semestre, y los botones **Aprobar** / **Rechazar**; en la tabla de estudiantes, **Quitar** (con confirmación). En `/organization`, dueños y managers registran los **dominios de correo institucional** que vinculan al instante.
 
 ## Admin · Talent OS
 

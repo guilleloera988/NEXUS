@@ -18,7 +18,11 @@ export interface Profile {
   headline: string;
   bio: string;
   location: string;
+  /** Verified university only; a choice that still needs the university's approval is the request below. */
   university_id: string | null;
+  university_verified_via: 'email_domain' | 'university' | 'admin' | 'seed' | null;
+  university_request_id: string | null;
+  university_request_status: 'pending' | 'rejected' | null;
   career: string;
   semester: number | null;
   interests: string[];

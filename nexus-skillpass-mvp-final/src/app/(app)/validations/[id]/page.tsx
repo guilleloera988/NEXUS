@@ -8,6 +8,7 @@ import { competencyName, formatDate, formatDateTime, formatHours } from '@/lib/f
 import { fmt } from '@/lib/i18n';
 import { getMessages } from '@/lib/i18n/server';
 import { getMe, read } from '@/lib/server/backend';
+import { getMfaState, mfaPending } from '@/lib/server/mfa';
 import type { ValidationDetail } from '@/lib/types';
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -55,7 +56,12 @@ export default async function ValidationPage({ params, searchParams }: PageProps
         <StatCard icon={<Hourglass className="size-5" />} label={D.verifiedSoFar} value={`${formatHours(locale, data.assignment.verified_hours)} h`} hint={pendingHours > 0 ? `${formatHours(locale, pendingHours)} h ${t.status.vath.submitted.toLowerCase()}` : undefined} accent />
       </div>
 
-      {data.can_decide ? <ValidationReview data={data} /> : (
+      {data.can_decide && mfaPending(await getMfaState()) ? (
+        <Alert tone="warning" className="mb-6">
+          {t.auth.mfa.validationNeeded}{' '}
+          <Link href={`/mfa?next=${encodeURIComponent(`/validations/${id}`)}`} className="font-semibold underline">{t.auth.mfa.validationLink}</Link>
+        </Alert>
+      ) : data.can_decide ? <ValidationReview data={data} /> : (
         <div className="space-y-6">
           {justDone && data.request.status === 'completed' && (
             <Alert tone="success" title={D.completed}>

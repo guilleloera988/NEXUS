@@ -11,6 +11,8 @@ create schema auth;
 create table auth.users (
   id uuid primary key,
   email text unique,
+  -- Supabase sets it once the address is confirmed; local DEMO and test accounts count as confirmed.
+  email_confirmed_at timestamptz default now(),
   raw_user_meta_data jsonb not null default '{}'::jsonb,
   created_at timestamptz not null default now()
 );

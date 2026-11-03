@@ -151,6 +151,15 @@ const en: Messages = {
     footerDisclaimer: 'SkillPass records experience verified on the platform. It does not replace degrees, academic credits or official certifications.',
   },
   auth: {
+    mfa: {
+      title: 'Two-step verification', subtitle: 'Your account manages or validates credentials, so we ask for a second step besides your password.',
+      enrollTitle: 'Set up your authenticator app', enrollText: 'Use Google Authenticator, Microsoft Authenticator, 1Password or another compatible app. You only set it up once.',
+      start: 'Set up', scan: 'Scan this code with the app.', secret: 'If you cannot scan it, type this key in the app:',
+      code: '6-digit code', verify: 'Verify', verifying: 'Verifying…',
+      challengeTitle: 'Enter the code from your app', challengeText: 'Open your authenticator app and enter the SkillPass code.',
+      lost: 'Lost access to your app? Ask AINDEV to reset your two-step verification.', signOut: 'Sign out',
+      validationNeeded: 'Completing validations and issuing credentials requires two-step verification.', validationLink: 'Verify now',
+    },
     loginTitle: 'Sign in to SkillPass',
     loginSubtitle: 'Access your challenges, evidence and validations.',
     email: 'Email', password: 'Password', passwordHint: 'At least 10 characters.',
@@ -204,7 +213,13 @@ const en: Messages = {
     subtitle: 'We only ask for what the platform needs to work for you.',
     student: {
       intro: 'This information is used to compute challenge compatibility. Declared skills are never shown as verified.',
-      university: 'University', universityHelp: 'Once linked, your university can see your participation, VATH and verified competencies (never your private evidence).',
+      university: 'University', universityHelp: 'If your account uses your institutional e-mail, you are linked at once; otherwise your university reviews the request (it sees your name, e-mail, program and semester). Once linked, it can see your participation, VATH and verified competencies (never your private evidence).',
+      membership: {
+        verified_email_domain: 'Link verified with your institutional e-mail.', verified_university: 'Your university confirmed the link.',
+        verified_admin: 'AINDEV confirmed the link.', verified_seed: 'Link verified.',
+        pending: 'Request sent to {university}. Until it is reviewed, you do not appear in its analytics and it is not shown on your public SkillPass.',
+        rejected: '{university} did not approve the link. If this is a mistake, contact your university or choose another one.',
+      },
       noUniversity: 'My university is not listed / I prefer not to link it',
       career: 'Degree program', semester: 'Semester', interests: 'Areas of interest', interestsHelp: 'Pick up to 6.',
       skills: 'Declared skills', skillsHelp: 'Self-reported. They are verified only through challenges.',
@@ -268,6 +283,11 @@ const en: Messages = {
       careerCol: 'Program', semesterCol: 'Semester', challengesCol: 'Challenges', vathCol: 'VATH', competenciesCol: 'Competencies', credentialsCol: 'Credentials',
       viewTable: 'View as table', participatingLabel: 'Participating', notParticipating: 'No challenge yet', total: 'Total', month: 'Month',
       noData: 'No verified activity from your students yet.',
+      requestsTitle: 'Student requests', requestsText: 'These students chose your institution, but their e-mail is not institutional. Approve only those who study here: until then they do not count in your analytics and you cannot see their data.',
+      requestsEmpty: 'No pending requests.', requestedAt: 'Requested {when}', approve: 'Approve', reject: 'Reject',
+      approved: 'Student linked.', rejected: 'Request rejected.', removeStudent: 'Remove', removeConfirm: 'Remove {name} from your institution? They will no longer count in your analytics and you will not see their data.',
+      removed: 'Link removed.', domainsHint: 'To link students who use their institutional e-mail at once, add your domains under “My organization”.',
+      domainsActive: 'E-mails from these domains are linked at once: {domains}.',
     },
     admin: {
       title: 'Talent OS · AINDEV administration', subtitle: 'Ecosystem oversight, verifications, integrity and metrics.',
@@ -465,6 +485,8 @@ const en: Messages = {
     invite: 'Invite someone', inviteEmail: 'Email', inviteRole: 'Role', sendInvite: 'Send invitation', invited: 'Invitation recorded. The person joins when they create an account with that email choosing “Company” or “University” to match your organization, or when they sign in with an account of that type that does not belong to another organization yet. Student accounts cannot join.',
     pendingInvites: 'Pending invitations', revoke: 'Revoke', removeMember: 'Remove', verification: 'Verification',
     renameWarning: 'Renaming a verified organization requires a new AINDEV verification.', none: 'You do not belong to an organization.',
+    domainsTitle: 'Student institutional e-mails', domainsLabel: 'Domains', domainsHelp: 'One per line, e.g. students.your-university.edu. Subdomains are included. Anyone who signs up with a confirmed e-mail from these domains is linked at once; everyone else waits for your approval. Public e-mail providers such as gmail.com are not allowed.',
+    domainsSaved: 'Domains saved. Pending requests from those e-mails are now linked.',
   },
   incidents: {
     title: 'Report a problem', text: 'If you spot incorrect data, misconduct or a privacy issue, tell AINDEV. The report is recorded with your name and reviewed in Talent OS.',
@@ -479,7 +501,9 @@ const en: Messages = {
       credential_issued: 'Credential {code} was issued for “{challenge}”.', credential_revoked: 'Credential {code} was revoked.',
       challenge_status: '“{challenge}” changed to {status}.', challenge_invitation: '{organization} invites you to apply to “{challenge}”.',
       organization_membership: 'You were added to {organization}.', organization_status: '{organization} verification changed to: {status}.',
-      assignment_ended: 'A participation ended in “{challenge}”.', fallback: 'You have a new update.',
+      assignment_ended: 'A participation ended in “{challenge}”.', university_request: '{student} asked to be linked to your institution.',
+      university_membership_approved: '{university} confirmed your link.', university_membership_rejected: '{university} did not approve your link.',
+      university_membership_removed: '{university} removed your link.', fallback: 'You have a new update.',
     },
   },
   demo: {
@@ -549,6 +573,9 @@ const en: Messages = {
     email_send_failed_resend: 'We could not send the e-mail right now. Try again later or contact AINDEV.',
     signup_email_unknown: "We don't know which address to resend the link to. Sign in with your email and password and we will offer you a new one.",
     weak_password: 'The password must have at least 10 characters.', password_mismatch: 'Passwords do not match.', append_only: 'This record is read-only.',
+    membership_request_closed: 'That request was already resolved or has changed. Reload the page.',
+    mfa_required: 'This action requires two-step verification.', mfa_invalid_code: 'The code is not valid or has expired. Enter the current code from your app.',
+    mfa_failed: 'We could not set up two-step verification. Please try again.', university_not_verified: 'Your institution must be verified by AINDEV to manage students.',
   },
   fields: {
     full_name: 'name', title: 'title', problem: 'problem', objective: 'objective', motivation: 'motivation', url: 'URL', hours: 'hours', activity: 'activity',
@@ -556,7 +583,7 @@ const en: Messages = {
     deliverables: 'deliverables', supervisor_id: 'supervisor', start_date: 'dates', end_date: 'end date', organization_name: 'organization name', website: 'website',
     comment: 'comment', reason: 'reason', verified_hours: 'verified hours', kind: 'evidence type', duration_weeks: 'duration', max_participants: 'participants',
     summary: 'summary', industry: 'industry', location: 'location', conditions: 'participation conditions', task_id: 'related task',
-    deliverable_id: 'related deliverable',
+    deliverable_id: 'related deliverable', student_email_domains: 'student e-mail domains', decision: 'decision', code: 'code',
   },
 };
 

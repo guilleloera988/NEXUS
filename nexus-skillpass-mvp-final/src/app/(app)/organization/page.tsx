@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation';
 import { Building2, X } from 'lucide-react';
 import { removeMember, revokeInvitation } from '@/actions/profile';
 import { InviteMemberForm, OrganizationForm } from '@/components/profile-client';
+import { UniversityDomainsForm } from '@/components/university-membership';
 import { Alert, Avatar, Badge, Card, DefinitionList, EmptyState, PageHeader, StatusBadge } from '@/components/ui/primitives';
 import { formatRelative } from '@/lib/format';
 import { getMessages } from '@/lib/i18n/server';
@@ -14,7 +15,9 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 interface Overview {
-  organization: { id: string; kind: string; name: string; industry: string; size: string; location: string; website: string; description: string; needs: string; campus: string; programs: string[]; verification_status: 'pending' | 'verified' | 'rejected'; is_demo: boolean };
+  organization: { id: string; kind: string; name: string; industry: string; size: string; location: string; website: string; description: string; needs: string; campus: string; programs: string[]; verification_status: 'pending' | 'verified' | 'rejected'; is_demo: boolean;
+    /** Absent on databases without migration 20261103000001. */
+    student_email_domains?: string[] };
   my_role: string | null;
   can_manage: boolean;
   members: { user_id: string; member_role: string; full_name: string; headline: string; role: string }[];
@@ -46,6 +49,11 @@ export default async function OrganizationPage() {
           )}
         </Card>
         <div className="space-y-6">
+          {org.kind === 'university' && data.can_manage && Array.isArray(org.student_email_domains) && (
+            <Card title={O.domainsTitle}>
+              <UniversityDomainsForm organizationId={org.id} domains={org.student_email_domains} />
+            </Card>
+          )}
           <Card title={O.members}>
             <ul className="space-y-3">
               {data.members.map((m) => (
