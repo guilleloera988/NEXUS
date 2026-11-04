@@ -1,0 +1,64 @@
+name: SkillPass quality gates
+
+on:
+  push:
+    paths: ['nexus-skillpass-mvp-final/**', '.github/workflows/skillpass-quality.yml']
+  pull_request:
+    paths: ['nexus-skillpass-mvp-final/**', '.github/workflows/skillpass-quality.yml']
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    working-directory: nexus-skillpass-mvp-final
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U postgres" --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      NEXT_TELEMETRY_DISABLED: '1'
+      NEXUS_DEMO_MODE: local
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: nexus-skillpass-mvp-final/package-lock.json
+      - run: npm ci
+      - name: Lint
+        run: npm run lint
+      - name: Typecheck
+        run: npm run typecheck
+      - name: Unit + database tests (embedded PostgreSQL)
+        run: npm test
+      - name: Database tests on real PostgreSQL 16
+        run: npm run test:pg
+        env:
+          TEST_DATABASE_URL: postgres://postgres:postgres@localhost:5432/postgres
+      - name: Production build
+        run: npm run build
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+      - name: End-to-end acceptance flows (production server)
+        run: npm run test:e2e
+        env:
+          CI: 'true'
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-report
+          path: |
+            nexus-skillpass-mvp-final/playwright-report/
+            nexus-skillpass-mvp-final/test-results/
+          retention-days: 7
