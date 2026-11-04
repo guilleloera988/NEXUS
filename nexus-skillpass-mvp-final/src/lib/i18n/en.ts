@@ -382,7 +382,7 @@ const en: Messages = {
     tabs: { overview: 'Overview', tasks: 'Tasks', evidence: 'Evidence', vath: 'VATH', team: 'Team', validation: 'Validation' },
     progress: 'Progress', milestones: 'Milestones (deliverables)', objective: 'Objective', supervisor: 'Supervisor', company: 'Company', dates: 'Dates',
     reviewerView: 'Supervisor view', reviewerHint: 'You are viewing this challenge as a reviewer. Validations are resolved in the validations inbox.',
-    actions: { task_created: 'created a task', task_status_changed: 'updated a task', evidence_added: 'added evidence', validation_requested: 'submitted work for validation', validation_completed: 'completed a validation', credential_issued: 'issued a credential', challenge_status_changed: 'changed the challenge status', application_decided: 'resolved an application' },
+    actions: { task_created: 'created a task', task_status_changed: 'updated a task', evidence_added: 'added evidence', evidence_upload_blocked: 'tried to upload an infected file (blocked by the antivirus)', validation_requested: 'submitted work for validation', validation_completed: 'completed a validation', credential_issued: 'issued a credential', challenge_status_changed: 'changed the challenge status', application_decided: 'resolved an application' },
     goToValidations: 'Go to validations', activity: 'Recent activity', noActivity: 'No activity yet.',
     stats: { tasks: 'Tasks completed', verified: 'Verified VATH', pending: 'VATH in validation', draft: 'VATH in draft', deliverables: 'Deliverables with approved evidence' },
     tasks: {
@@ -558,7 +558,7 @@ const en: Messages = {
     organization_not_verified: 'Your organization must be verified by AINDEV to publish challenges and invite its team.', invalid_transition: 'That status change is not allowed.',
     challenge_has_applications: 'Cannot go back to draft: there are applications.', challenge_has_active_assignments: 'Cannot archive with active participants.',
     pending_validations: 'There are pending validations to resolve.', not_assigned: 'You are not assigned to this challenge.', evidence_source_required: 'Upload a file or type a link.',
-    invalid_file_type: 'File type not allowed.', file_too_large: 'The file exceeds the maximum size.', file_mismatch: 'The file content does not match its type.',
+    invalid_file_type: 'File type not allowed.', file_too_large: 'The file exceeds the maximum size.', file_mismatch: 'The file content does not match its type.', file_infected: 'The antivirus found malicious software in the file, so it was not saved. Check your device and upload a clean copy.', scanner_unavailable: 'We could not check the file with the antivirus. Try again in a few minutes.', file_not_scanned: 'The file must pass the antivirus before it is saved. Try again in a few minutes.', file_quarantined: 'This file is in quarantine: the antivirus has not checked it yet. Only the person who uploaded it can open it.',
     evidence_locked: 'This evidence can no longer be modified.', evidence_in_use: 'The evidence is linked to submitted hours.', publication_not_allowed: 'This challenge does not allow publishing evidence.',
     vath_locked: 'This entry was already submitted and cannot be edited.', vath_future_date: 'Hours cannot be logged on future dates.',
     vath_outside_challenge: 'The date is outside the challenge period.', vath_daily_limit: 'You exceed the maximum of 16 hours on that day.', vath_duplicate: 'You already logged that activity on that day.',

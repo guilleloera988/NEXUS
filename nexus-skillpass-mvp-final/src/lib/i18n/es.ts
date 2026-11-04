@@ -381,7 +381,7 @@ const es = {
     tabs: { overview: 'Resumen', tasks: 'Tareas', evidence: 'Evidencias', vath: 'VATH', team: 'Equipo', validation: 'Validación' },
     progress: 'Avance', milestones: 'Hitos (entregables)', objective: 'Objetivo', supervisor: 'Supervisor', company: 'Empresa', dates: 'Fechas',
     reviewerView: 'Vista de supervisión', reviewerHint: 'Estás viendo el reto como revisor. Las validaciones se resuelven en la bandeja de validaciones.',
-    actions: { task_created: 'creó una tarea', task_status_changed: 'actualizó una tarea', evidence_added: 'agregó evidencia', validation_requested: 'envió trabajo a validación', validation_completed: 'completó una validación', credential_issued: 'emitió una credencial', challenge_status_changed: 'cambió el estado del reto', application_decided: 'resolvió una aplicación' },
+    actions: { task_created: 'creó una tarea', task_status_changed: 'actualizó una tarea', evidence_added: 'agregó evidencia', evidence_upload_blocked: 'intentó subir un archivo con virus (el antivirus lo bloqueó)', validation_requested: 'envió trabajo a validación', validation_completed: 'completó una validación', credential_issued: 'emitió una credencial', challenge_status_changed: 'cambió el estado del reto', application_decided: 'resolvió una aplicación' },
     goToValidations: 'Ir a validaciones', activity: 'Actividad reciente', noActivity: 'Sin actividad todavía.',
     stats: { tasks: 'Tareas completadas', verified: 'VATH verificadas', pending: 'VATH en validación', draft: 'VATH en borrador', deliverables: 'Entregables con evidencia aprobada' },
     tasks: {
@@ -557,7 +557,7 @@ const es = {
     organization_not_verified: 'Tu organización debe estar verificada por AINDEV para publicar retos e invitar a su equipo.', invalid_transition: 'Ese cambio de estado no está permitido.',
     challenge_has_applications: 'No se puede regresar a borrador: ya hay aplicaciones.', challenge_has_active_assignments: 'No se puede archivar con participantes activos.',
     pending_validations: 'Hay validaciones pendientes por resolver.', not_assigned: 'No estás asignado a este reto.', evidence_source_required: 'Sube un archivo o escribe un enlace.',
-    invalid_file_type: 'Tipo de archivo no permitido.', file_too_large: 'El archivo supera el tamaño máximo.', file_mismatch: 'El contenido del archivo no coincide con su tipo.',
+    invalid_file_type: 'Tipo de archivo no permitido.', file_too_large: 'El archivo supera el tamaño máximo.', file_mismatch: 'El contenido del archivo no coincide con su tipo.', file_infected: 'El antivirus detectó software malicioso en el archivo y no se guardó. Revisa tu equipo y sube una copia limpia.', scanner_unavailable: 'No pudimos revisar el archivo con el antivirus. Inténtalo de nuevo en unos minutos.', file_not_scanned: 'El archivo debe pasar por el antivirus antes de guardarse. Inténtalo de nuevo en unos minutos.', file_quarantined: 'Este archivo está en cuarentena: todavía no lo revisó el antivirus. Sólo quien lo subió puede abrirlo.',
     evidence_locked: 'Esta evidencia ya no puede modificarse.', evidence_in_use: 'La evidencia está vinculada a horas enviadas.', publication_not_allowed: 'Este reto no permite publicar evidencia.',
     vath_locked: 'Este registro ya fue enviado y no puede editarse.', vath_future_date: 'No se pueden registrar horas en fechas futuras.',
     vath_outside_challenge: 'La fecha está fuera del periodo del reto.', vath_daily_limit: 'Superas el máximo de 16 horas en ese día.', vath_duplicate: 'Ya registraste esa actividad ese día.',

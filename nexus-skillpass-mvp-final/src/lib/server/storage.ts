@@ -4,10 +4,11 @@ import { mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { UPLOAD_TYPES } from '@/lib/constants';
 import { contentMatchesType, safeFileName } from '@/lib/safety';
-import type { Session } from './backend';
+import { write, type Session } from './backend';
 import { demoUploadsDir } from './demo-db';
 import { maxUploadBytes } from './env';
 import { AppError } from './errors';
+import { scanUpload, type ScanAttestation } from './scanner';
 import { supabaseServer } from './supabase';
 
 const BUCKET = 'evidence';
@@ -20,6 +21,8 @@ export interface StoredFile {
   mime_type: string;
   size_bytes: number;
   kind: string;
+  /** Present when the antivirus scanned the file: passed on to sp_add_evidence, never to the browser. */
+  scan?: ScanAttestation;
 }
 
 export async function storeEvidenceFile(session: Session, challengeId: string, file: File): Promise<StoredFile> {
@@ -30,6 +33,18 @@ export async function storeEvidenceFile(session: Session, challengeId: string, f
   if (!type || !type.ext.includes(ext)) throw new AppError('invalid_file_type', 415, 'file');
   const bytes = new Uint8Array(await file.arrayBuffer());
   if (!contentMatchesType(bytes, file.type)) throw new AppError('file_mismatch', 415, 'file');
+
+  // Antivirus before anything is stored: an infected file never reaches the bucket.
+  const scan = await scanUpload(bytes);
+  if (scan?.verdict === 'infected') {
+    console.error('[skillpass] upload blocked by antivirus', session.userId, scan.signature);
+    try {
+      await write('sp_log_blocked_upload', { gate: scan.gate, challenge_id: challengeId, file_name: file.name.slice(0, 200), signature: scan.signature });
+    } catch {
+      /* the upload is refused either way */
+    }
+    throw new AppError('file_infected', 422, 'file');
+  }
 
   const name = safeFileName(file.name);
   const storagePath = `${session.userId}/${challengeId}/${randomBytes(4).toString('hex')}-${name}`;
@@ -45,7 +60,10 @@ export async function storeEvidenceFile(session: Session, challengeId: string, f
       throw new AppError('forbidden', 403, 'file');
     }
   }
-  return { storage_path: storagePath, file_name: file.name.slice(0, 200), mime_type: file.type, size_bytes: file.size, kind: type.kind };
+  return {
+    storage_path: storagePath, file_name: file.name.slice(0, 200), mime_type: file.type, size_bytes: file.size, kind: type.kind,
+    ...(scan ? { scan: scan.attestation } : {}),
+  };
 }
 
 export async function removeEvidenceFile(session: Session, storagePath: string | null | undefined) {

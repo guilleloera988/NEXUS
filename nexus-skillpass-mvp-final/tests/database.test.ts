@@ -1294,3 +1294,98 @@ describe('shared attempt limits (pilot readiness)', () => {
     expect({ anon: await can('anon'), authenticated: await can('authenticated') }).toEqual({ anon: true, authenticated: true });
   });
 });
+
+describe('antivirus for evidence files (pilot readiness)', () => {
+  const GATE = 'scan-gate-token-for-tests';
+  const ENGINE = 'ClamAV 1.4.2/27453/Tue Nov  3 09:00:00 2026';
+  const refs = { task_id: TASK(1), deliverable_id: DELIVERABLE(1) };
+  let n = 0;
+  const file = (extra: Json = {}) => ({ challenge_id: CHALLENGE(1), title: `Archivo revisado ${++n}`, kind: 'pdf',
+    storage_path: `${USERS.diego}/${CHALLENGE(1)}/av${n}x-informe.pdf`, file_name: 'informe.pdf', mime_type: 'application/pdf', size_bytes: 2048, ...refs, ...extra });
+  const scan = (gate: unknown = GATE, verdict = 'clean', engine = ENGINE) => ({ scan: { gate, verdict, engine } });
+  const row = async (id: string) => (await db.query<{ scanned_at: string | null; scan_engine: string | null }>(
+    'select scanned_at, scan_engine from public.evidence where id = $1', [id])).rows[0];
+  const setRequired = (on: boolean) => db.query("update public.platform_settings set value = $1::jsonb where key = 'scan_required'", [JSON.stringify(on)]);
+  const setGate = (token: string | null) => token === null
+    ? db.query("delete from public.platform_settings where key = 'scan_gate'")
+    : db.query(`insert into public.platform_settings(key, value) values ('scan_gate', to_jsonb(encode(sha256(convert_to($1, 'UTF8')), 'hex')))
+                on conflict (key) do update set value = excluded.value`, [token]);
+  const fileOf = (actor: string, id: string) => rpc<Json | null>(db, actor, 'sp_evidence_file', { evidence_id: id });
+
+  afterAll(async () => { await setRequired(false); await setGate(null); });
+
+  it('starts off: files are accepted without a scan, as before, and a forged attestation does not count', async () => {
+    expect((await db.query<{ value: unknown }>("select value from public.platform_settings where key = 'scan_required'")).rows[0].value).toBe(false);
+    const plain = await rpc<Json>(db, USERS.diego, 'sp_add_evidence', file());
+    expect(await row(plain.id)).toEqual({ scanned_at: null, scan_engine: null });
+    const forged = await rpc<Json>(db, USERS.diego, 'sp_add_evidence', file(scan()));
+    expect((await row(forged.id)).scanned_at).toBeNull();
+  });
+
+  it('records the scan only with the server gate and a clean verdict', async () => {
+    await setGate(GATE);
+    const ok = await rpc<Json>(db, USERS.diego, 'sp_add_evidence', file(scan()));
+    expect(await row(ok.id)).toMatchObject({ scanned_at: expect.anything(), scan_engine: ENGINE });
+    for (const bad of [scan('wrong'), scan(42), scan(GATE, 'infected'), { scan: 'clean' }, { scan: { gate: GATE } }]) {
+      const e = await rpc<Json>(db, USERS.diego, 'sp_add_evidence', file(bad));
+      expect((await row(e.id)).scanned_at).toBeNull();
+    }
+    const messy = await rpc<Json>(db, USERS.diego, 'sp_add_evidence', file(scan(GATE, 'clean', `ClamAV\u0007\n${'x'.repeat(300)}`)));
+    expect((await row(messy.id)).scan_engine).toBe(`ClamAV${'x'.repeat(114)}`);
+    const unnamed = await rpc<Json>(db, USERS.diego, 'sp_add_evidence', file(scan(GATE, 'clean', '')));
+    expect((await row(unnamed.id)).scan_engine).toBe('ClamAV');
+  });
+
+  it('once required, refuses files without a valid attestation; links need none', async () => {
+    await setRequired(true);
+    for (const bad of [{}, scan('wrong'), scan(GATE, 'infected')]) {
+      await expectSpError(rpc(db, USERS.diego, 'sp_add_evidence', file(bad)), 'file_not_scanned', 'file');
+    }
+    const ok = await rpc<Json>(db, USERS.diego, 'sp_add_evidence', file(scan()));
+    expect((await row(ok.id)).scanned_at).not.toBeNull();
+    await expect(rpc(db, USERS.diego, 'sp_add_evidence', { challenge_id: CHALLENGE(1), title: 'Enlace sin archivo', kind: 'link', url: 'https://example.com/av', ...refs }))
+      .resolves.toMatchObject({ id: expect.any(String) });
+    await expect(db.query("update public.evidence set scanned_at = now(), scan_engine = 'x' where url = 'https://example.com/av'")).rejects.toThrow(/evidence_scan_file_only/);
+  });
+
+  it('keeps files nobody scanned in quarantine for everyone but their owner while scanning is required', async () => {
+    const legacy = (await db.query<{ id: string }>("select id from public.evidence where storage_path = $1", [`${USERS.diego}/${CHALLENGE(1)}/c52e71-bitacora-entrevistas.pdf`])).rows[0].id;
+    expect(await fileOf(USERS.carlos, legacy)).toMatchObject({ quarantined: true });
+    expect(await fileOf(USERS.diego, legacy)).toMatchObject({ quarantined: false });
+    await setRequired(false);
+    expect(await fileOf(USERS.carlos, legacy)).toMatchObject({ quarantined: false });
+    await setRequired(true);
+
+    const published = (await db.query<{ id: string }>(`select e.id from public.evidence e
+      join public.credentials cr on cr.assignment_id = e.assignment_id and cr.status = 'active' and cr.verification_enabled
+      where e.is_public and e.status = 'approved' and e.storage_path is not null and cr.snapshot->>'publication_policy' = 'public_allowed' limit 1`)).rows[0].id;
+    expect(await rpc(db, null, 'sp_public_evidence_file', { evidence_id: published })).toBeNull();
+    await db.query("update public.evidence set scanned_at = now(), scan_engine = 'ClamAV' where id = $1", [published]);
+    expect(await rpc(db, null, 'sp_public_evidence_file', { evidence_id: published })).toMatchObject({ storage_path: expect.any(String) });
+    await db.query('update public.evidence set scanned_at = null, scan_engine = null where id = $1', [published]);
+    await setRequired(false);
+  });
+
+  it('logs blocked uploads for AINDEV only with the server gate', async () => {
+    await expectError(rpc(db, USERS.diego, 'sp_log_blocked_upload', { gate: 'wrong', challenge_id: CHALLENGE(1), file_name: 'x.pdf', signature: 'Eicar' }), /forbidden/);
+    await expectError(rpc(db, null, 'sp_log_blocked_upload', { gate: GATE }), /permission denied/);
+    await rpc(db, USERS.diego, 'sp_log_blocked_upload', { gate: GATE, challenge_id: CHALLENGE(1), file_name: 'tarea.pdf', signature: 'Win.Test.EICAR_HDB-1' });
+    const logged = (await db.query<Row>("select actor_id, challenge_id, after from public.audit_logs where action = 'evidence_upload_blocked'")).rows;
+    expect(logged).toEqual([{ actor_id: USERS.diego, challenge_id: CHALLENGE(1), after: { file_name: 'tarea.pdf', signature: 'Win.Test.EICAR_HDB-1' } }]);
+  });
+
+  it('exposes only what the app needs and hides the gate', async () => {
+    const can = async (role: string, fn: string) =>
+      (await db.query<{ v: boolean }>("select has_function_privilege($1, $2, 'execute') as v", [role, fn])).rows[0].v;
+    for (const fn of ['public.sp_scan_gate_ok(text)', 'public.sp_scan_attested(jsonb)']) {
+      expect({ fn, anon: await can('anon', fn), authenticated: await can('authenticated', fn) }).toEqual({ fn, anon: false, authenticated: false });
+    }
+    for (const fn of ['public.sp_scan_required()', 'public.sp_log_blocked_upload(jsonb)', 'public.sp_add_evidence(jsonb)', 'public.sp_evidence_file(jsonb)']) {
+      expect({ fn, anon: await can('anon', fn), authenticated: await can('authenticated', fn) }).toEqual({ fn, anon: false, authenticated: true });
+    }
+    for (const fn of ['public.sp_public_evidence_file(jsonb)', 'public.sp_is_public_evidence_object(text)']) {
+      expect({ fn, anon: await can('anon', fn), authenticated: await can('authenticated', fn) }).toEqual({ fn, anon: true, authenticated: true });
+    }
+    await expectError(sql(db, USERS.diego, "update public.evidence set scanned_at = now(), scan_engine = 'x' where student_id = $1", [USERS.diego]), /permission denied/);
+  });
+});

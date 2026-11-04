@@ -32,6 +32,7 @@ Actores: visitante anónimo, estudiante, compañero de equipo, empresa/superviso
 - zod en cada Server Action (forma, tamaño, enums, URLs https sin credenciales embebidas).
 - Redirecciones post-login/demo con `safeNextPath` (bloquea `//host`, `/\host`, caracteres de control, esquemas); redirecciones relativas.
 - Subidas: lista blanca MIME (sin SVG/HTML), *magic numbers*, tamaño máximo (`MAX_UPLOAD_MB`), nombres saneados, rollback del archivo si falla el registro.
+- **Antivirus** (`20261105000001`, `scanner/`, `src/lib/server/scanner.ts`): con `SCANNER_URL` y `SCANNER_TOKEN`, cada archivo pasa por ClamAV **antes** de guardarse. Un archivo infectado nunca llega al bucket: se rechaza (`file_infected`) y queda en la bitácora (`evidence_upload_blocked`, con firma y nombre de archivo). Si el escáner no responde, la subida se rechaza (`scanner_unavailable`): falla cerrada. El servidor certifica la revisión ante `sp_add_evidence` con una compuerta derivada de `SCANNER_TOKEN` (la base guarda sólo su SHA-256), así que nadie puede marcar un archivo como revisado desde fuera. Con `platform_settings.scan_required = true` la base rechaza archivos sin esa certificación (`file_not_scanned`), y los que nunca se revisaron (guardados antes) quedan en **cuarentena**: sólo su autor los abre (`sp_evidence_file` → 423, política `evidence_select_visible` de Storage, `sp_public_evidence_file`, `sp_is_public_evidence_object`). El escáner corre aparte (Fly.io, ~2 GB), con token propio, sin acceso a la base ni a Storage, y no guarda los archivos.
 - Descargas: consulta con RLS antes de servir; URL firmada de 60 s (Supabase) o archivo DEMO con protección de *path traversal*; *inline* sólo PDF e imágenes, `Content-Security-Policy: sandbox`, `nosniff`, `Content-Disposition` seguro.
 - Exportación CSV con neutralización de fórmulas (`=`, `+`, `-`, `@`, tab).
 - Errores: mensajes traducidos por clave; nunca se expone el texto de PostgreSQL ni trazas.
@@ -62,6 +63,7 @@ Actores: visitante anónimo, estudiante, compañero de equipo, empresa/superviso
 
 ### 2.5 Secretos
 
+- `SCANNER_TOKEN` (≥ 32 caracteres, en Vercel y en el escáner): autentica a la app ante el escáner y deriva la compuerta del antivirus; `scripts/scan-gate.mjs` imprime el SQL que la guarda (su SHA-256) y enciende `scan_required`.
 - `RATE_LIMIT_SECRET` (≥ 32 caracteres, sólo en Vercel): firma las llaves del límite de intentos y deriva su compuerta; `scripts/rate-limit-gate.mjs` imprime el SQL que guarda la compuerta (su SHA-256) en la base. Al cambiarlo hay que volver a guardar la compuerta.
 - La app sólo usa la llave **pública** de Supabase. La service-role key y la URL de base de datos se usan exclusivamente en la máquina del operador (`npm run seed -- --supabase`) y nunca se configuran en Vercel.
 - `.env*` ignorado por git (excepto `.env.example` sin valores). No hay llaves reales en el repositorio.
@@ -110,7 +112,7 @@ Hallazgos corregidos durante la revisión:
 |---|---|
 | CSP con `'unsafe-inline'` para scripts (sin nonces) | Implementar CSP con nonce vía `proxy.ts` cuando se estabilice el despliegue. |
 | Sin CAPTCHA en registro, inicio de sesión y recuperación (el límite de intentos compartido está activo en producción desde el 3 nov; sin `RATE_LIMIT_SECRET` y su compuerta, como en la demo, es por instancia) | Agregar Cloudflare Turnstile y activarlo después en Supabase Auth. |
-| Sin escaneo antivirus de archivos | Integrar escaneo (p. ej. ClamAV o servicio gestionado) antes de mostrar archivos a revisores. |
+| Antivirus listo en el código (`20261105000001`, `scanner/`) pero sin escáner desplegado: hasta entonces los archivos se guardan sin revisar | Desplegar `scanner/` (Fly.io), configurar `SCANNER_URL`/`SCANNER_TOKEN` en Vercel y encender `scan_required` (`scanner/README.md`). ClamAV detecta malware conocido; no sustituye a abrir archivos con cuidado. |
 | Políticas de contraseña/confirmación dependen de la configuración de Supabase Auth | Configurar longitud mínima ≥ 10, confirmación de email y protección de contraseñas filtradas. |
 | Modo DEMO `supabase` comparte estado entre visitantes | Usar un proyecto Supabase exclusivo de demo y re-sembrar periódicamente; nunca en el proyecto productivo. |
 | DEMO local: ~42 MB de disco por escenario | Ajustar `NEXUS_DEMO_MAX_SESSIONS` y `NEXUS_DEMO_TTL_HOURS` al disco disponible. |

@@ -1,0 +1,25 @@
+# Fly.io app for the SkillPass antivirus scanner (see README.md). Change `app` to a free name of your own.
+app = "skillpass-scanner"
+# Next to Vercel (iad1) and Supabase (us-east-1).
+primary_region = "iad"
+
+[http_service]
+  internal_port = 8080
+  force_https = true
+  # Always on: uploads wait for the scan, so a cold start would make them fail.
+  auto_stop_machines = "off"
+  auto_start_machines = true
+  min_machines_running = 1
+
+  [[http_service.checks]]
+    # The first signature download and load take a few minutes.
+    grace_period = "300s"
+    interval = "30s"
+    timeout = "5s"
+    method = "GET"
+    path = "/health"
+
+[[vm]]
+  memory = "2gb"
+  cpu_kind = "shared"
+  cpus = 1

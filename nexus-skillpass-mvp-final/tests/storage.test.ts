@@ -92,6 +92,24 @@ describe('evidence storage bucket and policies', () => {
       .rejects.toThrow(/row-level security|permission denied/);
   });
 
+  it('while scanning is required, files nobody scanned are readable only from their owner\'s folder', async () => {
+    await db.query("update public.platform_settings set value = 'true'::jsonb where key = 'scan_required'");
+    try {
+      expect(await visible(USERS.carlos)).not.toEqual(expect.arrayContaining([DIEGO_C1_PDF]));
+      expect(await visible(USERS.carlos)).not.toContain(MARIA_C1_PDF);
+      expect(await visible(USERS.diego)).toContain(DIEGO_C1_PDF);
+      expect(await visible(null, 'storage.object.sign')).toEqual([]);
+      // A scanned file leaves quarantine.
+      await db.query("update public.evidence set scanned_at = now(), scan_engine = 'ClamAV test' where storage_path in ($1, $2)", [DIEGO_C1_PDF, MARIA_C2_PNG]);
+      expect(await visible(USERS.carlos)).toContain(DIEGO_C1_PDF);
+      expect(await visible(null, 'storage.object.sign')).toEqual([MARIA_C2_PNG]);
+    } finally {
+      await db.query("update public.platform_settings set value = 'false'::jsonb where key = 'scan_required'");
+      await db.query('update public.evidence set scanned_at = null, scan_engine = null where storage_path in ($1, $2)', [DIEGO_C1_PDF, MARIA_C2_PNG]);
+    }
+    expect(await visible(USERS.carlos)).toEqual(expect.arrayContaining([DIEGO_C1_PDF, MARIA_C1_PDF]));
+  });
+
   it('files of reviewed evidence cannot be deleted by the student', async () => {
     const approved = await sql<{ name: string }>(db, USERS.maria, 'delete from storage.objects where name = $1 returning name', [MARIA_C1_PDF]);
     expect(approved).toEqual([]);
