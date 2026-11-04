@@ -22,6 +22,21 @@ export function demoMode(): DemoMode {
 export const demoDataDir = () => path.resolve(process.env.NEXUS_DEMO_DATA_DIR || '.demo-data');
 export const demoTtlHours = () => Math.min(Math.max(Number(process.env.NEXUS_DEMO_TTL_HOURS) || 48, 1), 24 * 30);
 export const demoMaxSessions = () => Math.min(Math.max(Number(process.env.NEXUS_DEMO_MAX_SESSIONS) || 50, 1), 500);
+/**
+ * Where the public demo lives when this deployment has none (production keeps fictional data out of the real
+ * database). DEMO_URL is an https origin, e.g. https://skillpass-demo.vercel.app; anything else is ignored.
+ */
+export function publicDemoUrl() {
+  const raw = process.env.DEMO_URL?.trim();
+  if (!raw) return null;
+  try {
+    const url = new URL(raw);
+    return url.protocol === 'https:' && !url.username && !url.password ? url.origin : null;
+  } catch {
+    return null;
+  }
+}
+
 export const maxUploadBytes = () => Math.min(Math.max(Number(process.env.MAX_UPLOAD_MB) || 4, 1), 10) * 1024 * 1024;
 
 /** Absolute origin for links that leave the app (QR codes, e-mails, share URLs). */

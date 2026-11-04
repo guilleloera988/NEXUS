@@ -524,7 +524,8 @@ const en: Messages = {
       admin: { name: 'AINDEV Team', role: 'Admin · Talent OS', text: 'Verifies organizations, oversees validations and the audit log.' },
     },
     enter: 'Enter as {name}', entering: 'Preparing scenario…',
-    disabled: 'The interactive demo is not enabled on this deployment.', disabledText: 'You can open a sample public credential or run the demo locally (see README).',
+    disabled: 'The interactive demo is not enabled on this deployment.', disabledText: 'This installation does not include the demo with sample data.',
+    elsewhere: 'The interactive demo has its own site', elsewhereText: 'To keep fictional data apart from real universities, students and companies, the demo runs on a separate site with sample people and data. No account needed.', openDemo: 'Open the interactive demo',
     publicExamples: 'Public examples without signing in', exampleSkillpass: "María's public SkillPass", exampleCredential: 'Verify credential {code}',
     guided: {
       title: 'Guided demo', step: 'Step {n} of {total}', next: 'Next step', finish: 'Finish', close: 'Hide guide', open: 'Show guide',
