@@ -136,3 +136,24 @@ describe('operator script', () => {
     expect(() => execFileSync('node', ['scripts/scan-gate.mjs'], { env: { ...process.env, SCAN_GATE_SECRET: 'short' }, stdio: 'pipe' })).toThrow();
   });
 });
+
+describe('health check', () => {
+  it('reports off, ok, unauthorized or unavailable, and asks the scanner at most once a minute', async () => {
+    delete process.env.SCANNER_URL;
+    expect(await (await import('@/lib/server/scanner')).scannerStatus()).toBe('off');
+    process.env.SCANNER_URL = 'https://scanner.example.org';
+    vi.resetModules();
+    let mod = await import('@/lib/server/scanner');
+    expect(await mod.scannerStatus()).toBe('ok');
+    expect(await mod.scannerStatus()).toBe('ok');
+    expect(requests).toHaveLength(1);
+    expect((requests[0].init.headers as Record<string, string>).authorization).toBe(`Bearer ${TOKEN}`);
+    for (const [bad, expected] of [[async () => new Response('no', { status: 401 }), 'unauthorized'], [async () => { throw new Error('down'); }, 'unavailable'],
+      [async () => Response.json({ status: 'infected' }), 'unavailable']] as const) {
+      answer = bad;
+      vi.resetModules();
+      mod = await import('@/lib/server/scanner');
+      expect(await mod.scannerStatus()).toBe(expected);
+    }
+  });
+});

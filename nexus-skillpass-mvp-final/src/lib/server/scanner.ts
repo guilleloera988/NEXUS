@@ -67,3 +67,30 @@ export async function scanUpload(bytes: Uint8Array): Promise<ScanOutcome | null>
   console.error('[skillpass] antivirus scanner answered without a verdict');
   throw new AppError('scanner_unavailable', 503, 'file');
 }
+
+/**
+ * For /api/health: whether this deployment reaches its scanner with the right token. A tiny authenticated scan, cached
+ * for a minute per instance so the public health check cannot be used to load the scanner.
+ */
+let status: { value: 'ok' | 'unauthorized' | 'unavailable'; at: number } | null = null;
+export async function scannerStatus(): Promise<'off' | 'ok' | 'unauthorized' | 'unavailable'> {
+  const config = scannerConfig();
+  if (!config) return 'off';
+  if (status && Date.now() - status.at < 60_000) return status.value;
+  let value: 'ok' | 'unauthorized' | 'unavailable' = 'unavailable';
+  try {
+    const res = await fetch(`${config.url}/scan`, {
+      method: 'POST',
+      headers: { authorization: `Bearer ${config.token}`, 'content-type': 'application/octet-stream' },
+      body: 'skillpass-health-check',
+      signal: AbortSignal.timeout(5_000),
+      cache: 'no-store',
+    });
+    if (res.status === 401) value = 'unauthorized';
+    else if (res.ok && (await res.json())?.status === 'clean') value = 'ok';
+  } catch {
+    /* unavailable */
+  }
+  status = { value, at: Date.now() };
+  return value;
+}
