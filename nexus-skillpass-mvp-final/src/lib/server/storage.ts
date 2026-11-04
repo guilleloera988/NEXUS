@@ -38,10 +38,12 @@ export async function storeEvidenceFile(session: Session, challengeId: string, f
   const scan = await scanUpload(bytes);
   if (scan?.verdict === 'infected') {
     console.error('[skillpass] upload blocked by antivirus', session.userId, scan.signature);
-    try {
-      await write('sp_log_blocked_upload', { gate: scan.gate, challenge_id: challengeId, file_name: file.name.slice(0, 200), signature: scan.signature });
-    } catch {
-      /* the upload is refused either way */
+    if (scan.gate) {
+      try {
+        await write('sp_log_blocked_upload', { gate: scan.gate, challenge_id: challengeId, file_name: file.name.slice(0, 200), signature: scan.signature });
+      } catch {
+        /* the upload is refused either way */
+      }
     }
     throw new AppError('file_infected', 422, 'file');
   }
@@ -62,7 +64,7 @@ export async function storeEvidenceFile(session: Session, challengeId: string, f
   }
   return {
     storage_path: storagePath, file_name: file.name.slice(0, 200), mime_type: file.type, size_bytes: file.size, kind: type.kind,
-    ...(scan ? { scan: scan.attestation } : {}),
+    ...(scan?.verdict === 'clean' && scan.attestation ? { scan: scan.attestation } : {}),
   };
 }
 

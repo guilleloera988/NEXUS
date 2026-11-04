@@ -1,5 +1,5 @@
 # Fly.io app for the SkillPass antivirus scanner (see README.md). Change `app` to a free name of your own.
-app = "skillpass-scanner"
+app = "skillpass-scanner-aindev"
 # Next to Vercel (iad1) and Supabase (us-east-1).
 primary_region = "iad"
 

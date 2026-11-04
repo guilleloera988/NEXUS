@@ -4,14 +4,15 @@ import { AppError } from './errors';
 
 /*
  * Antivirus for evidence uploads (scanner/ and migration 20261105000001). With SCANNER_URL and SCANNER_TOKEN set,
- * every file goes to the ClamAV scanner before it is stored: an infected file is refused, and a clean one is
- * registered with an attestation that only this server can produce. Without them (local DEMO, the demo project)
- * files are stored unscanned, which the database accepts only while platform_settings.scan_required is false.
+ * every file goes to the ClamAV scanner before it is stored and an infected file is refused. With SCAN_GATE_SECRET
+ * too, a clean file is registered with an attestation that only this server can produce. SCANNER_TOKEN is shared
+ * with the scanner; SCAN_GATE_SECRET stays in Vercel. Without a scanner (local DEMO, the demo project) files are
+ * stored unscanned, which the database accepts only while platform_settings.scan_required is false.
  */
 export interface ScanAttestation { gate: string; verdict: 'clean'; engine: string }
 export type ScanOutcome =
-  | { verdict: 'clean'; engine: string; attestation: ScanAttestation }
-  | { verdict: 'infected'; engine: string; signature: string; gate: string };
+  | { verdict: 'clean'; engine: string; attestation?: ScanAttestation }
+  | { verdict: 'infected'; engine: string; signature: string; gate?: string };
 
 const GATE_CONTEXT = 'skillpass-scan-gate';
 
@@ -28,8 +29,13 @@ export function scannerConfig() {
   }
 }
 
+function gateSecret() {
+  const value = process.env.SCAN_GATE_SECRET?.trim();
+  return value && value.length >= 32 ? value : null;
+}
+
 /** The token sp_add_evidence checks; the database keeps only its SHA-256 (platform_settings 'scan_gate'). */
-export const scanGate = (token: string) => createHmac('sha256', token).update(GATE_CONTEXT).digest('hex');
+export const scanGate = (secret: string) => createHmac('sha256', secret).update(GATE_CONTEXT).digest('hex');
 
 /** Scans the bytes, or returns null when no scanner is configured. Throws `scanner_unavailable` when it cannot answer. */
 export async function scanUpload(bytes: Uint8Array): Promise<ScanOutcome | null> {
@@ -51,11 +57,12 @@ export async function scanUpload(bytes: Uint8Array): Promise<ScanOutcome | null>
     throw new AppError('scanner_unavailable', 503, 'file');
   }
   const engine = typeof body.engine === 'string' && body.engine ? body.engine.slice(0, 120) : 'ClamAV';
-  const gate = scanGate(config.token);
-  if (body.status === 'clean') return { verdict: 'clean', engine, attestation: { gate, verdict: 'clean', engine } };
+  const secret = gateSecret();
+  const gate = secret ? scanGate(secret) : undefined;
+  if (body.status === 'clean') return { verdict: 'clean', engine, ...(gate ? { attestation: { gate, verdict: 'clean' as const, engine } } : {}) };
   if (body.status === 'infected') {
     const signature = typeof body.signature === 'string' ? body.signature.slice(0, 200) : 'unknown';
-    return { verdict: 'infected', engine, signature, gate };
+    return { verdict: 'infected', engine, signature, ...(gate ? { gate } : {}) };
   }
   console.error('[skillpass] antivirus scanner answered without a verdict');
   throw new AppError('scanner_unavailable', 503, 'file');

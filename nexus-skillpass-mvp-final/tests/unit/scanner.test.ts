@@ -7,6 +7,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
  * are fakes; the scanner service and the database rules have their own suites.
  */
 const TOKEN = 'scanner-token-for-unit-tests-0123456789abcdef';
+const GATE_SECRET = 'scan-gate-secret-for-unit-tests-0123456789abcdef';
 const uploads: string[] = [];
 const writes: { fn: string; payload: Record<string, unknown> }[] = [];
 let answer: () => Promise<Response>;
@@ -26,6 +27,7 @@ beforeEach(() => {
   uploads.length = 0; writes.length = 0; requests = [];
   process.env.SCANNER_URL = 'https://scanner.example.org/';
   process.env.SCANNER_TOKEN = TOKEN;
+  process.env.SCAN_GATE_SECRET = GATE_SECRET;
   answer = async () => Response.json({ status: 'clean', engine: 'ClamAV 1.4.2/27453' });
   vi.stubGlobal('fetch', async (url: string, init: RequestInit) => { requests.push({ url, init }); return answer(); });
   vi.spyOn(console, 'error').mockImplementation(() => undefined);
@@ -35,7 +37,7 @@ afterEach(() => { process.env = { ...env }; vi.unstubAllGlobals(); vi.restoreAll
 const session = { mode: 'supabase' as const, userId: '10000000-0000-4000-8000-000000000011' };
 const CHALLENGE = '40000000-0000-4000-8000-000000000001';
 const pdf = () => new File(['%PDF-1.4\n% evidencia de prueba\n'], 'informe.pdf', { type: 'application/pdf' });
-const gate = createHmac('sha256', TOKEN).update('skillpass-scan-gate').digest('hex');
+const gate = createHmac('sha256', GATE_SECRET).update('skillpass-scan-gate').digest('hex');
 
 describe('scanner configuration', () => {
   it('needs an https URL (or a local one) and a token of at least 32 characters', async () => {
@@ -103,6 +105,17 @@ describe('storing evidence files', () => {
     expect(uploads).toEqual([]);
   });
 
+  it('without SCAN_GATE_SECRET still scans and refuses infected files, but attests and logs nothing', async () => {
+    delete process.env.SCAN_GATE_SECRET;
+    const { storeEvidenceFile } = await import('@/lib/server/storage');
+    const stored = await storeEvidenceFile(session, CHALLENGE, pdf());
+    expect(stored.scan).toBeUndefined();
+    answer = async () => Response.json({ status: 'infected', signature: 'Win.Test.EICAR_HDB-1' });
+    await expect(storeEvidenceFile(session, CHALLENGE, pdf())).rejects.toMatchObject({ key: 'file_infected' });
+    expect(uploads).toHaveLength(1);
+    expect(writes).toEqual([]);
+  });
+
   it('stores unscanned files when no scanner is configured (the database decides whether that is allowed)', async () => {
     delete process.env.SCANNER_URL;
     const { storeEvidenceFile } = await import('@/lib/server/storage');
@@ -115,11 +128,11 @@ describe('storing evidence files', () => {
 
 describe('operator script', () => {
   it('prints the hashed gate the app sends and turns the requirement on; refuses a short token', () => {
-    const out = execFileSync('node', ['scripts/scan-gate.mjs'], { env: { ...process.env, SCANNER_TOKEN: TOKEN }, encoding: 'utf8' });
+    const out = execFileSync('node', ['scripts/scan-gate.mjs'], { env: { ...process.env, SCAN_GATE_SECRET: GATE_SECRET }, encoding: 'utf8' });
     expect(out).toContain(`'"${createHash('sha256').update(gate).digest('hex')}"'::jsonb`);
     expect(out).toContain("set value = 'true'::jsonb");
-    expect(out).not.toContain(TOKEN);
+    expect(out).not.toContain(GATE_SECRET);
     expect(out).not.toContain(gate);
-    expect(() => execFileSync('node', ['scripts/scan-gate.mjs'], { env: { ...process.env, SCANNER_TOKEN: 'short' }, stdio: 'pipe' })).toThrow();
+    expect(() => execFileSync('node', ['scripts/scan-gate.mjs'], { env: { ...process.env, SCAN_GATE_SECRET: 'short' }, stdio: 'pipe' })).toThrow();
   });
 });

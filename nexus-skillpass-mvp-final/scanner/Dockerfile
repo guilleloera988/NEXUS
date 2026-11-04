@@ -6,7 +6,9 @@ RUN apt-get update \
  && rm -rf /var/lib/apt/lists/*
 COPY clamd.conf /etc/clamav/clamd.conf
 COPY server.mjs start.sh /app/
-RUN chmod 644 /etc/clamav/clamd.conf /app/server.mjs && chmod 755 /app/start.sh
+# Files checked out on Windows may carry CRLF line endings, which break the shell script.
+RUN sed -i 's/\r$//' /etc/clamav/clamd.conf /app/start.sh \
+ && chmod 644 /etc/clamav/clamd.conf /app/server.mjs && chmod 755 /app/start.sh
 ENV PORT=8080 CLAMD_SOCKET=/run/clamav/clamd.sock
 EXPOSE 8080
 CMD ["/app/start.sh"]

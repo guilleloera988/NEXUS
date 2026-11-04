@@ -48,7 +48,7 @@ La DEMO `local` **no** funciona en funciones serverless (no hay disco persistent
    | `NEXUS_DEMO_PASSWORD` | sólo en el proyecto de demo |
    | `DEMO_URL` | sólo en producción (`NEXUS_DEMO_MODE=off`): origen https de la demo pública; `/demo` redirige ahí |
    | `MAX_UPLOAD_MB` | `4` |
-   | `SCANNER_URL`, `SCANNER_TOKEN` | Escáner antivirus (`scanner/`, desplegado en Fly.io según `scanner/README.md`) y su token (≥ 32 caracteres), sólo Production. Después, `SCANNER_TOKEN=… node scripts/scan-gate.mjs` imprime el SQL que guarda la compuerta y enciende `scan_required`. Sin ellas los archivos se guardan sin revisar. |
+   | `SCANNER_URL`, `SCANNER_TOKEN`, `SCAN_GATE_SECRET` | Escáner antivirus (`scanner/`, desplegado en Fly.io según `scanner/README.md`), el token que comparte con la app y la llave de la compuerta (sólo en Vercel); ≥ 32 caracteres, sólo Production. Después, `SCAN_GATE_SECRET=… node scripts/scan-gate.mjs` imprime el SQL que guarda la compuerta y enciende `scan_required`. Sin `SCANNER_URL`/`SCANNER_TOKEN` los archivos se guardan sin revisar. |
    | `RATE_LIMIT_SECRET` | ≥ 32 caracteres aleatorios (`openssl rand -hex 32`), sólo Production. Después de aplicar `20261104000001`, guardar su compuerta en la base con el SQL que imprime `RATE_LIMIT_SECRET=… node scripts/rate-limit-gate.mjs` (y repetirlo si el secreto cambia). Sin ella el límite de intentos es por instancia. |
 
    **Nunca** configurar `SUPABASE_SERVICE_ROLE_KEY` ni `SUPABASE_DB_URL` en Vercel.
