@@ -524,7 +524,6 @@ const es = {
     },
     enter: 'Entrar como {name}', entering: 'Preparando escenario…',
     disabled: 'La demo interactiva no está habilitada en este despliegue.', disabledText: 'Esta instalación no incluye la demo con datos de ejemplo.',
-    elsewhere: 'La demo interactiva está en su propio sitio', elsewhereText: 'Para no mezclar datos ficticios con los de universidades, estudiantes y empresas reales, la demo funciona en un sitio aparte, con personas y datos de ejemplo. Puedes entrar sin crear cuenta.', openDemo: 'Abrir la demo interactiva',
     publicExamples: 'Ejemplos públicos sin iniciar sesión', exampleSkillpass: 'SkillPass público de María', exampleCredential: 'Verificar credencial {code}',
     guided: {
       title: 'Demo guiada', step: 'Paso {n} de {total}', next: 'Siguiente paso', finish: 'Terminar', close: 'Ocultar guía', open: 'Mostrar guía',

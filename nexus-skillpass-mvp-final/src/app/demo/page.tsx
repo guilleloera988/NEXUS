@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { ArrowRight, FlaskConical, Info } from 'lucide-react';
+import { redirect } from 'next/navigation';
+import { FlaskConical, Info } from 'lucide-react';
 import { PublicFooter, PublicHeader } from '@/components/shell/public-chrome';
 import { Alert } from '@/components/ui/primitives';
 import { DEMO_IDS, DEMO_PERSONA_KEYS } from '@/lib/demo-personas';
@@ -17,11 +18,9 @@ export async function generateMetadata(): Promise<Metadata> {
 export default async function DemoPage() {
   const { t } = await getMessages();
   const mode = demoMode();
-  // Production has no demo of its own: send visitors to the public demo site instead of a dead end.
+  // Production keeps fictional data out of its database: /demo goes straight to the public demo site.
   const elsewhere = mode === 'off' ? publicDemoUrl() : null;
-  const openDemo = elsewhere ? (
-    <a href={`${elsewhere}/demo`} className="btn-primary btn-lg">{t.demo.openDemo} <ArrowRight className="size-5" aria-hidden /></a>
-  ) : null;
+  if (elsewhere) redirect(`${elsewhere}/demo`);
   return (
     <>
       <PublicHeader />
@@ -32,18 +31,13 @@ export default async function DemoPage() {
             <span className="badge-dark mx-auto ring-1 ring-gold-400/40"><FlaskConical className="size-3.5" aria-hidden /> {t.demo.badge}</span>
             <h1 className="mt-5 text-3xl font-extrabold text-white sm:text-5xl">{t.demo.title}</h1>
             <p className="mx-auto mt-4 max-w-2xl text-ink-300">{t.demo.subtitle}</p>
-            <div className="mt-8 flex justify-center">{mode === 'off' ? openDemo : <StartGuided />}</div>
+            <div className="mt-8 flex justify-center">{mode === 'off' ? null : <StartGuided />}</div>
           </div>
         </section>
 
         <section className="mx-auto max-w-7xl px-4 py-12 sm:px-6">
           {mode === 'off' ? (
-            elsewhere ? (
-              <Alert tone="gold" title={t.demo.elsewhere}>
-                {t.demo.elsewhereText}
-                <div className="mt-3"><a href={`${elsewhere}/demo`} className="link font-semibold">{t.demo.openDemo} →</a></div>
-              </Alert>
-            ) : <Alert tone="gold" title={t.demo.disabled}>{t.demo.disabledText}</Alert>
+            <Alert tone="gold" title={t.demo.disabled}>{t.demo.disabledText}</Alert>
           ) : (
             <>
               <h2 className="text-xl font-extrabold">{t.demo.orPick}</h2>
