@@ -96,7 +96,7 @@ Además de lo anterior, lo que falta para dar de alta a una universidad, sus est
 
 | | Mejora | Estado |
 |---|---|---|
-| A1 | Aviso de privacidad y Términos, con registro de aceptación (OI-06) | **Construido, sin publicar** (`20261113000001`, [LEGAL](LEGAL.md)): textos en borrador para revisión legal; se publican con las variables `LEGAL_*`. |
+| A1 | Aviso de privacidad y Términos, con registro de aceptación (OI-06) | **Construido, sin publicar** ([LEGAL](LEGAL.md)): textos en borrador para revisión legal; migración `20261113000001` aplicada en producción el 13 nov. Se publican al configurar las variables `LEGAL_*`. |
 | A2 | Planes de pago: Supabase Pro, Vercel Pro, Resend Pro (OI-01, OI-14) | Pendiente (AINDEV) |
 | A3 | Encender antivirus y CAPTCHA (pendientes 3 y 4) | Pendiente (AINDEV: escáner en Fly.io y *Site Key*) |
 | A4 | Ensayo general en producción con cuentas y correos reales | Pendiente |
@@ -119,7 +119,7 @@ Después: credencial firmada (Open Badges 3.0 / W3C VC) y anclaje en blockchain.
 | OI-03 | Media | CSP con `'unsafe-inline'` en scripts. | Nonces vía `proxy.ts`. |
 | OI-04 | Media | Límite de intentos compartido activo en producción desde el 3 nov (`20261104000001`, `RATE_LIMIT_SECRET` en Vercel); el proyecto de demo sigue con el límite por instancia. Sin CAPTCHA. | CAPTCHA con Cloudflare Turnstile en registro, inicio de sesión y recuperación. |
 | OI-05 | Media | Antivirus listo en el código pero sin escáner desplegado: en producción los archivos aún se guardan sin revisar. | Desplegar `scanner/` en Fly.io y activarlo (`scanner/README.md`). |
-| OI-06 | Media | Aviso de privacidad y Términos redactados en borrador y construidos en la plataforma (registro de aceptación incluido), pero sin publicar. | Revisión legal y datos de la entidad; después aplicar `20261113000001` y configurar `LEGAL_*` ([LEGAL](LEGAL.md)). |
+| OI-06 | Media | Aviso de privacidad y Términos redactados en borrador y construidos en la plataforma (registro de aceptación incluido, migración aplicada en producción), pero sin publicar. | Revisión legal y datos de la entidad; después configurar `LEGAL_*` en Vercel ([LEGAL](LEGAL.md)). |
 | OI-07 | Baja | La DEMO local usa ~42 MB de disco por escenario. | Ajustar límites o implementar snapshot comprimido. |
 | OI-08 | Baja | `Dockerfile` no construido en este entorno. | Construir en CI o en la máquina del operador. |
 | OI-09 | Baja | Cambio de contraseña desde el enlace de recuperación sin prueba de punta a punta (el envío del correo sí se probó). | Recorrerlo en producción con una cuenta de prueba. |

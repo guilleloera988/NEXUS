@@ -35,7 +35,7 @@ El texto en español es el que vale; el inglés es una traducción de cortesía 
 
 1. El abogado revisa los dos textos (PDF generados desde `/legal/privacy` y `/legal/terms`) y AINDEV decide los
    puntos de abajo. Los cambios de redacción se hacen en `privacy.ts` / `terms.ts`.
-2. Se aplica la migración `20261113000001` en la base de producción.
+2. La migración `20261113000001` ya está aplicada en la base de producción (13 nov 2026).
 3. En Vercel (`skillpass-prod`, Production) se configuran las cuatro variables y se redespliega:
 
    | Variable | Qué es |
