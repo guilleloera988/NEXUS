@@ -3,7 +3,9 @@
 import { cookies, headers } from 'next/headers';
 import { redirect } from 'next/navigation';
 import type { ActionState } from '@/lib/action-state';
-import { fdString, runAction } from '@/lib/server/action';
+import { getLocale } from '@/lib/i18n/server';
+import { LEGAL_VERSION, legalEntity } from '@/lib/legal/config';
+import { fdBool, fdString, runAction } from '@/lib/server/action';
 import { DEMO_COOKIE } from '@/lib/server/demo-session';
 import { SIGNUP_EMAIL_COOKIE } from '@/lib/server/auth-cookies';
 import { appOrigin, supabaseConfig } from '@/lib/server/env';
@@ -65,6 +67,10 @@ export async function signup(_prev: ActionState, fd: FormData): Promise<ActionSt
     const input = signupSchema.parse({
       full_name: fdString(fd, 'full_name'), email: fdString(fd, 'email'), password: fdString(fd, 'password'), account_type: fdString(fd, 'account_type'),
     });
+    // Where the legal texts are live, the account is created only with their acceptance, and the database
+    // records it with the account (legal_acceptances, migration 20261113000001).
+    const consent = legalEntity() ? { legal_version: LEGAL_VERSION, legal_locale: await getLocale() } : null;
+    if (consent && !fdBool(fd, 'legal')) throw new AppError('legal_required', 400, 'legal');
     await limitAttempts([
       { rule: LIMITS.signupNetwork, id: await clientNetwork() },
       { rule: LIMITS.signupEmail, id: emailIdentity(input.email) },
@@ -75,7 +81,7 @@ export async function signup(_prev: ActionState, fd: FormData): Promise<ActionSt
       email: input.email,
       password: input.password,
       options: {
-        data: { full_name: input.full_name, account_type: input.account_type },
+        data: { full_name: input.full_name, account_type: input.account_type, ...consent },
         emailRedirectTo: new URL('/auth/callback?next=/onboarding', await origin()).toString(),
       },
     });

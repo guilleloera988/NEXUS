@@ -6,7 +6,7 @@ type Row = Record<string, unknown>;
 type Json = Record<string, any>; // eslint-disable-line @typescript-eslint/no-explicit-any
 
 let db: TestDb;
-const APP_TABLES = 28;
+const APP_TABLES = 29;
 
 const challengeInput = (overrides: Json = {}) => ({
   organization_id: ORGS.nova,
@@ -1387,5 +1387,76 @@ describe('antivirus for evidence files (pilot readiness)', () => {
       expect({ fn, anon: await can('anon', fn), authenticated: await can('authenticated', fn) }).toEqual({ fn, anon: true, authenticated: true });
     }
     await expectError(sql(db, USERS.diego, "update public.evidence set scanned_at = now(), scan_engine = 'x' where student_id = $1", [USERS.diego]), /permission denied/);
+  });
+});
+
+describe('terms and privacy notice acceptance (pilot readiness)', () => {
+  const VERSION = '2026-11-13';
+  // Its own id range: 07xx belongs to the university membership tests above.
+  const NEW = (n: number) => `10000000-0000-4000-8000-0000000008${String(n).padStart(2, '0')}`;
+  const signUp = (n: number, meta: Json) =>
+    db.query('insert into auth.users(id, email, raw_user_meta_data) values ($1, $2, $3::jsonb)',
+      [NEW(n), `legal${n}@test.invalid`, JSON.stringify({ full_name: `Persona Legal ${n}`, account_type: 'student', ...meta })]);
+  const rows = async (user: string) => (await db.query<Row>(
+    'select version, source, locale from public.legal_acceptances where user_id = $1 order by version', [user])).rows;
+  const status = (actor: string, version: string) => rpc<Json>(db, actor, 'sp_legal_status', { version });
+
+  it('records the acceptance given in the sign-up form, with the language it was read in', async () => {
+    await signUp(1, { legal_version: VERSION, legal_locale: 'en' });
+    await signUp(2, { legal_version: VERSION });
+    expect(await rows(NEW(1))).toEqual([{ version: VERSION, source: 'signup', locale: 'en' }]);
+    expect(await rows(NEW(2))).toEqual([{ version: VERSION, source: 'signup', locale: 'es' }]);
+    expect(await status(NEW(1), VERSION)).toMatchObject({ accepted: true, accepted_at: expect.any(String) });
+  });
+
+  it('never blocks a sign-up: without a valid version the account exists and nothing is recorded', async () => {
+    const bad = [{}, { legal_version: '2099-01-01' }, { legal_version: '2026-02-31' }, { legal_version: 'v1' }, { legal_version: 20261113 },
+      { legal_version: '2025-12-31' }, { legal_version: null }];
+    for (const [i, meta] of bad.entries()) {
+      await signUp(10 + i, meta);
+      expect(await rows(NEW(10 + i))).toEqual([]);
+      expect((await db.query('select 1 from public.profiles where id = $1', [NEW(10 + i)])).rows).toHaveLength(1);
+      expect(await status(NEW(10 + i), VERSION)).toEqual({ accepted: false, accepted_at: null });
+    }
+  });
+
+  it('lets a signed-in user accept a version once; the first acceptance stands', async () => {
+    const first = await rpc<Json>(db, NEW(10), 'sp_accept_legal', { version: VERSION, locale: 'en' });
+    expect(first).toMatchObject({ version: VERSION, accepted_at: expect.any(String) });
+    const again = await rpc<Json>(db, NEW(10), 'sp_accept_legal', { version: VERSION, locale: 'es' });
+    expect(again.accepted_at).toBe(first.accepted_at);
+    expect(await rows(NEW(10))).toEqual([{ version: VERSION, source: 'prompt', locale: 'en' }]);
+    // The answer is about the exact version asked: a new text asks again.
+    expect(await status(NEW(10), VERSION)).toMatchObject({ accepted: true });
+    expect(await status(NEW(10), '2026-11-14')).toEqual({ accepted: false, accepted_at: null });
+    for (const version of ['2099-01-01', '2026-02-31', '13/11/2026', '', null]) {
+      await expectSpError(rpc(db, NEW(10), 'sp_accept_legal', { version }), 'invalid_field', 'version');
+    }
+    await expectError(rpc(db, null, 'sp_accept_legal', { version: VERSION }), /permission denied/);
+    await expectError(rpc(db, null, 'sp_legal_status', { version: VERSION }), /permission denied/);
+  });
+
+  it('shows each user only their own acceptances (AINDEV sees all) and nobody can edit them', async () => {
+    const seen = async (actor: string) => (await sql<{ user_id: string }>(db, actor, 'select user_id from public.legal_acceptances')).map((r) => r.user_id);
+    expect(await seen(NEW(1))).toEqual([NEW(1)]);
+    expect(await seen(USERS.maria)).toEqual([]);
+    expect((await seen(USERS.admin)).sort()).toEqual([NEW(1), NEW(2), NEW(10)].sort());
+    await expectError(sql(db, null, 'select * from public.legal_acceptances'), /permission denied/);
+    await expectError(sql(db, NEW(1), 'delete from public.legal_acceptances'), /permission denied/);
+    await expectError(sql(db, NEW(1), "update public.legal_acceptances set accepted_at = now() - interval '1 year'"), /permission denied/);
+    await expectError(sql(db, NEW(11), 'insert into public.legal_acceptances(user_id, version, source) values ($1, $2, $3)', [NEW(11), VERSION, 'signup']), /permission denied/);
+    const can = async (role: string, fn: string) =>
+      (await db.query<{ v: boolean }>("select has_function_privilege($1, $2, 'execute') as v", [role, fn])).rows[0].v;
+    for (const fn of ['public.sp_legal_version_ok(text)', 'public.sp_record_signup_consent()']) {
+      expect({ fn, anon: await can('anon', fn), authenticated: await can('authenticated', fn) }).toEqual({ fn, anon: false, authenticated: false });
+    }
+    for (const fn of ['public.sp_accept_legal(jsonb)', 'public.sp_legal_status(jsonb)']) {
+      expect({ fn, anon: await can('anon', fn), authenticated: await can('authenticated', fn) }).toEqual({ fn, anon: false, authenticated: true });
+    }
+  });
+
+  it('forgets the acceptances with the account', async () => {
+    await db.query('delete from auth.users where id = $1', [NEW(2)]);
+    expect(await rows(NEW(2))).toEqual([]);
   });
 });

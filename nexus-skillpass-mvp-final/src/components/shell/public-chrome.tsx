@@ -3,6 +3,7 @@ import { ShieldCheck } from 'lucide-react';
 import { BrandLink } from '@/components/ui/brand';
 import { getMe } from '@/lib/server/backend';
 import { getMessages } from '@/lib/i18n/server';
+import { legalEntity } from '@/lib/legal/config';
 import { LocaleSwitch } from './locale-switch';
 
 export async function PublicHeader({ tone = 'light' }: { tone?: 'light' | 'dark' }) {
@@ -48,6 +49,12 @@ export async function PublicFooter() {
           <Link href="/verify" className="text-ink-700 hover:text-ink-950">{t.nav.verify}</Link>
           <Link href="/signup" className="text-ink-700 hover:text-ink-950">{t.nav.signUp}</Link>
           <Link href="/login" className="text-ink-700 hover:text-ink-950">{t.nav.signIn}</Link>
+          {legalEntity() && (
+            <>
+              <Link href="/legal/privacy" className="text-ink-700 hover:text-ink-950">{t.legal.privacy}</Link>
+              <Link href="/legal/terms" className="text-ink-700 hover:text-ink-950">{t.legal.terms}</Link>
+            </>
+          )}
         </nav>
         <p className="text-xs leading-relaxed text-ink-500">{t.landing.footerDisclaimer} {t.vath.disclaimer}</p>
       </div>

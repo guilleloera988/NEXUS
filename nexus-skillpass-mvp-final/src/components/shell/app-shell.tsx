@@ -10,7 +10,7 @@ import { LocaleSwitch } from './locale-switch';
 import { navFor } from './nav';
 import { MobileNav, Sidebar, UserMenu } from './shell-client';
 
-export async function AppShell({ me, children }: { me: Me; children: ReactNode }) {
+export async function AppShell({ me, children, legal = false }: { me: Me; children: ReactNode; legal?: boolean }) {
   const { t, locale } = await getMessages();
   const role = me.profile.role;
   const items = navFor(role, t, { validations: me.pending_validations, notifications: me.unread_notifications });
@@ -29,6 +29,7 @@ export async function AppShell({ me, children }: { me: Me; children: ReactNode }
     ...(role === 'student' ? [{ href: '/profile', label: t.nav.profile }, { href: '/my-skillpass', label: t.nav.mySkillpass }] : [{ href: '/profile', label: t.nav.profile }]),
     ...(['company', 'supervisor', 'university'].includes(role) ? [{ href: '/organization', label: t.nav.organization }] : []),
     { href: '/notifications', label: t.nav.notifications },
+    ...(legal ? [{ href: '/legal/privacy', label: t.legal.privacy }, { href: '/legal/terms', label: t.legal.terms }] : []),
   ];
 
   return (

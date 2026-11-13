@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useActionState, useState, useSyncExternalStore } from 'react';
 import { Building2, GraduationCap, Inbox, MailCheck, RotateCw, UserRound } from 'lucide-react';
 import { forgotPassword, login, resendConfirmation, resetPassword, signup } from '@/actions/auth';
+import { LegalConsent } from '@/components/legal-consent';
 import { Field, FormFeedback, SubmitButton } from '@/components/ui/form';
 import { Alert } from '@/components/ui/primitives';
 import { IDLE } from '@/lib/action-state';
@@ -45,7 +46,7 @@ export function LoginForm({ next, configured, linkInvalid = false }: { next: str
   );
 }
 
-export function SignupForm({ configured, initialType }: { configured: boolean; initialType: 'student' | 'company' | 'university' }) {
+export function SignupForm({ configured, initialType, legal = false }: { configured: boolean; initialType: 'student' | 'company' | 'university'; legal?: boolean }) {
   const { t } = useI18n();
   const [state, action] = useActionState(signup, IDLE);
   const [type, setType] = useState(initialType);
@@ -77,7 +78,7 @@ export function SignupForm({ configured, initialType }: { configured: boolean; i
           <Field label={t.auth.fullName} name="full_name" autoComplete="name" required maxLength={160} />
           <Field label={t.auth.email} name="email" type="email" autoComplete="email" required />
           <Field label={t.auth.password} name="password" type="password" autoComplete="new-password" required help={t.auth.passwordHint} />
-          <p className="text-xs text-ink-500">{t.auth.terms}</p>
+          {legal ? <LegalConsent /> : <p className="text-xs text-ink-500">{t.auth.terms}</p>}
           <SubmitButton className="btn-primary w-full" pendingLabel={t.auth.creating}>{t.auth.createAccount}</SubmitButton>
           <FormFeedback state={state} t={t} />
         </form>

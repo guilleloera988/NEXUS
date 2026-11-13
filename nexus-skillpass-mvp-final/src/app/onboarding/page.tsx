@@ -4,6 +4,7 @@ import { BrandLink } from '@/components/ui/brand';
 import { LocaleSwitch } from '@/components/shell/locale-switch';
 import { getMessages } from '@/lib/i18n/server';
 import { getMe, read } from '@/lib/server/backend';
+import { legalPending } from '@/lib/server/legal';
 import type { Lookups, MyUniversity, SkillPassMe } from '@/lib/types';
 import { OnboardingForm } from './onboarding-form';
 
@@ -18,6 +19,7 @@ export default async function OnboardingPage() {
   const me = await getMe();
   if (!me) redirect('/login?next=/onboarding');
   if (me.profile.onboarding_completed) redirect('/dashboard');
+  if (await legalPending()) redirect('/legal/accept?next=/onboarding');
   const { t, locale } = await getMessages();
   const lookups = await read<Lookups>('sp_lookups');
   // Databases without migration 20261103000001 have no membership verification.

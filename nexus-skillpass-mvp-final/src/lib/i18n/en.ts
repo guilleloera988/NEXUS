@@ -542,6 +542,14 @@ const en: Messages = {
       ],
     },
   },
+  legal: {
+    privacy: 'Privacy notice', terms: 'Terms and conditions', version: 'Version of {date}', contents: 'Contents', seeAlso: 'See also:',
+    languageNote: 'This is a courtesy translation. The Spanish text is the legally valid one.',
+    consentRead: 'I have read the', consentAccept: 'and I accept the',
+    acceptTitle: 'Before you continue', acceptText: 'To keep using SkillPass, read and accept the current version of our Privacy notice and our Terms and conditions.',
+    acceptButton: 'Accept and continue', accepting: 'Saving…',
+    declineHint: 'If you do not agree, you can sign out and ask us to close your account by writing to {email}.',
+  },
   errors: {
     title: 'Something went wrong', text: 'We could not complete the operation. Please try again.', notFoundTitle: 'Page not found', notFoundText: 'The page you are looking for does not exist or was moved.',
     forbiddenTitle: 'No access', forbiddenText: 'Your account does not have permission to see this section.', unauthorizedTitle: 'Sign in', unauthorizedText: 'You need to sign in to continue.',
@@ -568,7 +576,7 @@ const en: Messages = {
     credential_requires_hours: 'Verified hours are required to issue the credential.', credential_requires_assessment: 'Assess at least one competency to issue the credential.',
     credential_not_active: 'The credential is not active.', user_role_incompatible: 'That account cannot join this organization.', already_invited: 'An invitation already exists.', already_member: 'That person is already a member of the organization.',
     invitation_closed: 'The invitation is no longer pending.', last_owner: 'The organization needs at least one owner.', member_supervises_challenges: 'This person supervises active challenges.',
-    student_not_in_talent_pool: 'The student is not available in Verified talent.', admin_role_protected: 'That role is protected.', rate_limited: 'Too many attempts. Wait a few minutes and try again.', rate_limit_unavailable: 'The service is not available right now. Try again in a few minutes.',
+    student_not_in_talent_pool: 'The student is not available in Verified talent.', admin_role_protected: 'That role is protected.', rate_limited: 'Too many attempts. Wait a few minutes and try again.', rate_limit_unavailable: 'The service is not available right now. Try again in a few minutes.', legal_required: 'To continue, tick the box accepting the Privacy notice and the Terms and conditions.',
     supabase_not_configured: 'Real accounts are not configured in this environment.', demo_disabled: 'The demo is not enabled in this environment.', demo_expired: 'The DEMO scenario expired. Start a new one.',
     invalid_credentials: 'Wrong email or password.', signup_failed: 'We could not create the account. Check your data.',
     email_send_failed: 'We could not send the confirmation e-mail, so the account was not created. Try again later or contact AINDEV.',

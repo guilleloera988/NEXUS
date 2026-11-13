@@ -88,7 +88,27 @@ Pendientes técnicos para abrir SkillPass a una universidad, sus estudiantes y e
 | 5 | Monitoreo de errores y avisos por correo | Pendiente |
 | 6 | Prueba completa de recuperación de contraseña (OI-09) | Pendiente |
 
-Del lado del negocio, sin bloquear lo anterior: planes de pago de Supabase y Vercel (OI-01) y textos legales (OI-06).
+Del lado del negocio, sin bloquear lo anterior: planes de pago de Supabase y Vercel (OI-01).
+
+### Para operar un piloto real
+
+Además de lo anterior, lo que falta para dar de alta a una universidad, sus estudiantes y empresas:
+
+| | Mejora | Estado |
+|---|---|---|
+| A1 | Aviso de privacidad y Términos, con registro de aceptación (OI-06) | **Construido, sin publicar** (`20261113000001`, [LEGAL](LEGAL.md)): textos en borrador para revisión legal; se publican con las variables `LEGAL_*`. |
+| A2 | Planes de pago: Supabase Pro, Vercel Pro, Resend Pro (OI-01, OI-14) | Pendiente (AINDEV) |
+| A3 | Encender antivirus y CAPTCHA (pendientes 3 y 4) | Pendiente (AINDEV: escáner en Fly.io y *Site Key*) |
+| A4 | Ensayo general en producción con cuentas y correos reales | Pendiente |
+| B5 | Avisos por correo (hoy todos son dentro de la plataforma; las invitaciones no envían correo) | Pendiente |
+| B6 | Monitoreo de errores y caídas | Pendiente |
+| B7 | Guía por rol y canal de soporte | Pendiente |
+| B8 | Enlace de registro por universidad | Pendiente |
+| C9 | Credencial en PDF y botón «Agregar a LinkedIn» | Pendiente |
+| C10 | Constancia de horas por estudiante y tablero del piloto para la universidad | Pendiente |
+| C11 | Descargar los propios datos y eliminar la cuenta | Pendiente |
+
+Después: credencial firmada (Open Badges 3.0 / W3C VC) y anclaje en blockchain.
 
 ## Problemas abiertos
 
@@ -99,7 +119,7 @@ Del lado del negocio, sin bloquear lo anterior: planes de pago de Supabase y Ver
 | OI-03 | Media | CSP con `'unsafe-inline'` en scripts. | Nonces vía `proxy.ts`. |
 | OI-04 | Media | Límite de intentos compartido activo en producción desde el 3 nov (`20261104000001`, `RATE_LIMIT_SECRET` en Vercel); el proyecto de demo sigue con el límite por instancia. Sin CAPTCHA. | CAPTCHA con Cloudflare Turnstile en registro, inicio de sesión y recuperación. |
 | OI-05 | Media | Antivirus listo en el código pero sin escáner desplegado: en producción los archivos aún se guardan sin revisar. | Desplegar `scanner/` en Fly.io y activarlo (`scanner/README.md`). |
-| OI-06 | Media | Textos legales (privacidad, términos, IP) pendientes. | Decisión legal de AINDEV. |
+| OI-06 | Media | Aviso de privacidad y Términos redactados en borrador y construidos en la plataforma (registro de aceptación incluido), pero sin publicar. | Revisión legal y datos de la entidad; después aplicar `20261113000001` y configurar `LEGAL_*` ([LEGAL](LEGAL.md)). |
 | OI-07 | Baja | La DEMO local usa ~42 MB de disco por escenario. | Ajustar límites o implementar snapshot comprimido. |
 | OI-08 | Baja | `Dockerfile` no construido en este entorno. | Construir en CI o en la máquina del operador. |
 | OI-09 | Baja | Cambio de contraseña desde el enlace de recuperación sin prueba de punta a punta (el envío del correo sí se probó). | Recorrerlo en producción con una cuenta de prueba. |

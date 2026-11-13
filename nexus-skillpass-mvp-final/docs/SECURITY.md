@@ -78,6 +78,7 @@ Actores: visitante anónimo, estudiante, compañero de equipo, empresa/superviso
 - **Vinculación universitaria verificada** (`20261103000001`): elegir una universidad no da acceso a nada por sí solo. El vínculo existe cuando el correo confirmado del estudiante es de un dominio que registró la universidad o cuando su personal aprueba la solicitud; mientras tanto la universidad sólo ve nombre, correo, carrera y semestre de quien lo pidió, y nadie más ve la solicitud (tabla aparte, legible sólo por el estudiante). Un rechazo o retiro es definitivo hasta que la universidad lo revierta. No se admiten dominios de correo público, sus dominios padre ni sufijos compartidos, y una universidad no puede registrar los dominios de otra. Cada alta, rechazo, retiro o cambio de dominios queda en la bitácora. Depende de que Supabase Auth exija confirmar el correo (desactivar `mailer_autoconfirm`, aunque sea unos minutos, permitiría vincularse con un correo ajeno). Decidir solicitudes y editar dominios no exige el doble factor.
 - **Confidencialidad de empresas**: `publication_policy` (`public_allowed`, `summary_only`, `confidential`) controla qué aparece públicamente; proyectos confidenciales se muestran como «Proyecto confidencial», con validador «Responsable de la empresa (confidencial)» y sin empresa, fechas ni modalidad.
 - **Propiedad intelectual**: cada reto declara `ip_policy` y detalles; nada se asume propiedad de AINDEV.
+- **Aviso de privacidad y Términos** (`20261113000001`, [LEGAL](LEGAL.md)): borradores listos y **sin publicar** hasta la revisión legal. Publicados, el registro exige aceptarlos, las cuentas existentes aceptan al entrar y la base guarda quién aceptó qué versión, cuándo, cómo y en qué idioma (sin IP; filas de sólo lectura). Hoy no hay función para descargar los propios datos ni para borrar la cuenta: se piden por correo.
 - **Datos DEMO**: ficticios, con dominios `.invalid` y marcados en UI, base de datos (`is_demo`) y páginas públicas.
 
 ## 4. Resultados de la revisión (esta entrega)
@@ -117,7 +118,7 @@ Hallazgos corregidos durante la revisión:
 | Modo DEMO `supabase` comparte estado entre visitantes | Usar un proyecto Supabase exclusivo de demo y re-sembrar periódicamente; nunca en el proyecto productivo. |
 | DEMO local: ~42 MB de disco por escenario | Ajustar `NEXUS_DEMO_MAX_SESSIONS` y `NEXUS_DEMO_TTL_HOURS` al disco disponible. |
 | Pruebas contra Supabase en la nube sólo en el proyecto de demo | Repetir migraciones, checklist y E2E en un staging del proyecto productivo antes de abrirlo (la demo ya pasó FLOW 01–10, ver DEPLOYMENT §8). |
-| Sin DPA/aviso de privacidad legal | Requiere decisión legal de AINDEV (LFPDPPP en México): aviso de privacidad, términos y acuerdos con empresas/universidades. |
+| Aviso de privacidad y Términos en borrador, sin publicar; sin DPA con proveedores ni convenios | Revisión legal de AINDEV (LFPDPPP), definir razón social, domicilio, buzón y jurisdicción, y publicar ([LEGAL](LEGAL.md)); acuerdos con empresas y universidades aparte. |
 
 ## 6. Supabase Advisors y revisión de seguridad (7–8 oct 2026)
 

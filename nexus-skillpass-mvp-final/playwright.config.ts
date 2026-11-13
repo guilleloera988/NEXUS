@@ -25,6 +25,11 @@ export default defineConfig({
     url: `${baseURL}/api/health`,
     reuseExistingServer: !process.env.CI,
     timeout: 240_000,
-    env: { NEXUS_DEMO_MODE: 'local', NEXT_PUBLIC_APP_URL: baseURL },
+    env: {
+      NEXUS_DEMO_MODE: 'local', NEXT_PUBLIC_APP_URL: baseURL,
+      // Fictional entity: makes the legal texts live for e2e/legal.spec.ts (DEMO personas are never asked to accept).
+      LEGAL_ENTITY_NAME: 'AINDEV E2E, S.A. de C.V.', LEGAL_ENTITY_ADDRESS: 'Av. de Prueba 100, Aguascalientes, Ags., México',
+      LEGAL_CONTACT_EMAIL: 'privacidad@aindev.invalid', LEGAL_JURISDICTION: 'Aguascalientes, Aguascalientes',
+    },
   },
 });
