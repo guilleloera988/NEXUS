@@ -6,7 +6,7 @@ type Row = Record<string, unknown>;
 type Json = Record<string, any>; // eslint-disable-line @typescript-eslint/no-explicit-any
 
 let db: TestDb;
-const APP_TABLES = 29;
+const APP_TABLES = 31;
 
 const challengeInput = (overrides: Json = {}) => ({
   organization_id: ORGS.nova,
@@ -79,7 +79,7 @@ describe('schema, grants and RLS baseline', () => {
     await expect(sql(db, null, 'select * from public.unrelated_app')).resolves.toEqual([]);
     const fns = await db.query<{ proname: string }>(
       "select p.proname from pg_proc p join pg_namespace n on n.oid = p.pronamespace where n.nspname = 'public' and p.proname like 'sp\\_%' and has_function_privilege('anon', p.oid, 'execute') order by 1");
-    expect(fns.rows.map((r) => r.proname)).toEqual(['sp_is_public_evidence_object', 'sp_public_credential', 'sp_public_evidence_file', 'sp_public_skillpass', 'sp_rate_limit']);
+    expect(fns.rows.map((r) => r.proname)).toEqual(['sp_email_claim', 'sp_email_done', 'sp_is_public_evidence_object', 'sp_public_credential', 'sp_public_evidence_file', 'sp_public_skillpass', 'sp_rate_limit']);
   });
 
   it('blocks anonymous table reads and private RPCs', async () => {
@@ -1458,5 +1458,162 @@ describe('terms and privacy notice acceptance (pilot readiness)', () => {
   it('forgets the acceptances with the account', async () => {
     await db.query('delete from auth.users where id = $1', [NEW(2)]);
     expect(await rows(NEW(2))).toEqual([]);
+  });
+});
+
+describe('e-mail notices (pilot readiness)', () => {
+  const GATE = 'email-gate-token-for-tests';
+  const U = (n: number) => `10000000-0000-4000-8000-0000000009${String(n).padStart(2, '0')}`;
+  const setGate = (token: string | null) => token === null
+    ? db.query("delete from public.platform_settings where key = 'email_gate'")
+    : db.query(`insert into public.platform_settings(key, value) values ('email_gate', to_jsonb(encode(sha256(convert_to($1, 'UTF8')), 'hex')))
+                on conflict (key) do update set value = excluded.value`, [token]);
+  const notify = async (user: string, kind: string, params: Json = {}, link = '/notifications') =>
+    (await db.query<{ id: string }>('insert into public.notifications(user_id, kind, params, link) values ($1, $2, $3::jsonb, $4) returning id', [user, kind, JSON.stringify(params), link])).rows[0].id;
+  const claim = (extra: Json = {}, gate: unknown = GATE) => rpc<Json[]>(db, null, 'sp_email_claim', { gate, cooldown: 900, ...extra });
+  const done = (results: Json[], gate: unknown = GATE) => rpc<Json>(db, null, 'sp_email_done', { gate, results });
+  const outbox = async (where = 'true', params: unknown[] = []) => (await db.query<Row>(
+    `select user_id, to_email, kind, status, error, attempts from public.email_outbox where ${where} order by created_at, kind`, params)).rows;
+  const reset = () => db.query('delete from public.email_outbox');
+
+  beforeAll(async () => {
+    for (const [n, meta, confirmed] of [[1, {}, true], [2, { locale: 'en' }, true], [3, { legal_locale: 'en' }, true], [4, {}, false]] as const) {
+      await db.query('insert into auth.users(id, email, email_confirmed_at, raw_user_meta_data) values ($1, $2, $3, $4::jsonb)',
+        [U(n), `Persona${n}@Correo.test`, confirmed ? new Date().toISOString() : null, JSON.stringify({ full_name: `Persona Correo ${n}`, account_type: 'student', ...meta })]);
+    }
+  });
+  afterAll(async () => { await setGate(null); await reset(); });
+
+  it('queues nothing and answers nobody until the server gate is stored', async () => {
+    await notify(U(1), 'validation_completed', { challenge: 'Reto', outcome: 'approved' });
+    await db.query("insert into public.invitations(organization_id, email, member_role, invited_by) values ($1, 'antes@correo.test', 'supervisor', $2)", [ORGS.nova, USERS.laura]);
+    expect(await outbox()).toEqual([]);
+    await expectError(claim(), /sp:email_unavailable/);
+    await expectError(done([]), /sp:email_unavailable/);
+    await setGate(GATE);
+    for (const gate of ['wrong', '', 42, null]) {
+      await expect(claim({}, gate)).rejects.toThrow(/sp:email_unavailable/);
+      await expect(done([], gate)).rejects.toThrow(/sp:email_unavailable/);
+    }
+  });
+
+  it('queues the notices that need attention, and invitations to addresses without an account', async () => {
+    await notify(U(1), 'validation_requested', { student: 'Ana', hours: 4, challenge: 'Reto' }, '/validations');
+    await notify(U(1), 'challenge_status', { challenge: 'Reto', status: 'in_progress' });
+    await notify(U(1), 'una_clase_nueva', {});
+    await db.query("insert into public.invitations(organization_id, email, member_role, invited_by) values ($1, 'nueva.supervisora@correo.test', 'supervisor', $2)", [ORGS.nova, USERS.laura]);
+    expect(await outbox()).toEqual([
+      { user_id: U(1), to_email: null, kind: 'validation_requested', status: 'pending', error: null, attempts: 0 },
+      { user_id: null, to_email: 'nueva.supervisora@correo.test', kind: 'invitation', status: 'pending', error: null, attempts: 0 },
+    ]);
+    const invitation = (await db.query<{ params: Json; link: string }>("select params, link from public.email_outbox where kind = 'invitation'")).rows[0];
+    expect(invitation).toMatchObject({ link: '/signup?type=company', params: { organization: expect.any(String), organization_id: ORGS.nova, member_role: 'supervisor', invited_by: expect.any(String) } });
+  });
+
+  it('hands the server one batch per recipient, once, with address, name and language', async () => {
+    await notify(U(1), 'credential_issued', { challenge: 'Reto', code: 'SKP-1' }, '/my-skillpass');
+    await notify(U(2), 'challenge_assigned', { challenge: 'Reto' });
+    await notify(U(3), 'application_rejected', { challenge: 'Reto' });
+    const batches = await claim();
+    expect(batches.map((b) => ({ to: b.to, name: b.name, locale: b.locale, kinds: b.items.map((i: Json) => i.kind) }))).toEqual([
+      { to: 'persona1@correo.test', name: 'Persona Correo 1', locale: 'es', kinds: ['validation_requested', 'credential_issued'] },
+      { to: 'nueva.supervisora@correo.test', name: null, locale: 'es', kinds: ['invitation'] },
+      { to: 'persona2@correo.test', name: 'Persona Correo 2', locale: 'en', kinds: ['challenge_assigned'] },
+      { to: 'persona3@correo.test', name: 'Persona Correo 3', locale: 'en', kinds: ['application_rejected'] },
+    ]);
+    expect(batches[0].items[0]).toMatchObject({ id: expect.any(String), params: { student: 'Ana', hours: 4, challenge: 'Reto' }, link: '/validations', created_at: expect.any(String) });
+    expect(new Set(batches.map((b) => b.batch_id)).size).toBe(4);
+    expect(await claim()).toEqual([]);
+
+    expect(await done([{ batch_id: batches[0].batch_id, ok: true }, { batch_id: batches[1].batch_id, ok: true }, { batch_id: batches[2].batch_id, ok: false, error: 'HTTP 500\u0007 del proveedor' }]))
+      .toEqual({ sent: 3, failed: 1 });
+    expect(await outbox('user_id = $1 or to_email is not null', [U(1)])).toEqual([
+      { user_id: U(1), to_email: null, kind: 'validation_requested', status: 'sent', error: null, attempts: 1 },
+      { user_id: null, to_email: 'nueva.supervisora@correo.test', kind: 'invitation', status: 'sent', error: null, attempts: 1 },
+      { user_id: U(1), to_email: null, kind: 'credential_issued', status: 'sent', error: null, attempts: 1 },
+    ]);
+    expect(await outbox('user_id = $1', [U(2)])).toEqual([{ user_id: U(2), to_email: null, kind: 'challenge_assigned', status: 'pending', error: 'HTTP 500 del proveedor', attempts: 1 }]);
+  });
+
+  it('waits out the cooldown after an e-mail, retries failures and gives up after five attempts', async () => {
+    await notify(U(1), 'validation_completed', { challenge: 'Reto', outcome: 'approved' });
+    // Persona 1 just got an e-mail, the failed batch of Persona 2 waits before its next attempt and Persona 3 is still claimed.
+    expect(await claim()).toEqual([]);
+    const wait = async () => Number((await db.query<{ m: string }>('select round(extract(epoch from retry_at - now()) / 60) as m from public.email_outbox where user_id = $1', [U(2)])).rows[0].m);
+    const retry = async () => { await db.query("update public.email_outbox set retry_at = now() - interval '1 second' where user_id = $1", [U(2)]); return claim(); };
+    const waits = [await wait()];
+    let batches = await retry();
+    expect(batches.map((b) => b.to)).toEqual(['persona2@correo.test']);
+    for (let attempt = 2; attempt <= 5; attempt++) {
+      expect(await done([{ batch_id: batches[0].batch_id, ok: false, error: `intento ${attempt}` }])).toEqual({ sent: 0, failed: 1 });
+      if (attempt < 5) { waits.push(await wait()); expect(await claim()).toEqual([]); batches = await retry(); }
+    }
+    expect(waits).toEqual([2, 4, 8, 16]);
+    expect(await outbox('user_id = $1', [U(2)])).toEqual([{ user_id: U(2), to_email: null, kind: 'challenge_assigned', status: 'failed', error: 'intento 5', attempts: 5 }]);
+    // Without a cooldown the pending notice of Persona 1 goes out; an abandoned claim returns to the queue after 10 minutes.
+    await db.query("update public.email_outbox set claimed_at = now() - interval '11 minutes' where user_id = $1", [U(3)]);
+    expect((await claim({ cooldown: 0 })).map((b) => b.to)).toEqual(['persona3@correo.test', 'persona1@correo.test']);
+    await reset();
+  });
+
+  it('skips what is no longer worth an e-mail', async () => {
+    const read = await notify(U(1), 'credential_issued', { code: 'SKP-2' });
+    await db.query('update public.notifications set read_at = now() where id = $1', [read]);
+    await notify(U(4), 'challenge_assigned', {});
+    await notify(USERS.maria, 'challenge_assigned', {});
+    await rpc(db, U(3), 'sp_set_email_settings', { enabled: false });
+    await notify(U(3), 'challenge_assigned', {});
+    await notify(U(2), 'challenge_assigned', {});
+    await db.query("update public.email_outbox set created_at = now() - interval '4 days' where user_id = $1", [U(2)]);
+    expect(await claim({ cooldown: 0 })).toEqual([]);
+    expect((await outbox()).map((o) => [o.user_id, o.status, o.error])).toEqual([
+      [U(2), 'skipped', 'expired'], [U(1), 'skipped', 'read'], [U(4), 'skipped', 'no_address'], [USERS.maria, 'skipped', 'no_address'], [U(3), 'skipped', 'disabled'],
+    ]);
+    await reset();
+  });
+
+  it('lets each person turn e-mails off and choose their language', async () => {
+    expect(await rpc(db, U(1), 'sp_email_settings')).toEqual({ enabled: true, locale: null });
+    expect(await rpc(db, U(3), 'sp_email_settings')).toEqual({ enabled: false, locale: null });
+    expect(await rpc(db, U(3), 'sp_set_email_settings', { locale: 'es' })).toEqual({ enabled: false, locale: 'es' });
+    expect(await rpc(db, U(3), 'sp_set_email_settings', { enabled: true })).toEqual({ enabled: true, locale: 'es' });
+    await notify(U(3), 'challenge_assigned', {});
+    expect((await claim({ cooldown: 0 })).map((b) => [b.to, b.locale])).toEqual([['persona3@correo.test', 'es']]);
+    await expectSpError(rpc(db, U(1), 'sp_set_email_settings', { locale: 'fr' }), 'invalid_field', 'locale');
+    await expectSpError(rpc(db, U(1), 'sp_set_email_settings', { enabled: 'no' }), 'invalid_field', 'enabled');
+    await expectError(rpc(db, null, 'sp_email_settings'), /permission denied/);
+    expect(await sql(db, U(1), 'select user_id from public.email_settings')).toEqual([]);
+    expect(await sql(db, U(3), 'select user_id from public.email_settings')).toEqual([{ user_id: U(3) }]);
+    await reset();
+  });
+
+  it('caps the invitations an organization can cause in a day, and checks what the server sends', async () => {
+    await db.query(`insert into public.invitations(organization_id, email, member_role, invited_by)
+      select $1, 'masivo' || g || '@correo.test', 'supervisor', $2 from generate_series(1, 55) g`, [ORGS.nova, USERS.laura]);
+    expect((await db.query<{ n: number }>("select count(*)::int as n from public.email_outbox where kind = 'invitation'")).rows[0].n).toBe(50);
+    expect((await db.query<{ n: number }>("select count(*)::int as n from public.invitations where email like 'masivo%'")).rows[0].n).toBe(55);
+    expect(await claim({ limit: 3 })).toHaveLength(3);
+    for (const bad of [{ limit: 'muchos' }, { limit: 1.5 }, { cooldown: -1 }, { cooldown: '900' }]) {
+      await expect(claim(bad)).rejects.toThrow(/sp:invalid_data/);
+    }
+    await expectSpError(done([{ batch_id: 'no-es-un-uuid', ok: true }]), 'invalid_data', 'batch_id');
+    await expectSpError(rpc(db, null, 'sp_email_done', { gate: GATE, results: 'x' }), 'invalid_data', 'results');
+  });
+
+  it('keeps the queue and the addresses out of reach of API roles', async () => {
+    await expectError(sql(db, null, 'select * from public.email_outbox'), /permission denied/);
+    await expectError(sql(db, USERS.admin, 'select * from public.email_outbox'), /permission denied/);
+    await expectError(sql(db, U(1), "insert into public.email_settings(user_id, enabled) values ($1, false)", [U(1)]), /permission denied/);
+    const can = async (role: string, fn: string) =>
+      (await db.query<{ v: boolean }>("select has_function_privilege($1, $2, 'execute') as v", [role, fn])).rows[0].v;
+    for (const fn of ['public.sp_email_gate_ok(text)', 'public.sp_email_active()', 'public.sp_queue_notification_email()', 'public.sp_queue_invitation_email()']) {
+      expect({ fn, anon: await can('anon', fn), authenticated: await can('authenticated', fn) }).toEqual({ fn, anon: false, authenticated: false });
+    }
+    for (const fn of ['public.sp_email_settings(jsonb)', 'public.sp_set_email_settings(jsonb)']) {
+      expect({ fn, anon: await can('anon', fn), authenticated: await can('authenticated', fn) }).toEqual({ fn, anon: false, authenticated: true });
+    }
+    for (const fn of ['public.sp_email_claim(jsonb)', 'public.sp_email_done(jsonb)']) {
+      expect({ fn, anon: await can('anon', fn), authenticated: await can('authenticated', fn) }).toEqual({ fn, anon: true, authenticated: true });
+    }
   });
 });

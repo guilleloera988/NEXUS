@@ -4,6 +4,7 @@ import { unstable_rethrow } from 'next/navigation';
 import { ZodError } from 'zod';
 import type { ActionState } from '@/lib/action-state';
 import { dictionaries } from '@/lib/i18n';
+import { scheduleEmailDispatch } from './email';
 import { AppError } from './errors';
 
 const KNOWN_ERRORS = new Set(Object.keys(dictionaries.es.errors));
@@ -16,6 +17,8 @@ export async function runAction(fn: () => Promise<Partial<ActionState> | void>, 
   try {
     const result = (await fn()) ?? {};
     if (options.revalidate !== false) revalidatePath('/', 'layout');
+    // Notices this action caused go out by e-mail once the response is on its way (no-op unless configured).
+    scheduleEmailDispatch();
     return { ok: true, at: Date.now(), ...result };
   } catch (error) {
     unstable_rethrow(error);

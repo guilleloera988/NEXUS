@@ -87,6 +87,18 @@ test.describe('public verification surface', () => {
     const body = await (await request.get('/api/health')).text();
     expect(body).not.toMatch(/key|secret|password|eyJ/i);
   });
+
+  test('e-mail notices stay off where the deployment has no mail provider', async ({ page, request }) => {
+    test.skip(!!process.env.E2E_SUPABASE, 'the DEMO never sends e-mail; a Supabase run may be configured to');
+    expect(await (await request.get('/api/health')).json()).toMatchObject({ email: 'off' });
+    const cron = await request.get('/api/cron/email');
+    expect(cron.status()).toBe(200);
+    expect(await cron.json()).toEqual({ configured: false });
+    await enterDemo(page, 'student');
+    await page.goto('/notifications');
+    await expect(page.getByRole('heading', { level: 1, name: 'Notificaciones' })).toBeVisible();
+    await expect(page.getByText('Avisos por correo')).toHaveCount(0);
+  });
 });
 
 test('demo verification links work for anyone holding them', async ({ page, browser }) => {

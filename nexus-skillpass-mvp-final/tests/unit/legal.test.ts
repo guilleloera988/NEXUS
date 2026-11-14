@@ -140,14 +140,14 @@ describe('sign-up', () => {
     locale = 'en';
     await expect(signup({ ok: false }, form({ ...account, legal: 'on' }))).rejects.toThrow('NEXT_REDIRECT:/signup/check-email');
     expect(signUps).toHaveLength(1);
-    expect(signUps[0].options.data).toEqual({ full_name: account.full_name, account_type: 'student', legal_version: LEGAL_VERSION, legal_locale: 'en' });
+    expect(signUps[0].options.data).toEqual({ full_name: account.full_name, account_type: 'student', locale: 'en', legal_version: LEGAL_VERSION, legal_locale: 'en' });
   });
 
   it('works as before where the texts are not live', async () => {
     configure(false);
     const { signup } = await import('@/actions/auth');
     await expect(signup({ ok: false }, form(account))).rejects.toThrow('NEXT_REDIRECT:/signup/check-email');
-    expect(signUps[0].options.data).toEqual({ full_name: account.full_name, account_type: 'student' });
+    expect(signUps[0].options.data).toEqual({ full_name: account.full_name, account_type: 'student', locale: 'es' });
   });
 });
 

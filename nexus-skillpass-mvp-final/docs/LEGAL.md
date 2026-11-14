@@ -73,7 +73,12 @@ Todas las cuentas aceptan la versión nueva la siguiente vez que entren; las ace
    mano; el borrador promete hacerlo normalmente en 30 días. Ojo: la base no deja borrar una cuenta que ya
    tiene historial (la bitácora es inmutable), así que la baja real consiste en anonimizar; falta construir
    esa función (mejora C11 de [STATUS](STATUS.md#para-operar-un-piloto-real)).
-10. **Convenios aparte:** estos textos no sustituyen el convenio con cada universidad ni los acuerdos de
+10. **Avisos e invitaciones por correo** (aviso, secciones 2, 3 y 5): cuando se enciendan los avisos por
+    correo, los mensajes llevan el nombre de la persona y el título del reto, salen por Resend y cada quien
+    puede apagarlos en Notificaciones. Una invitación llega a alguien que todavía no tiene cuenta ni ha
+    aceptado nada: el correo dice quién la invita y por qué lo recibe, y enlaza al Aviso de privacidad
+    cuando está publicado. Confirmar que eso basta como primer contacto.
+11. **Convenios aparte:** estos textos no sustituyen el convenio con cada universidad ni los acuerdos de
     confidencialidad o propiedad intelectual entre empresa y estudiante.
 
 ## Pruebas

@@ -81,7 +81,8 @@ export async function signup(_prev: ActionState, fd: FormData): Promise<ActionSt
       email: input.email,
       password: input.password,
       options: {
-        data: { full_name: input.full_name, account_type: input.account_type, ...consent },
+        // `locale` is the language this person reads: e-mail notices use it until they choose another.
+        data: { full_name: input.full_name, account_type: input.account_type, locale: await getLocale(), ...consent },
         emailRedirectTo: new URL('/auth/callback?next=/onboarding', await origin()).toString(),
       },
     });

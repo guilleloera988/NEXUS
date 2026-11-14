@@ -2,12 +2,14 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { Bell, CheckCheck } from 'lucide-react';
 import { markNotificationsRead } from '@/actions/profile';
+import { EmailSettingsCard } from '@/components/email-settings';
 import { NotificationText } from '@/components/notification-text';
 import { Card, EmptyState, PageHeader } from '@/components/ui/primitives';
 import { formatDateTime, formatRelative } from '@/lib/format';
 import { fmt } from '@/lib/i18n';
 import { getMessages } from '@/lib/i18n/server';
 import { read } from '@/lib/server/backend';
+import { emailSettings } from '@/lib/server/email';
 import type { NotificationItem } from '@/lib/types';
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -17,7 +19,7 @@ export async function generateMetadata(): Promise<Metadata> {
 
 export default async function NotificationsPage() {
   const { t, locale } = await getMessages();
-  const { items } = await read<{ items: NotificationItem[] }>('sp_notifications', { limit: 100 });
+  const [{ items }, email] = await Promise.all([read<{ items: NotificationItem[] }>('sp_notifications', { limit: 100 }), emailSettings()]);
   const unread = items.filter((n) => !n.read_at).length;
   return (
     <>
@@ -41,6 +43,7 @@ export default async function NotificationsPage() {
           </ul>
         )}
       </Card>
+      {email && <EmailSettingsCard settings={email} />}
     </>
   );
 }

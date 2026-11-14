@@ -50,11 +50,42 @@ La DEMO `local` **no** funciona en funciones serverless (no hay disco persistent
    | `MAX_UPLOAD_MB` | `4` |
    | `LEGAL_ENTITY_NAME`, `LEGAL_ENTITY_ADDRESS`, `LEGAL_CONTACT_EMAIL`, `LEGAL_JURISDICTION` | Razón social, domicilio, buzón de privacidad y jurisdicción. Con las cuatro se publican el Aviso de privacidad y los Términos (páginas, casilla en el registro, aceptación al entrar); sin alguna no existen. Sólo tras la revisión legal ([LEGAL](LEGAL.md)). |
    | `SCANNER_URL`, `SCANNER_TOKEN`, `SCAN_GATE_SECRET` | Escáner antivirus (`scanner/`, desplegado en Fly.io según `scanner/README.md`), el token que comparte con la app y la llave de la compuerta (sólo en Vercel); ≥ 32 caracteres, sólo Production. `/api/health` informa `antivirus`: `off` (sin escáner), `ok`, `unauthorized` (token distinto) o `unavailable`. Después, `SCAN_GATE_SECRET=… node scripts/scan-gate.mjs` imprime el SQL que guarda la compuerta y enciende `scan_required`. Sin `SCANNER_URL`/`SCANNER_TOKEN` los archivos se guardan sin revisar. |
+   | `RESEND_API_KEY`, `EMAIL_GATE_SECRET` | Avisos por correo ([§3.1](#31-avisos-por-correo)): llave de API de Resend (*Sending access*) y llave de la compuerta (≥ 32 caracteres aleatorios), ambas *Sensitive* y sólo Production. Sin alguna de las dos no se envía nada. `/api/health` informa `email`: `on` u `off`. |
+   | `EMAIL_FROM` | Opcional. Remitente de los avisos; por omisión `SkillPass <noreply@aindev.com.mx>`. Debe ser una dirección del dominio verificado en Resend. |
+   | `CRON_SECRET` | Recomendada con los avisos por correo: valor aleatorio (≥ 16 caracteres). Vercel lo envía al llamar a las tareas programadas y `/api/cron/email` rechaza a cualquier otro. Sin ella la ruta queda abierta, limitada a 4 llamadas por minuto (sólo puede enviar lo que ya estaba pendiente). |
    | `RATE_LIMIT_SECRET` | ≥ 32 caracteres aleatorios (`openssl rand -hex 32`), sólo Production. Después de aplicar `20261104000001`, guardar su compuerta en la base con el SQL que imprime `RATE_LIMIT_SECRET=… node scripts/rate-limit-gate.mjs` (y repetirlo si el secreto cambia). Sin ella el límite de intentos es por instancia. |
 
    **Nunca** configurar `SUPABASE_SERVICE_ROLE_KEY` ni `SUPABASE_DB_URL` en Vercel.
 3. Las variables `NEXT_PUBLIC_*` se fijan en build: tras cambiarlas, volver a desplegar.
 4. Desplegar y comprobar `https://<deployment>.vercel.app/api/health` → `{"status":"ok","supabase":true,...}`.
+
+### 3.1 Avisos por correo
+
+La app envía por correo los avisos que una persona no debe perderse y las invitaciones a quien aún no tiene
+cuenta (migración `20261114000001`, `src/lib/server/email.ts`). Está **apagado** mientras falte cualquiera de
+estos pasos, y la plataforma funciona igual sin ellos:
+
+1. **Resend:** el dominio del remitente verificado (el mismo que ya usa Supabase Auth para sus correos) y una
+   llave de API con permiso *Sending access*. Plan: los avisos comparten la cuota con los correos de
+   confirmación ([STATUS](STATUS.md), OI-14).
+2. **Base de datos:** aplicar `20261114000001_email_outbox.sql`. Sola no hace nada: sin compuerta no se pone
+   nada en cola.
+3. **Vercel (Production):** `RESEND_API_KEY`, `EMAIL_GATE_SECRET` (`openssl rand -hex 32`) y, recomendada,
+   `CRON_SECRET`; volver a desplegar. `/api/health` debe decir `"email":"on"`.
+4. **Compuerta:** `EMAIL_GATE_SECRET=… node scripts/email-gate.mjs` imprime el SQL que guarda en la base el
+   SHA-256 de la compuerta (nunca el secreto). Desde ese momento los avisos e invitaciones nuevos se ponen en
+   cola y salen por correo. Repetirlo si el secreto cambia. Para apagar:
+   `delete from public.platform_settings where key = 'email_gate';`
+
+Cómo funciona: cada acción que termina bien envía, ya con la respuesta entregada, lo que haya pendiente (hasta
+5 destinatarios por vez). Una persona recibe como máximo un correo cada 15 minutos (`EMAIL_COOLDOWN_SECONDS`,
+por omisión 900): lo que se acumule mientras tanto llega junto en el siguiente. No se envía lo que la persona
+ya leyó en la plataforma, ni a cuentas DEMO, ni a direcciones sin confirmar, ni a quien apagó los avisos. Un
+envío rechazado se reintenta a los 2, 4, 8 y 16 minutos y se abandona al quinto intento; los avisos con más de
+3 días ya no se envían. `vercel.json` programa además `/api/cron/email` una vez al día (lo que permite el plan
+Hobby) para lo que haya quedado sin enviar; con Vercel Pro puede programarse cada pocos minutos.
+
+Revisión rápida en la base (SQL Editor): `select status, error, count(*) from public.email_outbox group by 1, 2;`
 
 ## 4. Dominio, DNS y SSL (requiere autorización)
 

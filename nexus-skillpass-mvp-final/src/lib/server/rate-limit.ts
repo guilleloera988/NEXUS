@@ -27,6 +27,7 @@ export const LIMITS = {
   mfaEnroll: { name: 'mfa-enroll', limit: 5, windowSeconds: 600 },
   upload: { name: 'upload', limit: 20, windowSeconds: 60 },
   demo: { name: 'demo', limit: 30, windowSeconds: 60 },
+  emailCron: { name: 'email-cron', limit: 4, windowSeconds: 60 },
 } as const satisfies Record<string, { name: string; limit: number; windowSeconds: number }>;
 
 export interface AttemptCheck {
