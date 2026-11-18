@@ -53,7 +53,7 @@ Navegador ──► Next.js 16 (App Router, Server Components, Server Actions)
 
 | Capa | Tecnología |
 |---|---|
-| Web | Next.js 16.3 (App Router, `proxy.ts`), React 19.3, TypeScript 6 estricto |
+| Web | Next.js 16.4 (App Router, `proxy.ts`), React 19.3, TypeScript 6 estricto |
 | UI | Tailwind CSS 4.3, lucide-react, Plus Jakarta Sans, QR SVG del lado del servidor (`qrcode`) |
 | Validación | zod 4 (forma y tamaño) + RPCs SQL (reglas y autorización) |
 | Datos | Supabase (Auth, PostgreSQL, Storage) · PGlite 0.5 para la DEMO local y pruebas |
