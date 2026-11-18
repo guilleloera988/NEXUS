@@ -78,7 +78,10 @@ Todas las cuentas aceptan la versión nueva la siguiente vez que entren; las ace
     puede apagarlos en Notificaciones. Una invitación llega a alguien que todavía no tiene cuenta ni ha
     aceptado nada: el correo dice quién la invita y por qué lo recibe, y enlaza al Aviso de privacidad
     cuando está publicado. Confirmar que eso basta como primer contacto.
-11. **Convenios aparte:** estos textos no sustituyen el convenio con cada universidad ni los acuerdos de
+11. **Credencial descargable (Open Badges 3.0)** (aviso, secciones 2 y 4): el estudiante puede descargar sus
+    credenciales firmadas y compartirlas fuera de SkillPass. Llevan su nombre, su correo sólo como hash con sal
+    y los datos del reto que ya muestra la verificación pública. Confirmar que el aviso lo cubre.
+12. **Convenios aparte:** estos textos no sustituyen el convenio con cada universidad ni los acuerdos de
     confidencialidad o propiedad intelectual entre empresa y estudiante.
 
 ## Pruebas

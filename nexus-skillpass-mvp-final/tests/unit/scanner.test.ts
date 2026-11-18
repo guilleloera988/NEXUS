@@ -34,7 +34,7 @@ beforeEach(() => {
 });
 afterEach(() => { process.env = { ...env }; vi.unstubAllGlobals(); vi.restoreAllMocks(); });
 
-const session = { mode: 'supabase' as const, userId: '10000000-0000-4000-8000-000000000011' };
+const session = { mode: 'supabase' as const, userId: '10000000-0000-4000-8000-000000000011', email: null };
 const CHALLENGE = '40000000-0000-4000-8000-000000000001';
 const pdf = () => new File(['%PDF-1.4\n% evidencia de prueba\n'], 'informe.pdf', { type: 'application/pdf' });
 const gate = createHmac('sha256', GATE_SECRET).update('skillpass-scan-gate').digest('hex');

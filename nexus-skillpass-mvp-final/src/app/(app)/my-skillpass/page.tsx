@@ -1,17 +1,19 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
-import { Award, BadgeCheck, Clock, ExternalLink, Eye, EyeOff, Globe, Lock, Users } from 'lucide-react';
+import { Award, BadgeCheck, Clock, Download, ExternalLink, Eye, EyeOff, Globe, Lock, Share2, Users } from 'lucide-react';
 import { setCredentialVerification } from '@/actions/profile';
 import { CredentialCard } from '@/components/credential-card';
 import { PrivacyForm } from '@/components/skillpass-client';
 import { CopyButton, PrintButton } from '@/components/ui/interactive';
 import { Alert, Badge, Card, EmptyState, LinkTabs, PageHeader, StatCard } from '@/components/ui/primitives';
+import { credentialName, linkedInAddToProfileUrl } from '@/lib/credentials/open-badge';
 import { competencyName, formatHours } from '@/lib/format';
 import { fmt } from '@/lib/i18n';
 import { getMessages } from '@/lib/i18n/server';
 import { getMe, read } from '@/lib/server/backend';
-import { publicUrl } from '@/lib/server/urls';
+import { credentialIssuer } from '@/lib/server/open-badges';
+import { publicUrl, siteOrigin } from '@/lib/server/urls';
 import type { SkillPassMe } from '@/lib/types';
 import { ReportIncidentForm } from '@/components/profile-client';
 
@@ -35,6 +37,13 @@ export default async function MySkillPassPage({ searchParams }: PageProps<'/my-s
   const demoId = me.mode === 'demo' ? me.demoId : null;
   const skillpassUrl = await publicUrl(`/skillpass/${p.slug}`, demoId);
   const credentials = await Promise.all(data.credentials.map(async (c) => ({ c, url: await publicUrl(`/verify/${c.code}`, demoId) })));
+  // Open Badges need the signing key; LinkedIn only needs the public verification page.
+  const openBadges = credentialIssuer(await siteOrigin()) !== null;
+  const shareable = (c: (typeof data.credentials)[number]) => c.status === 'active' && c.verification_enabled;
+  const linkedIn = (c: (typeof data.credentials)[number], url: string) => linkedInAddToProfileUrl({
+    name: credentialName(locale, c), organizationName: c.issuer || 'SkillPass by AINDEV NEXUS', organizationId: process.env.LINKEDIN_ORGANIZATION_ID,
+    issuedAt: c.issued_at, certUrl: url, certId: c.code,
+  });
   const subtitle = [p.career, p.university].filter(Boolean).join(' · ');
 
   return (
@@ -71,6 +80,14 @@ export default async function MySkillPassPage({ searchParams }: PageProps<'/my-s
                     <a href={url} target="_blank" rel="noopener" className="btn btn-sm border border-white/20 text-white hover:bg-white/10"><ExternalLink className="size-4" aria-hidden /> {S.viewOnline}</a>
                     <CopyButton value={url} label={S.copyLink} className="btn btn-sm border border-white/20 text-white hover:bg-white/10" />
                     <PrintButton label={S.print} className="btn-primary btn-sm" />
+                    {openBadges && shareable(c) && (
+                      <a href={`/api/credentials/${c.code}/open-badge`} download={`SkillPass-${c.code}.json`} title={t.openBadge.downloadTitle}
+                        className="btn btn-sm border border-white/20 text-white hover:bg-white/10"><Download className="size-4" aria-hidden /> {t.openBadge.download}</a>
+                    )}
+                    {shareable(c) && (
+                      <a href={linkedIn(c, url)} target="_blank" rel="noopener noreferrer" className="btn btn-sm border border-white/20 text-white hover:bg-white/10">
+                        <Share2 className="size-4" aria-hidden /> {t.openBadge.linkedIn}</a>
+                    )}
                   </>} />
                 <div className="mt-3 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-ink-200 bg-white px-4 py-3 text-sm">
                   <span className="inline-flex items-center gap-2 text-ink-700">
@@ -92,6 +109,7 @@ export default async function MySkillPassPage({ searchParams }: PageProps<'/my-s
               </div>
             ))}
             <p className="text-xs text-ink-500">{S.makeEvidencePublicHint} {S.verificationNote}</p>
+            {openBadges && <p className="text-xs text-ink-500">{t.openBadge.help}</p>}
           </div>
         )
       )}

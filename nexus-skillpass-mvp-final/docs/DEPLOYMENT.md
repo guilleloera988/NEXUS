@@ -53,6 +53,9 @@ La DEMO `local` **no** funciona en funciones serverless (no hay disco persistent
    | `RESEND_API_KEY`, `EMAIL_GATE_SECRET` | Avisos por correo ([§3.1](#31-avisos-por-correo)): llave de API de Resend (*Sending access*) y llave de la compuerta (≥ 32 caracteres aleatorios), ambas *Sensitive* y sólo Production. Sin alguna de las dos no se envía nada. `/api/health` informa `email`: `on` u `off`. |
    | `EMAIL_FROM` | Opcional. Remitente de los avisos; por omisión `SkillPass <noreply@aindev.com.mx>`. Debe ser una dirección del dominio verificado en Resend. |
    | `CRON_SECRET` | Recomendada con los avisos por correo: valor aleatorio (≥ 16 caracteres). Vercel lo envía al llamar a las tareas programadas y `/api/cron/email` rechaza a cualquier otro. Sin ella la ruta queda abierta, limitada a 4 llamadas por minuto (sólo puede enviar lo que ya estaba pendiente). |
+   | `CREDENTIAL_SIGNING_KEY` | Credenciales Open Badges 3.0 ([§3.2](#32-credenciales-open-badges-30)): llave Ed25519 que las firma, en formato Multikey (`z3u2…`), generada con `node scripts/credential-key.mjs`. *Sensitive*, sólo Production; la demo usa otra llave. Sin ella no se ofrece la descarga. `/api/health` informa `openBadges`: `on` u `off`. |
+   | `CREDENTIAL_PREVIOUS_KEYS` | Opcional. Llaves **públicas** (`z6Mk…`) anteriores, separadas por comas, para que las credenciales firmadas antes de una rotación sigan verificando. |
+   | `LINKEDIN_ORGANIZATION_ID` | Opcional. Número de la página de empresa de AINDEV en LinkedIn: «Agregar a LinkedIn» enlaza la credencial a esa página en vez de escribir el nombre. |
    | `RATE_LIMIT_SECRET` | ≥ 32 caracteres aleatorios (`openssl rand -hex 32`), sólo Production. Después de aplicar `20261104000001`, guardar su compuerta en la base con el SQL que imprime `RATE_LIMIT_SECRET=… node scripts/rate-limit-gate.mjs` (y repetirlo si el secreto cambia). Sin ella el límite de intentos es por instancia. |
 
    **Nunca** configurar `SUPABASE_SERVICE_ROLE_KEY` ni `SUPABASE_DB_URL` en Vercel.
@@ -86,6 +89,38 @@ envío rechazado se reintenta a los 2, 4, 8 y 16 minutos y se abandona al quinto
 Hobby) para lo que haya quedado sin enviar; con Vercel Pro puede programarse cada pocos minutos.
 
 Revisión rápida en la base (SQL Editor): `select status, error, count(*) from public.email_outbox group by 1, 2;`
+
+### 3.2 Credenciales Open Badges 3.0
+
+Cada credencial activa con verificación pública se descarga desde «Mi SkillPass» firmada en el estándar
+Open Badges 3.0 de 1EdTech (W3C Verifiable Credentials 2.0, prueba `eddsa-rdfc-2022`; `src/lib/credentials/`).
+Cualquiera puede comprobarla sin preguntarle a SkillPass:
+
+- la firma, con la llave pública del emisor, publicada como `did:web:<dominio>` en `/.well-known/did.json`;
+- la revocación, con una lista de estado (W3C Bitstring Status List) en `/credentials/status/<código>`, que
+  responde mientras la verificación pública de la credencial esté activa;
+- cada competencia verificada enlaza su descripción en el marco público `/competencies`.
+
+Para encenderlo:
+
+1. Generar la llave en una computadora con Node: `node scripts/credential-key.mjs`. Imprime
+   `CREDENTIAL_SIGNING_KEY=z3u2…` (secreta: sólo va a Vercel) y la llave pública `z6Mk…`.
+2. Vercel, Production, *Sensitive*: `CREDENTIAL_SIGNING_KEY`, y volver a desplegar. La demo lleva **otra**
+   llave en su propio proyecto, para que una credencial DEMO nunca pase por real.
+3. Comprobar `/api/health` → `"openBadges":"on"` y que `/.well-known/did.json` muestre la llave pública.
+4. Aplicar `20261118000001_public_competency_framework.sql`. Sin ella, `/competencies` muestra el catálogo de la
+   semilla.
+5. Descargar una credencial y validarla en el validador público de 1EdTech (https://vc.1ed.tech) y en
+   VerifierPlus (https://verifierplus.org).
+
+Rotar la llave: generar una nueva, pasar la pública anterior a `CREDENTIAL_PREVIOUS_KEYS`
+(`CREDENTIAL_SIGNING_KEY=<anterior> node scripts/credential-key.mjs --public`) y poner la nueva en
+`CREDENTIAL_SIGNING_KEY`. Si una llave se filtra, quitarla de ambas: lo firmado con ella deja de verificar y los
+estudiantes descargan sus credenciales de nuevo.
+
+Certificación 1EdTech (nivel *Issuer Only*): requiere ser miembro de 1EdTech; se emite una credencial al
+destinatario `conformance@imsglobal.org` (una cuenta de prueba con ese correo, creada por el administrador) y se
+graba un video de cómo el estudiante la descarga.
 
 ## 4. Dominio, DNS y SSL (requiere autorización)
 

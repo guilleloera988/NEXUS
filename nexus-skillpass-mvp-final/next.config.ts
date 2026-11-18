@@ -29,7 +29,8 @@ const config: NextConfig = {
   poweredByHeader: false,
   reactStrictMode: true,
   // PGlite (local DEMO database) ships WASM + data files; keep it out of the server bundle.
-  serverExternalPackages: ['@electric-sql/pglite'],
+  // jsonld (Open Badges signing) is CommonJS with an optional network loader that need not be bundled.
+  serverExternalPackages: ['@electric-sql/pglite', 'jsonld'],
   // SQL migrations, seed and demo files are read at runtime by the local DEMO.
   outputFileTracingIncludes: { '/**/*': ['./supabase/**/*'] },
   experimental: {

@@ -1,5 +1,7 @@
+import { randomBytes } from 'node:crypto';
 import { existsSync } from 'node:fs';
 import { defineConfig, devices } from '@playwright/test';
+import { secretKeyMultibase } from './src/lib/credentials/multikey';
 
 const port = Number(process.env.E2E_PORT || 3000);
 const baseURL = process.env.E2E_BASE_URL || `http://127.0.0.1:${port}`;
@@ -30,6 +32,8 @@ export default defineConfig({
       // Fictional entity: makes the legal texts live for e2e/legal.spec.ts (DEMO personas are never asked to accept).
       LEGAL_ENTITY_NAME: 'AINDEV E2E, S.A. de C.V.', LEGAL_ENTITY_ADDRESS: 'Av. de Prueba 100, Aguascalientes, Ags., México',
       LEGAL_CONTACT_EMAIL: 'privacidad@aindev.invalid', LEGAL_JURISDICTION: 'Aguascalientes, Aguascalientes',
+      // A throwaway signing key for this run: Open Badges 3.0 downloads (e2e/open-badges.spec.ts).
+      CREDENTIAL_SIGNING_KEY: secretKeyMultibase(randomBytes(32)),
     },
   },
 });

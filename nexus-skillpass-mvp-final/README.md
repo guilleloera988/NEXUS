@@ -190,4 +190,4 @@ Objetivo: `https://skillpass.aindev.com.mx` en Vercel + Supabase. Guía completa
 
 ## Roadmap
 
-AI Skills Extraction, AI Matching, Advanced Skills Intelligence, Academy, Recruiting Marketplace, Talent OS completo, estándares de Verifiable Credentials (W3C VC / Open Badges 3.0), módulos de gobierno y Venture Studio. Ver [docs/ROADMAP.md](docs/ROADMAP.md).
+AI Skills Extraction, AI Matching, Advanced Skills Intelligence, Academy, Recruiting Marketplace, Talent OS completo, certificación 1EdTech y CLR 2.0 (las credenciales ya se descargan en Open Badges 3.0), módulos de gobierno y Venture Studio. Ver [docs/ROADMAP.md](docs/ROADMAP.md).

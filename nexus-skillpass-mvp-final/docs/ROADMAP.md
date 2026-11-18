@@ -29,7 +29,7 @@ Toda inferencia automática se mostrará separada de la validación humana y **n
 
 | Módulo | Descripción |
 |---|---|
-| Verifiable Credentials | Emitir credenciales como **W3C Verifiable Credentials / Open Badges 3.0** firmadas (DID del emisor), manteniendo la verificación por URL/QR. El snapshot inmutable actual ya contiene los datos necesarios. |
+| Verifiable Credentials | **Hecho (nov 2026):** credenciales Open Badges 3.0 firmadas con DID del emisor, lista de revocación y marco de competencias público, además de la verificación por URL/QR. Siguen: certificación 1EdTech, CLR 2.0 (el SkillPass completo en un registro) y alineación con ESCO. |
 | Academy | Rutas formativas vinculadas a brechas detectadas (no reemplaza la verificación aplicada). |
 | Recruiting Marketplace | Oportunidades para talento verificado con consentimiento explícito; sin pagos del estudiante. |
 | Talent OS completo | Gestión de cohortes, programas institucionales, reportes para acreditación, API para ATS/SIS. |

@@ -36,7 +36,7 @@ Leyenda: **COMPLETE** (funcional, persistente, probado) · **PARTIAL** (funciona
 | — | Aviso de privacidad, términos, acuerdos de IP | **BLOCKED** | Decisión legal de AINDEV. |
 | — | Docker para la demo aislada | **PARTIAL** | `Dockerfile` incluido; no construido en este entorno (proxy TLS). |
 | — | IA (extracción de skills, matching, resúmenes) | **ROADMAP** | Ver ROADMAP.md; nunca convertirá una habilidad en verificada. |
-| — | Verifiable Credentials (W3C/Open Badges 3.0) | **ROADMAP** | El snapshot inmutable ya contiene los datos. |
+| — | Credenciales Open Badges 3.0 (W3C Verifiable Credentials) | **PARTIAL** | Construido (mejora C9): descarga firmada, DID del emisor, lista de revocación y marco de competencias público. Se enciende con la llave de firma; falta la certificación 1EdTech. |
 | — | Academy, Marketplace, gobierno, Venture Studio, blockchain | **ROADMAP** | |
 
 ## Criterios GO del prompt
@@ -104,11 +104,11 @@ Además de lo anterior, lo que falta para dar de alta a una universidad, sus est
 | B6 | Monitoreo de errores y caídas | Pendiente |
 | B7 | Guía por rol y canal de soporte | Pendiente |
 | B8 | Enlace de registro por universidad | Pendiente |
-| C9 | Credencial en PDF y botón «Agregar a LinkedIn» | Pendiente |
+| C9 | Credencial descargable y botón «Agregar a LinkedIn» | **Construido** ([DEPLOYMENT §3.2](DEPLOYMENT.md#32-credenciales-open-badges-30)). Cada credencial activa con verificación pública se descarga firmada en **Open Badges 3.0** (1EdTech; W3C Verifiable Credentials; prueba `eddsa-rdfc-2022`), con la identidad pública del emisor (`did:web`), una lista de revocación (W3C Bitstring Status List) y sus competencias enlazadas al marco público `/competencies`. La firma reproduce los vectores de prueba oficiales del W3C y la verifica una implementación independiente. «Agregar a LinkedIn» ya funciona (no necesita la llave). El PDF es el botón «Imprimir» de la credencial. Falta: la llave de firma en Vercel y aplicar `20261118000001` (marco de competencias) en producción. |
 | C10 | Constancia de horas por estudiante y tablero del piloto para la universidad | Pendiente |
 | C11 | Descargar los propios datos y eliminar la cuenta | Pendiente |
 
-Después: credencial firmada (Open Badges 3.0 / W3C VC) y anclaje en blockchain.
+Después: certificación 1EdTech de Open Badges 3.0 (nivel *Issuer Only*; requiere membresía), CLR 2.0 para el SkillPass completo y alineación de las competencias con ESCO. El anclaje en blockchain no hace falta para verificar las credenciales: Open Badges 3.0 ya permite comprobarlas sin depender de SkillPass.
 
 ## Problemas abiertos
 

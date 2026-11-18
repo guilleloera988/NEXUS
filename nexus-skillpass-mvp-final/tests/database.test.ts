@@ -1,5 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { missingForPublish } from '@/lib/challenge-readiness';
+import { SEED_COMPETENCIES } from '@/lib/competency-catalog';
 import { CHALLENGE, COMP, DELIVERABLE, ORGS, TASK, USERS, createDatabase, rpc, sql, type TestDb } from './helpers/pg';
 
 type Row = Record<string, unknown>;
@@ -79,7 +80,7 @@ describe('schema, grants and RLS baseline', () => {
     await expect(sql(db, null, 'select * from public.unrelated_app')).resolves.toEqual([]);
     const fns = await db.query<{ proname: string }>(
       "select p.proname from pg_proc p join pg_namespace n on n.oid = p.pronamespace where n.nspname = 'public' and p.proname like 'sp\\_%' and has_function_privilege('anon', p.oid, 'execute') order by 1");
-    expect(fns.rows.map((r) => r.proname)).toEqual(['sp_email_claim', 'sp_email_done', 'sp_is_public_evidence_object', 'sp_public_credential', 'sp_public_evidence_file', 'sp_public_skillpass', 'sp_rate_limit']);
+    expect(fns.rows.map((r) => r.proname)).toEqual(['sp_email_claim', 'sp_email_done', 'sp_is_public_evidence_object', 'sp_public_competencies', 'sp_public_credential', 'sp_public_evidence_file', 'sp_public_skillpass', 'sp_rate_limit']);
   });
 
   it('blocks anonymous table reads and private RPCs', async () => {
@@ -1615,5 +1616,30 @@ describe('e-mail notices (pilot readiness)', () => {
     for (const fn of ['public.sp_email_claim(jsonb)', 'public.sp_email_done(jsonb)']) {
       expect({ fn, anon: await can('anon', fn), authenticated: await can('authenticated', fn) }).toEqual({ fn, anon: true, authenticated: true });
     }
+  });
+});
+
+describe('public competency framework (Open Badges 3.0)', () => {
+  type Row = { slug: string; is_active: boolean };
+  it('lets anyone read the whole catalog, inactive competencies included and marked', async () => {
+    const anon = await rpc<Row[]>(db, null, 'sp_public_competencies', {});
+    expect(anon.length).toBeGreaterThanOrEqual(SEED_COMPETENCIES.length);
+    expect(await rpc<Row[]>(db, USERS.maria, 'sp_public_competencies', {})).toEqual(anon);
+    await db.query("update public.competencies set is_active = false where slug = 'python'");
+    try {
+      const after = await rpc<Row[]>(db, null, 'sp_public_competencies', {});
+      expect(after.find((k) => k.slug === 'python')?.is_active).toBe(false);
+      expect(after).toHaveLength(anon.length);
+    } finally {
+      await db.query("update public.competencies set is_active = true where slug = 'python'");
+    }
+    // Only catalog fields: nothing about who assessed whom.
+    expect(Object.keys(anon[0]).sort()).toEqual(['category', 'description_en', 'description_es', 'is_active', 'name_en', 'name_es', 'slug']);
+  });
+
+  it('matches the catalog the public page falls back to (the seed)', async () => {
+    const seeded = await rpc<typeof SEED_COMPETENCIES>(db, null, 'sp_public_competencies', {});
+    const bySlug = (list: typeof SEED_COMPETENCIES) => [...list].sort((a, b) => a.slug.localeCompare(b.slug));
+    expect(bySlug(seeded.filter((k) => SEED_COMPETENCIES.some((s) => s.slug === k.slug)))).toEqual(bySlug(SEED_COMPETENCIES));
   });
 });

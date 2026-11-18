@@ -24,7 +24,7 @@ const WRITE_RPCS = [
   'sp_set_credential_verification', 'sp_revoke_credential', 'sp_admin_set_org_status', 'sp_admin_set_user_role',
   'sp_admin_set_member', 'sp_admin_save_competency', 'sp_report_incident', 'sp_admin_update_incident', 'sp_mark_notifications_read',
 ] as const;
-const PUBLIC_RPCS = ['sp_public_skillpass', 'sp_public_credential', 'sp_public_evidence_file'] as const;
+const PUBLIC_RPCS = ['sp_public_skillpass', 'sp_public_credential', 'sp_public_evidence_file', 'sp_public_competencies'] as const;
 
 export type ReadRpc = (typeof READ_RPCS)[number];
 export type WriteRpc = (typeof WRITE_RPCS)[number];
@@ -32,20 +32,20 @@ export type PublicRpc = (typeof PUBLIC_RPCS)[number];
 const ALLOWED = new Set<string>([...READ_RPCS, ...WRITE_RPCS]);
 
 export type Session =
-  | { mode: 'demo'; userId: string; demo: DemoSession }
-  | { mode: 'supabase'; userId: string };
+  | { mode: 'demo'; userId: string; email: string; demo: DemoSession }
+  | { mode: 'supabase'; userId: string; email: string | null };
 
 /** Resolves the visitor: a signed local demo session, or a Supabase Auth user. Cached per request. */
 export const getSession = cache(async (): Promise<Session | null> => {
   if (demoMode() === 'local') {
     const demo = await verifyDemoSession((await cookies()).get(DEMO_COOKIE)?.value);
-    if (demo) return { mode: 'demo', userId: DEMO_PERSONAS[demo.persona].userId, demo };
+    if (demo) return { mode: 'demo', userId: DEMO_PERSONAS[demo.persona].userId, email: DEMO_PERSONAS[demo.persona].email, demo };
   }
   if (!supabaseConfig()) return null;
   const supabase = await supabaseServer();
   const { data, error } = await supabase.auth.getUser();
   if (error || !data.user) return null;
-  return { mode: 'supabase', userId: data.user.id };
+  return { mode: 'supabase', userId: data.user.id, email: data.user.email ?? null };
 });
 
 async function call<T>(session: Session, fn: string, payload: unknown): Promise<T> {

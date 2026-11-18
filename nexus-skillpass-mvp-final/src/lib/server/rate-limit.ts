@@ -28,6 +28,7 @@ export const LIMITS = {
   upload: { name: 'upload', limit: 20, windowSeconds: 60 },
   demo: { name: 'demo', limit: 30, windowSeconds: 60 },
   emailCron: { name: 'email-cron', limit: 4, windowSeconds: 60 },
+  openBadge: { name: 'open-badge', limit: 20, windowSeconds: 60 },
 } as const satisfies Record<string, { name: string; limit: number; windowSeconds: number }>;
 
 export interface AttemptCheck {
